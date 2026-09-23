@@ -1031,10 +1031,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (document && document.body) {
                 document.body.classList.toggle('mobile-header-collapsed', shouldCollapseMobileHeader);
             }
+            [paneLink, panePC, paneGameStats, webpagePane].forEach((element) => {
+                if (element) element.style.display = 'none';
+            });
             if (pane === 'link') {
                 if (paneLink) paneLink.style.display = 'block';
-                if (panePC) panePC.style.display = 'none';
-                if (webpagePane) webpagePane.style.display = 'none';
                 if (terminalWrapper) terminalWrapper.style.display = '';
                 if (content) content.classList.remove('terminal-mode');
                 if (layout) layout.classList.remove('terminal-layout');
@@ -1043,9 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (pane === 'webpage') {
-                if (paneLink) paneLink.style.display = 'none';
                 if (panePC) panePC.style.display = 'block';
-                if (paneGameStats) paneGameStats.style.display = 'none';
                 if (webpagePane) webpagePane.style.display = 'block';
                 if (content) content.classList.add('terminal-mode');
                 if (layout) layout.classList.add('terminal-layout');
@@ -1054,10 +1053,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (pane === 'game-stats') {
-                if (paneLink) paneLink.style.display = 'none';
-                if (panePC) panePC.style.display = 'none';
                 if (paneGameStats) paneGameStats.style.display = 'block';
-                if (webpagePane) webpagePane.style.display = 'none';
                 if (terminalWrapper) terminalWrapper.style.display = '';
                 if (content) content.classList.remove('terminal-mode');
                 if (layout) layout.classList.remove('terminal-layout');
@@ -1068,8 +1064,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (paneLink) paneLink.style.display = 'none';
             if (panePC) panePC.style.display = 'block';
             // hide webpage pane and show terminal wrapper when switching to PC view
-            if (webpagePane) webpagePane.style.display = 'none';
-            if (paneGameStats) paneGameStats.style.display = 'none';
             if (terminalWrapper) terminalWrapper.style.display = '';
             if (content) content.classList.add('terminal-mode');
             if (layout) layout.classList.add('terminal-layout');

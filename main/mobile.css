@@ -1,45 +1,4 @@
-/* Badge overlay wrapper to add purple/black/white gradient */
- .gif-wrap { position: relative; display: inline-block; border-radius: 6px; overflow: hidden; width:88px; }
- .gif-wrap img { display: block; width: 88px; transition: filter 200ms ease; filter: grayscale(0.25) contrast(1.05) brightness(0.9); }
-/* Badge label (shows on hover/focus) */
-.gif-wrap .badge-label {
-  position: absolute;
-  left: 50%;
-  bottom: 6px;
-  transform: translateX(-50%);
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-  font-weight:700;
-  font-size:0.75rem;
-  padding:4px 8px;
-  border-radius:6px;
-  display:none;
-  z-index:5;
-}
-.gif-wrap:focus .badge-label,
-.gif-wrap:hover .badge-label,
-.gif-wrap:focus-within .badge-label {
-  display:block;
-}
-
-/* copy button removed per user request */
-
-/* Staggered entrance animation for banner-grid badges */
-.banner-grid .gif-wrap {
-  opacity: 0;
-  transform: translateY(8px);
-  transition: transform 360ms cubic-bezier(.2,.9,.2,1), opacity 360ms cubic-bezier(.2,.9,.2,1);
-}
-.banner-grid.loaded .gif-wrap { opacity: 1; transform: translateY(0); }
-.banner-grid.loaded .gif-wrap:nth-child(1){ transition-delay: 40ms }
-.banner-grid.loaded .gif-wrap:nth-child(2){ transition-delay: 80ms }
-.banner-grid.loaded .gif-wrap:nth-child(3){ transition-delay: 120ms }
-.banner-grid.loaded .gif-wrap:nth-child(4){ transition-delay: 160ms }
-.banner-grid.loaded .gif-wrap:nth-child(5){ transition-delay: 200ms }
-.banner-grid.loaded .gif-wrap:nth-child(6){ transition-delay: 240ms }
-.banner-grid.loaded .gif-wrap:nth-child(7){ transition-delay: 280ms }
-.banner-grid.loaded .gif-wrap:nth-child(8){ transition-delay: 320ms }
-.banner-grid.loaded .gif-wrap:nth-child(9){ transition-delay: 360ms }
+/* Social icons stay in their native asset colors. */
 
 /* Quick actions removed (shuffle now runs automatically) */
 #mobile-quick-actions { display:none }
@@ -316,8 +275,8 @@ body.alt-theme { --dr-accent: #50fa7b; --dr-bg: #0b1220; }
 /* Keep webpages-list in normal flow on mobile; do not fix or add page padding */
 #webpages-list { position: relative; }
 
-/* Make sure content-area banner-grid is hidden (we're showing socials in sidebar) */
-.banner-grid {
+/* On mobile, the desktop grid is replaced by the sidebar social list. */
+  .link-exchange-grid {
   display: none !important;
 }
 
@@ -446,9 +405,9 @@ body.mobile-header-collapsed .sidebar {
 .marquee-top { font-size: 0.8rem !important; padding: 6px !important; }
 .footer { font-size: 0.7rem !important; padding-top: 8px !important; }
 
-/* Remove the marquee entirely on mobile viewports (this file is mobile-only) */
-marquee.marquee-top {
-  display: none !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
+/* Keep the old-web banner visible, but compact, on mobile viewports. */
+.marquee-top {
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: auto;
 }

@@ -3,7 +3,7 @@
   const mq = window.matchMedia('(max-width:760px)');
   if (!mq.matches) return;
 
-  const bannerGrid = document.querySelector('.banner-grid');
+  const bannerGrid = document.querySelector('.link-exchange-grid');
   const webpagesList = document.getElementById('webpages-list');
   if (!bannerGrid || !webpagesList) return;
 
@@ -187,13 +187,13 @@
     })();
   }
 
-  // Hide original bannerGrid (desktop will still show it because this script runs only on mobile)
+  // Hide the desktop grid after cloning its links into the mobile list.
   bannerGrid.style.display = 'none';
 })();
 
 // Global handlers: staggered banner animation, copy-badge clicks, and theme toggle persistence
 document.addEventListener('DOMContentLoaded', () => {
-  const banner = document.querySelector('.banner-grid');
+  const banner = document.querySelector('.link-exchange-grid');
   if (banner) {
     // small timeout to allow images to settle
     setTimeout(() => banner.classList.add('loaded'), 60);
