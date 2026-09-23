@@ -3,23 +3,8 @@
   const mq = window.matchMedia('(max-width:760px)');
   if (!mq.matches) return;
 
-  const bannerGrid = document.querySelector('.link-exchange-grid');
   const webpagesList = document.getElementById('webpages-list');
-  if (!bannerGrid || !webpagesList) return;
-
-  // create a mobile-only socials container below the profile name
-  if (!document.getElementById('mobile-socials')) {
-    const sidebar = document.querySelector('.sidebar');
-    const sidebarBrand = sidebar ? sidebar.querySelector('.sidebar-brand') : null;
-    const mobileSocials = document.createElement('div');
-    mobileSocials.id = 'mobile-socials';
-    if (sidebarBrand && sidebarBrand.parentNode) {
-      sidebarBrand.parentNode.insertBefore(mobileSocials, sidebarBrand.nextSibling);
-    } else if (sidebar) {
-      sidebar.appendChild(mobileSocials);
-    }
-  }
-  const dest = document.getElementById('mobile-socials');
+  if (!webpagesList) return;
 
   const contentTitle = document.querySelector('.content-area > .section-title');
   if (contentTitle && !document.getElementById('mobile-link-exchange-title')) {
@@ -29,9 +14,7 @@
 
     contentTitle.innerHTML = '<span class="dropdown-triangle dropdown-triangle-left">▸</span><span class="dropdown-label">LINK EXCHANGE</span><span class="dropdown-triangle dropdown-triangle-right">▸</span>';
 
-    if (sidebarBrand && sidebarBrand.parentNode) {
-      sidebarBrand.parentNode.insertBefore(contentTitle, dest);
-    }
+    if (sidebarBrand && sidebarBrand.parentNode) sidebarBrand.parentNode.insertBefore(contentTitle, sidebarBrand.nextSibling);
   }
 
   const title = document.getElementById('mobile-link-exchange-title');
@@ -45,18 +28,12 @@
     }
   }
 
-  function setMobileSocialsVisible(visible) {
-    if (!dest) return;
-    dest.classList.toggle('mobile-socials-hidden', !visible);
-  }
-
   function setMobileHeaderCollapsed(collapsed) {
     document.body.classList.toggle('mobile-header-collapsed', collapsed);
   }
 
   if (title && originalNav && !document.getElementById('mobile-nav-dropdown')) {
     originalNav.style.display = 'none';
-    setMobileSocialsVisible(true);
     setMobileHeaderCollapsed(false);
 
     const dropdown = document.createElement('div');
@@ -93,7 +70,7 @@
 
     navButtons.forEach((button) => {
       if (button.dataset.paneTarget === 'nav-pc-specs') {
-        button.textContent = 'PC CONFIG';
+        button.innerHTML = '<span class="nav-prompt" aria-hidden="true">&gt;</span>PC CONFIG';
       }
     });
 
@@ -103,12 +80,10 @@
           if (button.dataset.paneTarget === 'nav-link-exchange') {
             window.showPane('link');
             setLinkExchangeTitleLabel('LINK EXCHANGE');
-            setMobileSocialsVisible(true);
             setMobileHeaderCollapsed(false);
             setMobileNavActive(button.dataset.paneTarget);
           } else if (button.dataset.paneTarget === 'nav-pc-specs') {
             window.showPane('pc');
-            setMobileSocialsVisible(false);
             setMobileHeaderCollapsed(true);
             if (typeof window.runNeofetchIfNeeded === 'function') {
               window.runNeofetchIfNeeded();
@@ -117,7 +92,6 @@
             setMobileNavActive(button.dataset.paneTarget);
           } else if (button.dataset.paneTarget === 'nav-game-stats') {
             window.showPane('game-stats');
-            setMobileSocialsVisible(false);
             setMobileHeaderCollapsed(true);
             setTimeout(() => setLinkExchangeTitleLabel('VIDEO GAME STATS'), 160);
             setMobileNavActive(button.dataset.paneTarget);
@@ -146,60 +120,10 @@
     });
   }
 
-  // For each anchor in bannerGrid, clone it into the mobile-socials container as a tile with a label
-  bannerGrid.querySelectorAll('a').forEach(a => {
-    const img = a.querySelector('img');
-    const title = a.getAttribute('title') || (img && img.getAttribute('alt')) || a.textContent.trim() || 'link';
-    const tile = document.createElement('a');
-    tile.className = 'mobile-social-tile';
-    tile.href = a.href || '#';
-    tile.setAttribute('aria-label', title);
-    tile.target = '_blank';
-    tile.rel = 'noopener noreferrer';
-
-    const icon = document.createElement('img');
-    if (img && img.src) {
-      icon.src = img.src;
-      icon.loading = 'lazy';
-    } else {
-      icon.alt = '';
-    }
-    icon.alt = title;
-
-    const label = document.createElement('span');
-    label.className = 'label';
-    label.textContent = title;
-
-    tile.appendChild(icon);
-    tile.appendChild(label);
-    dest.appendChild(tile);
-  });
-
-  // Shuffle mobile tiles automatically (no UI button)
-  if (dest) {
-    (function shuffleNodes() {
-      const nodes = Array.from(dest.children);
-      for (let i = nodes.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        dest.appendChild(nodes[j]);
-        nodes.splice(j,1);
-      }
-    })();
-  }
-
-  // Hide the desktop grid after cloning its links into the mobile list.
-  bannerGrid.style.display = 'none';
 })();
 
 // Global handlers: staggered banner animation, copy-badge clicks, and theme toggle persistence
 document.addEventListener('DOMContentLoaded', () => {
-  const banner = document.querySelector('.link-exchange-grid');
-  if (banner) {
-    // small timeout to allow images to settle
-    setTimeout(() => banner.classList.add('loaded'), 60);
-  }
-
-
   // no per-badge copy handlers (removed per user request)
 
   // Randomize color theme on load using provided palettes

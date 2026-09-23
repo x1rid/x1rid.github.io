@@ -94,32 +94,6 @@ body.alt-theme { --dr-accent: #50fa7b; --dr-bg: #0b1220; }
 }
 
 
-/* Mobile social container (inserted by mobile.js) */
-#mobile-socials {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: stretch;
-  margin-top: 8px;
-  width: calc(100% - 8px);
-  /* allow icons to overlap the left edge without being clipped */
-  overflow: visible;
-  max-height: 1000px;
-  opacity: 1;
-  transform: translateY(0);
-  transition: max-height 220ms ease, opacity 220ms ease, transform 220ms ease, margin 220ms ease, padding 220ms ease;
-}
-
-#mobile-socials.mobile-socials-hidden {
-  max-height: 0;
-  opacity: 0;
-  transform: translateY(-8px);
-  margin-top: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  pointer-events: none;
-}
-
 /* Mobile dropdown header for link exchange + navigation */
 #mobile-link-exchange-title {
   width: calc(100% - 8px);
@@ -194,7 +168,7 @@ body.alt-theme { --dr-accent: #50fa7b; --dr-bg: #0b1220; }
   box-sizing: border-box;
   display: block;
   padding: 12px 14px;
-  min-height: 50px; /* match mobile-social-tile */
+  min-height: 50px;
   margin: 2px 0; /* reduced to 2px */
   background: rgba(139,92,246,0.06); /* distinct purple-tinted tile */
   border-radius: 10px;
@@ -211,74 +185,11 @@ body.alt-theme { --dr-accent: #50fa7b; --dr-bg: #0b1220; }
   justify-content: center;
 }
 
-/* Social tile: span available width, keep icon left and label centered */
-.mobile-social-tile {
-  display: block;
-  position: relative;
-  overflow: visible !important; /* keep the icon visible and preserve the pill */
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box;
-  padding: 12px 14px 12px 78px !important; /* locked inset for consistent icon spacing */
-  margin: 2px auto !important;
-  background: transparent !important; /* remove fill, keep stroke themed */
-  border-radius: 28px !important;
-  border: 1.5px solid var(--dr-accent) !important;
-  text-decoration: none;
-  color: inherit;
-  height: 56px !important; /* lock height so the 28px radius stays a true semicircle */
-  min-height: 56px !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 6px 12px rgba(0,0,0,0.18);
-}
-
-/* Icon stays left inside tile */
-.mobile-social-tile img {
-  position: absolute;
-  left: 1px; /* compensate for border so the rendered center lands on 28px */
-  top: 50%;
-  transform: translateY(-50%);
-  width: 46px !important;
-  height: 46px !important;
-  object-fit: cover;
-  /* make icon a perfect circle */
-  border-radius: 50% !important;
-  border: 0 !important;
-  box-shadow: 0 6px 14px rgba(0,0,0,0.28);
-  z-index: 3;
-}
-
-/* Label centered relative to tile (tile fills available width) */
-.mobile-social-tile .label {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 1rem;
-  font-weight: 700;
-  white-space: nowrap;
-  text-align: center;
-  color: var(--dr-text, #f8f8f2);
-  padding: 0 8px;
-}
-
-/* Hover / focus */
-.mobile-social-tile:focus,
-.mobile-social-tile:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 22px rgba(0,0,0,0.36), 0 0 8px color-mix(in srgb, var(--dr-accent) 18%, transparent);
-  /* no persistent fill on hover, only a faint accent glow */
-  outline: none;
-}
-
-/* Pin the bottom navigation buttons to the bottom of the sidebar area */
-
 /* Keep webpages-list in normal flow on mobile; do not fix or add page padding */
 #webpages-list { position: relative; }
 
-/* On mobile, the desktop grid is replaced by the sidebar social list. */
-  .link-exchange-grid {
-  display: none !important;
-}
+/* Keep the same Link Exchange grid on mobile, with narrower tracks. */
+.link-exchange-grid { display: grid !important; }
 
 /* Hide the desktop heading on mobile; JS will move it under the profile block */
 .content-area > .section-title {
@@ -332,7 +243,6 @@ body.alt-theme { --dr-accent: #50fa7b; --dr-bg: #0b1220; }
   margin-bottom: 0 !important;
 }
 
-.layout-grid.terminal-layout .sidebar #mobile-socials,
 .layout-grid.terminal-layout .sidebar .stats-box {
   display: none !important;
 }
