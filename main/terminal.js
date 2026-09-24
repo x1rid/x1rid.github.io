@@ -1027,27 +1027,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function showPane(pane) {
             const terminalWrapper = document.getElementById('terminal-wrapper');
+            const mainTitle = document.getElementById('main-section-title');
             const shouldCollapseMobileHeader = pane !== 'link';
             if (document && document.body) {
                 document.body.classList.toggle('mobile-header-collapsed', shouldCollapseMobileHeader);
             }
-            [paneLink, panePC, paneGameStats, webpagePane].forEach((element) => {
+
+            // Hide ALL panes first — prevents any residual layout space
+            [paneLink, panePC, paneGameStats].forEach((element) => {
                 if (element) element.style.display = 'none';
             });
+            // webpagePane may be declared later in the closure; guard it
+            const wpPane = document.getElementById('webpage-pane');
+            if (wpPane) wpPane.style.display = 'none';
+
             if (pane === 'link') {
                 if (paneLink) paneLink.style.display = 'block';
                 if (terminalWrapper) terminalWrapper.style.display = '';
                 if (content) content.classList.remove('terminal-mode');
                 if (layout) layout.classList.remove('terminal-layout');
+                if (mainTitle) { mainTitle.textContent = 'LINK EXCHANGE'; mainTitle.style.display = ''; }
                 setActive(navLink);
                 return;
             }
 
             if (pane === 'webpage') {
                 if (panePC) panePC.style.display = 'block';
-                if (webpagePane) webpagePane.style.display = 'block';
+                if (wpPane) wpPane.style.display = 'block';
                 if (content) content.classList.add('terminal-mode');
                 if (layout) layout.classList.add('terminal-layout');
+                if (mainTitle) mainTitle.style.display = 'none';
                 setActive(null);
                 return;
             }
@@ -1057,16 +1066,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (terminalWrapper) terminalWrapper.style.display = '';
                 if (content) content.classList.remove('terminal-mode');
                 if (layout) layout.classList.remove('terminal-layout');
+                // The game-stats pane has its own inner section-title; hide the outer one
+                if (mainTitle) mainTitle.style.display = 'none';
                 setActive(navGameStats);
                 return;
             }
 
+            // Default: 'pc' / Neofetch pane
             if (paneLink) paneLink.style.display = 'none';
             if (panePC) panePC.style.display = 'block';
             // hide webpage pane and show terminal wrapper when switching to PC view
             if (terminalWrapper) terminalWrapper.style.display = '';
             if (content) content.classList.add('terminal-mode');
             if (layout) layout.classList.add('terminal-layout');
+            if (mainTitle) mainTitle.style.display = 'none';
             setActive(navPC);
         }
 
