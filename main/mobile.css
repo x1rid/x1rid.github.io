@@ -1,18 +1,8 @@
 /* Social icons stay in their native asset colors. */
 
-/* Quick actions removed (shuffle now runs automatically) */
-#mobile-quick-actions { display:none }
-
-/* Theme name shown below profile name */
-.theme-name { display:none }
 /* Active nav button themed on mobile */
 #mobile-nav-dropdown .sidebar-nav button.active, .sidebar-nav button.active { background: transparent !important; color: var(--dr-accent) !important; border-color: var(--dr-accent) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.12) !important }
 
-/* Theme alternate variables when toggled */
-body.alt-theme { --dr-accent: #50fa7b; --dr-bg: #0b1220; }
-
-/* Ensure copy toast is visible on mobile */
-#copy-toast { font-size:0.95rem; padding:8px 12px; }
 /* mobile.css — loads only when viewport <= 760px */
 
 /* Mobile-first overrides that only apply when the file is loaded via media query */
@@ -161,17 +151,18 @@ body.alt-theme { --dr-accent: #50fa7b; --dr-bg: #0b1220; }
   align-items: center; /* center options */
 }
 
-/* make mobile dropdown buttons span full width but center the label */
+/* Keep mobile navigation compact and centered like the desktop navigation. */
 #mobile-nav-dropdown .sidebar-nav button {
-  width: 100%;
-  text-align: center;
+  width: max-content;
+  min-width: 176px;
+  text-align: left;
   box-sizing: border-box;
   display: block;
-  padding: 12px 14px;
-  min-height: 50px;
+  padding: 8px 14px 8px 24px;
+  min-height: 36px;
   margin: 2px 0; /* reduced to 2px */
-  background: rgba(139,92,246,0.06); /* distinct purple-tinted tile */
-  border-radius: 10px;
+  background: transparent;
+  border-radius: 0;
   border: 1px solid rgba(189,147,249,0.08);
   font-weight: 700;
   color: inherit;
@@ -207,9 +198,7 @@ body.alt-theme { --dr-accent: #50fa7b; --dr-bg: #0b1220; }
 /* Ensure avatar-frame is centered */
 .avatar-frame { margin-left: auto !important; margin-right: auto !important; }
 
-/* Disable Neofetch for mobile (hide button and pane) */
-#nav-pc-specs { display: none !important; }
-#pc-specs { display: none !important; }
+/* Neofetch terminal stays available on mobile via the dropdown navigation. */
 
 /* Slight spacing improvements for content area */
 .content-area {

@@ -6,46 +6,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const terminalPrompt = document.getElementById('terminal-prompt');
         const navLink = document.getElementById('nav-link-exchange');
         const navPC = document.getElementById('nav-pc-specs');
-        const navGameStats = document.getElementById('nav-game-stats');
         const paneLink = document.getElementById('link-exchange');
         const panePC = document.getElementById('pc-specs');
-        const paneGameStats = document.getElementById('video-game-stats');
         const content = document.querySelector('.content-area');
         const layout = document.querySelector('.layout-grid');
+        const webpagesList = document.getElementById('webpages-list');
 
         const defaultPromptPrefix = 'C:\\Users\\Krane';
         const historyStorageKey = 'terminal_history';
         const maxHistoryEntries = 200;
-        const builtInCommands = ['cls', 'dir', 'ls', 'cd', 'start', 'open', 'echo', 'man', 'rm', 'rmdir', 'cp', 'neofetch', 'theme', 'layout', 'promptgap', 'help'];
+        const builtInCommands = ['cls', 'dir', 'ls', 'cd', 'start', 'open', 'echo', 'man', 'rm', 'rmdir', 'cp', 'save', 'load', 'saved-files', 'neofetch', 'layout', 'promptgap', 'help'];
 
         const vfs = {
             '/': {
                 type: 'dir',
                 children: {
-                    'Google.html': { type: 'file' },
+                    '.gitignore': { type: 'file' },
+                    '.prettierrc': { type: 'file' },
+                    'AI_AGENT_PROMPT.md': { type: 'file' },
+                    'CODEBASE.md': { type: 'file' },
                     'LICENSE': { type: 'file' },
                     'README.md': { type: 'file' },
-                    'build': { type: 'dir' },
-                    'demo': { type: 'dir' },
                     'dora': { type: 'dir' },
-                    'index.html': { type: 'file' },
-                    'jsconfig.json': { type: 'file' },
                     'l': { type: 'dir' },
                     'main': { type: 'dir' },
-                    'now.json': { type: 'file' },
-                    'package.json': { type: 'file' },
-                    'public': { type: 'dir' },
-                    'src': { type: 'dir' },
-                    'xp': { type: 'dir' }
+                    'index.html': { type: 'file' },
+                    'serve.py': { type: 'file' }
                 }
             },
-            '/build': { type: 'dir', children: { 'assets': { type: 'dir' }, 'index.html': { type: 'file' }, 'main': { type: 'dir' }, 'manifest.json': { type: 'file' }, 'static': { type: 'dir' }, 'xp': { type: 'dir' } } },
             '/dora': { type: 'dir', children: { 'anushkaverse.html': { type: 'file' }, 'app-manifest.json': { type: 'file' }, 'app.html': { type: 'file' }, 'doraverse.html': { type: 'file' }, 'gallery': { type: 'dir' }, 'index.html': { type: 'file' }, 'manifest.json': { type: 'file' }, 'sw.js': { type: 'file' } } },
             '/l': { type: 'dir', children: { 'index.html': { type: 'file' } } },
-            '/main': { type: 'dir', children: { 'index.html': { type: 'file' } } },
-            '/public': { type: 'dir', children: { 'assets': { type: 'dir' }, 'cursor.js': { type: 'file' }, 'index.html': { type: 'file' }, 'main': { type: 'dir' }, 'manifest.json': { type: 'file' } } },
-            '/src': { type: 'dir', children: { 'App.js': { type: 'file' }, 'assets': { type: 'dir' }, 'components': { type: 'dir' }, 'hooks': { type: 'dir' }, 'index.js': { type: 'file' }, 'serviceWorker.js': { type: 'file' }, 'WinXP': { type: 'dir' } } },
-            '/xp': { type: 'dir', children: { 'index.html': { type: 'file' } } }
+            '/main': { type: 'dir', children: { 'assets': { type: 'dir', children: { 'cursor.gif': { type: 'file' }, 'cursor-reversed.gif': { type: 'file' } } }, 'custom-cursor.js': { type: 'file' }, 'index.html': { type: 'file' }, 'link-exchange.js': { type: 'file' }, 'mobile.css': { type: 'file' }, 'mobile.js': { type: 'file' }, 'music.css': { type: 'file' }, 'music.js': { type: 'file' }, 'playlist': { type: 'dir' }, 'socials': { type: 'dir' }, 'splitter.js': { type: 'file' }, 'terminal.css': { type: 'file' }, 'terminal.js': { type: 'file' } } },
+            '/main/playlist': { type: 'dir', children: { 'playlist.json': { type: 'file' }, 'Basshunter - In Her Eyes': { type: 'file' }, 'Crystal Castles - Suffocation': { type: 'file' }, 'Pretty Scene Girl': { type: 'file' }, 'The Cure - Friday Im In Love': { type: 'file' } } },
+            '/main/socials': { type: 'dir', children: { 'pfp.webp': { type: 'file' }, 'xbox.svg': { type: 'file' }, 'github': { type: 'dir' }, 'reddit': { type: 'dir' }, 'discord': { type: 'dir' }, 'insta': { type: 'dir' }, 'snapchat': { type: 'dir' }, 'tiktok': { type: 'dir' }, 'x': { type: 'dir' }, 'linkedin': { type: 'dir' }, 'steam': { type: 'dir' } } }
         };
 
         let cwd = '/';
@@ -168,9 +161,15 @@ document.addEventListener('DOMContentLoaded', () => {
             syncPromptWidth(terminal);
         }
 
+        let scrollQueued = false;
+
         function scrollTerminalToBottom() {
-            if (!terminal) return;
-            terminal.scrollTop = terminal.scrollHeight;
+            if (!terminal || scrollQueued) return;
+            scrollQueued = true;
+            requestAnimationFrame(() => {
+                scrollQueued = false;
+                terminal.scrollTop = terminal.scrollHeight;
+            });
         }
 
         function focusInput() {
@@ -185,6 +184,20 @@ document.addEventListener('DOMContentLoaded', () => {
             line.className = `terminal-line terminal-text${className ? ` ${className}` : ''}`;
             line.textContent = text;
             terminalOutput.appendChild(line);
+            scrollTerminalToBottom();
+        }
+
+        /* Appends many lines with one DOM write + one scroll. */
+        function appendTextLines(lines, className = '') {
+            if (!terminalOutput || !Array.isArray(lines) || !lines.length) return;
+            const fragment = document.createDocumentFragment();
+            lines.forEach((text) => {
+                const line = document.createElement('div');
+                line.className = `terminal-line terminal-text${className ? ` ${className}` : ''}`;
+                line.textContent = String(text);
+                fragment.appendChild(line);
+            });
+            terminalOutput.appendChild(fragment);
             scrollTerminalToBottom();
         }
 
@@ -212,17 +225,17 @@ document.addEventListener('DOMContentLoaded', () => {
             scrollTerminalToBottom();
         }
 
-        function createNeofetchBlock() {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'terminal-neofetch';
+        let neofetchContent = null;
 
-            wrapper.appendChild(createCommandEntry(getPromptText(), 'neofetch'));
+        function buildNeofetchContent() {
+            const fragment = document.createDocumentFragment();
 
             const grid = document.createElement('div');
             grid.className = 'neofetch-grid';
 
             const logo = document.createElement('pre');
             logo.className = 'neofetch-logo';
+            logo.setAttribute('aria-hidden', 'true');
             logo.textContent = [
                 '        ,.=:!!t3Z3z.,',
                 '       :tt:::tt333EE3',
@@ -259,6 +272,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ['Uptime:', '2 days, 23 hours, 5 minutes'],
                 ['Resolution:', '1920x1080 @60Hz'],
                 ['Terminal:', 'Administrator: Command Prompt - neofetch'],
+                ['Shell:', 'cmd.exe'],
+                ['Theme:', 'purple-black'],
                 ['CPU:', 'Intel(R) Core(TM) i7-10610U CPU @ 1.80GHz'],
                 ['GPU:', 'Intel(R) UHD Graphics'],
                 ['Memory:', '11203 MB / 16102 MB (69% in use)'],
@@ -268,6 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
             info.appendChild(title);
             info.appendChild(divider);
 
+            const rowsFragment = document.createDocumentFragment();
             rows.forEach(([label, value]) => {
                 const row = document.createElement('div');
                 row.className = 'neofetch-row';
@@ -282,12 +298,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 row.appendChild(labelSpan);
                 row.appendChild(valueSpan);
-                info.appendChild(row);
+                rowsFragment.appendChild(row);
             });
+            info.appendChild(rowsFragment);
 
             const palette = document.createElement('div');
             palette.className = 'neofetch-palette';
-            ['#3b4252', '#bf616a', '#a3be8c', '#ebcb8b', '#81a1c1', '#b48ead', '#88c0d0', '#eceff4'].forEach((color) => {
+            palette.setAttribute('aria-hidden', 'true');
+            ['#0b061d', '#2b1145', '#6f3a93', '#c084fc', '#ff4fd8', '#55ff99', '#f2eaff', '#05020c'].forEach((color) => {
                 const block = document.createElement('span');
                 block.style.background = color;
                 palette.appendChild(block);
@@ -295,9 +313,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             grid.appendChild(logo);
             grid.appendChild(info);
+            info.appendChild(palette);
+            fragment.appendChild(grid);
+            return fragment;
+        }
 
-            wrapper.appendChild(grid);
-            wrapper.appendChild(palette);
+        function createNeofetchBlock() {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'terminal-neofetch';
+            wrapper.appendChild(createCommandEntry(getPromptText(), 'neofetch'));
+
+            if (!neofetchContent) neofetchContent = buildNeofetchContent();
+            wrapper.appendChild(neofetchContent.cloneNode(true));
             return wrapper;
         }
 
@@ -331,7 +358,6 @@ document.addEventListener('DOMContentLoaded', () => {
             load: 'Load a saved file from browser storage into the editor. Usage: load <name>',
             'saved-files': 'List files saved in browser storage. Usage: saved-files',
             neofetch: 'Show system information art block. Usage: neofetch',
-            theme: 'Theme helper. Currently only default is available. Usage: theme [default]',
             layout: 'Set terminal layout. Usage: layout <compact|normal>',
             promptgap: 'Adjust prompt gap in px or keywords. Usage: promptgap <px|tight|normal|wide>',
             help: 'Show a short help summary. Usage: help'
@@ -596,50 +622,41 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) { return []; }
         }
 
-        async function loadSteamStats() {
-            const output = document.getElementById('steam-stats-output');
-            const loading = document.getElementById('steam-stats-loading');
-            const endpoint = window.STEAM_STATS_ENDPOINT || 'https://YOUR-DEPLOYED-FUNCTION.example.com/api/steam-stats';
+        function getCompletions(input) {
+            const raw = String(input || '');
+            const trailingSpace = /\s$/.test(raw);
+            const trimmed = raw.replace(/\s+$/, '');
+            const tokens = trimmed ? trimmed.split(/\s+/) : [];
+            const commandPosition = tokens.length <= 1 && !trailingSpace;
+            const partial = commandPosition ? (tokens[0] || '') : (trailingSpace ? '' : tokens[tokens.length - 1]);
 
-            if (!output || !loading) return;
-            loading.textContent = 'Loading Steam data...';
-            output.textContent = '';
-
-            try {
-                const response = await fetch(endpoint, {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' },
-                    credentials: 'omit'
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-                loading.textContent = 'Loaded.';
-                output.textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                loading.textContent = 'Could not load Steam stats yet.';
-                output.textContent = [
-                    'Set window.STEAM_STATS_ENDPOINT to your deployed proxy URL.',
-                    'Example response:',
-                    '{',
-                    '  "player": { "personaname": "..." },',
-                    '  "stats": {...}',
-                    '}'
-                ].join('\n');
+            let candidates;
+            if (commandPosition) {
+                const node = getNode(cwd) || { children: {} };
+                const currentChildren = Object.keys(node.children || {});
+                const rootChildren = Object.keys((vfs['/'] && vfs['/'].children) || {});
+                candidates = Array.from(new Set([...builtInCommands, ...currentChildren, ...rootChildren]));
+            } else {
+                const node = getNode(cwd) || { children: {} };
+                candidates = Object.keys(node.children || {});
             }
+
+            const matches = partial
+                ? candidates.filter((entry) => entry.toLowerCase().startsWith(partial.toLowerCase()))
+                : candidates;
+
+            return { matches, partial, commandPosition };
         }
 
-        function tryAutocomplete(input) {
-            const query = String(input || '').trim();
-            const node = getNode(cwd) || { children: {} };
-            const currentChildren = Object.keys(node.children || {});
-            const rootChildren = Object.keys((vfs['/'] && vfs['/'].children) || {});
-            const candidates = Array.from(new Set([...builtInCommands, ...currentChildren, ...rootChildren]));
-            if (!query) return candidates;
-            return candidates.filter((entry) => entry.toLowerCase().startsWith(query.toLowerCase()));
+        function applyCompletion(input, match, commandPosition) {
+            const raw = String(input || '');
+            const trimmed = raw.replace(/\s+$/, '');
+            if (!trimmed) return `${match} `;
+            if (commandPosition) return `${match} `;
+
+            const tokens = trimmed.split(/\s+/);
+            tokens[tokens.length - 1] = match;
+            return `${tokens.join(' ')} `;
         }
 
         function clearTerminal() {
@@ -665,8 +682,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!input) return;
 
             const parts = input.split(/\s+/);
-            const command = parts[0].toLowerCase();
+            let command = parts[0].toLowerCase();
             const arg = parts.slice(1).join(' ');
+
+            // `open` is a user-facing alias for `start`
+            if (command === 'open') command = 'start';
 
             if (command === 'cls') {
                 clearTerminal();
@@ -768,23 +788,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (command === 'open') {
-                // alias for start
-                if (!arg) {
-                    appendTextLine('Usage: open <path|url>', 'terminal-muted');
-                    return;
-                }
-                // reuse start logic by delegating to runCommand
-                runCommand(`start ${arg}`);
-                return;
-            }
-
             if (command === 'man') {
                 if (!arg) {
-                    appendTextLine('Manual pages available:', 'terminal-muted');
                     const keys = Object.keys(manPages).sort();
-                    appendTextLine('  ' + keys.join('  '), 'terminal-muted');
-                    appendTextLine('Usage: man <command|path>  (press ESC or click Close to dismiss viewer)', 'terminal-muted');
+                    appendTextLines([
+                        'Manual pages available:',
+                        '  ' + keys.join('  '),
+                        'Usage: man <command|path>  (press ESC or click Close to dismiss viewer)'
+                    ], 'terminal-muted');
                     return;
                 }
 
@@ -926,23 +937,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (command === 'echo') {
-                // echo prints arguments exactly as provided
-                appendCommandEcho(input);
+                if (arg) appendTextLine(arg);
                 return;
             }
 
             if (command === 'neofetch') {
                 appendNeofetch();
-                return;
-            }
-
-            if (command === 'theme') {
-                if (!arg || arg.toLowerCase() === 'default') {
-                    appendTextLine('Theme: default', 'terminal-muted');
-                    return;
-                }
-
-                appendTextLine('Only the default theme is available.', 'terminal-muted');
                 return;
             }
 
@@ -989,24 +989,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (command === 'help') {
-                appendTextLine('Available commands:', 'terminal-muted');
-                appendTextLine('  cls        - Clear the terminal', 'terminal-muted');
-                appendTextLine('  dir        - List files in current directory', 'terminal-muted');
-                appendTextLine('  cd <path>  - Change directory', 'terminal-muted');
-                appendTextLine('  rm <name>  - Remove a saved browser file (site files are read-only)', 'terminal-muted');
-                appendTextLine('  rmdir <n>  - Remove saved files under a saved directory prefix', 'terminal-muted');
-                appendTextLine('  cp <s> <d> - Copy a repo or saved file into a saved file destination', 'terminal-muted');
-                appendTextLine('  start <p>  - Open a local HTML or external URL inside the webpage pane', 'terminal-muted');
-                appendTextLine('  open <p>   - Alias for start', 'terminal-muted');
-                appendTextLine('  echo <txt> - Echo text back to the terminal', 'terminal-muted');
-                appendTextLine('  neofetch   - Show system info block', 'terminal-muted');
-                appendTextLine('  theme      - Theme helper (default only)', 'terminal-muted');
-                appendTextLine('  layout     - Set layout to compact or normal', 'terminal-muted');
-                appendTextLine('  promptgap  - Adjust prompt gap spacing', 'terminal-muted');
-                appendTextLine('  save       - Save open editor buffer to browser storage', 'terminal-muted');
-                appendTextLine('  load <n>   - Load saved file into editor', 'terminal-muted');
-                appendTextLine('  saved-files- List files saved in browser storage', 'terminal-muted');
-                appendTextLine('  help       - Show this help text', 'terminal-muted');
+                appendTextLines([
+                    'Available commands:',
+                    '  cls        - Clear the terminal',
+                    '  dir / ls   - List files in current directory',
+                    '  cd <path>  - Change directory',
+                    '  rm <name>  - Remove a saved browser file (site files are read-only)',
+                    '  rmdir <n>  - Remove saved files under a saved directory prefix',
+                    '  cp <s> <d> - Copy a repo or saved file into a saved file destination',
+                    '  start <p>  - Open a local HTML or external URL inside the webpage pane',
+                    '  open <p>   - Alias for start',
+                    '  echo <txt> - Echo text back to the terminal',
+                    '  man <cmd>  - Show a manual page or open a text file',
+                    '  neofetch   - Show system info block',
+                    '  layout     - Set layout to compact or normal',
+                    '  promptgap  - Adjust prompt gap spacing',
+                    '  save       - Save open editor buffer to browser storage',
+                    '  load <n>   - Load saved file into editor',
+                    '  saved-files- List files saved in browser storage',
+                    '  help       - Show this help text'
+                ], 'terminal-muted');
                 return;
             }
 
@@ -1014,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function clearActiveState() {
-            [navLink, navPC, navGameStats].forEach((element) => element && element.classList.remove('active'));
+            [navLink, navPC].forEach((element) => element && element.classList.remove('active'));
             if (webpagesList) {
                 Array.from(webpagesList.children).forEach((button) => button.classList.remove('active'));
             }
@@ -1025,62 +1027,60 @@ document.addEventListener('DOMContentLoaded', () => {
             if (button) button.classList.add('active');
         }
 
+        /* Restarts the entrance animation for a pane. */
+        function animatePane(element) {
+            if (!element) return;
+            element.classList.remove('is-entering');
+            void element.offsetWidth;
+            element.classList.add('is-entering');
+            element.addEventListener('animationend', () => {
+                element.classList.remove('is-entering');
+            }, { once: true });
+        }
+
         function showPane(pane) {
             const terminalWrapper = document.getElementById('terminal-wrapper');
             const mainTitle = document.getElementById('main-section-title');
-            const shouldCollapseMobileHeader = pane !== 'link';
-            if (document && document.body) {
-                document.body.classList.toggle('mobile-header-collapsed', shouldCollapseMobileHeader);
+            const wpPane = document.getElementById('webpage-pane');
+
+            if (document.body) {
+                document.body.classList.toggle('mobile-header-collapsed', pane !== 'link');
             }
 
-            // Hide ALL panes first — prevents any residual layout space
-            [paneLink, panePC, paneGameStats].forEach((element) => {
+            // Hide every pane first so no residual layout space remains.
+            [paneLink, panePC, wpPane].forEach((element) => {
                 if (element) element.style.display = 'none';
             });
-            // webpagePane may be declared later in the closure; guard it
-            const wpPane = document.getElementById('webpage-pane');
-            if (wpPane) wpPane.style.display = 'none';
 
-            if (pane === 'link') {
-                if (paneLink) paneLink.style.display = 'block';
-                if (terminalWrapper) terminalWrapper.style.display = '';
-                if (content) content.classList.remove('terminal-mode');
-                if (layout) layout.classList.remove('terminal-layout');
-                if (mainTitle) { mainTitle.textContent = 'LINK EXCHANGE'; mainTitle.style.display = ''; }
-                setActive(navLink);
-                return;
-            }
+            const isTerminalPane = pane !== 'link';
+            if (content) content.classList.toggle('terminal-mode', isTerminalPane);
+            if (layout) layout.classList.toggle('terminal-layout', isTerminalPane);
+            if (terminalWrapper) terminalWrapper.style.display = pane === 'webpage' ? 'none' : '';
 
             if (pane === 'webpage') {
                 if (panePC) panePC.style.display = 'block';
                 if (wpPane) wpPane.style.display = 'block';
-                if (content) content.classList.add('terminal-mode');
-                if (layout) layout.classList.add('terminal-layout');
                 if (mainTitle) mainTitle.style.display = 'none';
                 setActive(null);
+                animatePane(wpPane);
                 return;
             }
 
-            if (pane === 'game-stats') {
-                if (paneGameStats) paneGameStats.style.display = 'block';
-                if (terminalWrapper) terminalWrapper.style.display = '';
-                if (content) content.classList.remove('terminal-mode');
-                if (layout) layout.classList.remove('terminal-layout');
-                // The game-stats pane has its own inner section-title; hide the outer one
+            if (pane === 'pc') {
+                if (panePC) panePC.style.display = 'block';
                 if (mainTitle) mainTitle.style.display = 'none';
-                setActive(navGameStats);
+                setActive(navPC);
+                animatePane(panePC);
                 return;
             }
 
-            // Default: 'pc' / Neofetch pane
-            if (paneLink) paneLink.style.display = 'none';
-            if (panePC) panePC.style.display = 'block';
-            // hide webpage pane and show terminal wrapper when switching to PC view
-            if (terminalWrapper) terminalWrapper.style.display = '';
-            if (content) content.classList.add('terminal-mode');
-            if (layout) layout.classList.add('terminal-layout');
-            if (mainTitle) mainTitle.style.display = 'none';
-            setActive(navPC);
+            if (paneLink) paneLink.style.display = 'block';
+            if (mainTitle) {
+                mainTitle.textContent = 'LINK EXCHANGE';
+                mainTitle.style.display = '';
+            }
+            setActive(navLink);
+            animatePane(paneLink);
         }
 
         if (navLink) {
@@ -1099,15 +1099,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        if (navGameStats) {
-            navGameStats.addEventListener('click', () => {
-                showPane('game-stats');
-                loadSteamStats();
-            });
-        }
-
         // Webpage navigation elements
-        const webpagesList = document.getElementById('webpages-list');
         const webpagePane = document.getElementById('webpage-pane');
         const webpageIframe = document.getElementById('webpage-iframe');
         const webpageTitle = document.getElementById('webpage-title');
@@ -1157,14 +1149,47 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        function setWebpageButtonLabel(btn, label) {
+            btn.replaceChildren();
+            const prompt = document.createElement('span');
+            prompt.className = 'nav-prompt';
+            prompt.setAttribute('aria-hidden', 'true');
+            prompt.textContent = '>';
+            btn.appendChild(prompt);
+            btn.appendChild(document.createTextNode(label));
+        }
+
+        /* Prefer the folder name for local pages ('/dora/index.html' → 'dora');
+           only fall back to the raw passed-in name (hostnames, etc.). */
+        function webpageDisplayName(name, url) {
+            let display = name || '';
+            try {
+                if (url && url.startsWith('/')) {
+                    const parts = url.split('/').filter(Boolean);
+                    if (parts.length) {
+                        if (parts.length > 1 && parts[parts.length - 1].toLowerCase().endsWith('.html')) {
+                            display = parts[parts.length - 2] || parts[0];
+                        } else {
+                            display = parts[0];
+                        }
+                    } else {
+                        display = '/';
+                    }
+                }
+            } catch (e) {
+                display = display || name || url;
+            }
+            return display || name || url;
+        }
+
         function addWebpageButton(name, url) {
             if (!webpagesList || !url) return;
+            const displayName = webpageDisplayName(name, url);
             const id = `webpage-${btoa(url).replace(/=/g,'')}`;
             // prefer existing button by data-url if present
             const existingByData = Array.from(webpagesList.children).find((b) => b.getAttribute('data-url') === url);
             if (existingByData) {
-                // update label if name provided
-                if (name) existingByData.textContent = name;
+                setWebpageButtonLabel(existingByData, displayName);
                 existingByData.setAttribute('data-url', url);
                 saveWebpagesList();
                 return existingByData;
@@ -1174,26 +1199,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const btn = document.createElement('button');
             btn.id = id;
             btn.className = 'webpage-btn';
-            // determine display name: prefer provided name, but for local files use the folder name
-            let displayName = name || '';
-            try {
-                if (url && url.startsWith('/')) {
-                    const parts = url.split('/').filter(Boolean);
-                    if (parts.length) {
-                        if (parts.length > 1 && parts[parts.length - 1].toLowerCase().endsWith('.html')) {
-                            displayName = parts[parts.length - 2] || parts[0];
-                        } else {
-                            displayName = parts[0];
-                        }
-                    } else {
-                        displayName = '/';
-                    }
-                }
-            } catch (e) {
-                displayName = displayName || name || url;
-            }
 
-            btn.textContent = displayName;
+            setWebpageButtonLabel(btn, displayName);
             btn.setAttribute('data-url', url);
             btn.addEventListener('click', () => openWebpage(url, displayName));
             webpagesList.appendChild(btn);
@@ -1331,11 +1338,12 @@ document.addEventListener('DOMContentLoaded', () => {
         function openWebpage(url, title) {
             if (!webpagePane || !webpageIframe) return;
             const name = title || url.replace(/^https?:\/\//, '').replace(/\/.*/, '');
-            const btn = addWebpageButton(name, url);
+            const display = webpageDisplayName(name, url);
+            const btn = addWebpageButton(display, url);
             if (btn) btn.setAttribute('data-url', url);
             webpageLoadToken += 1;
             const currentToken = webpageLoadToken;
-            webpageTitle.textContent = name;
+            webpageTitle.textContent = display;
             // ensure layout and pane classes for webpage view, then hide terminal wrapper
             try { showPane('webpage'); } catch (e) {}
             const terminalWrapper = document.getElementById('terminal-wrapper');
@@ -1473,18 +1481,47 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
+                if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'l') {
+                    event.preventDefault();
+                    clearTerminal();
+                    return;
+                }
+
+                if (event.ctrlKey && event.key.toLowerCase() === 'c') {
+                    if (!window.getSelection || !window.getSelection().toString()) {
+                        event.preventDefault();
+                        terminalInput.value = '';
+                    }
+                    return;
+                }
+
                 if (event.key === 'Tab') {
                     event.preventDefault();
-                    const matches = tryAutocomplete(terminalInput.value);
+                    const { matches, commandPosition } = getCompletions(terminalInput.value);
                     if (matches.length === 1) {
-                        terminalInput.value = matches[0];
+                        terminalInput.value = applyCompletion(terminalInput.value, matches[0], commandPosition);
+                        historyIndex = history.length;
                         return;
                     }
 
                     if (matches.length > 1) {
-                        appendTextLine(matches.join('  '), 'terminal-muted');
+                        appendTextLines([matches.join('  ')], 'terminal-muted');
                     }
                 }
+            });
+
+            terminalInput.addEventListener('input', () => {
+                historyIndex = history.length;
+            });
+        }
+
+        /* Click anywhere in the terminal to focus the prompt. */
+        if (terminal) {
+            terminal.addEventListener('click', (event) => {
+                if (event.target === terminalInput) return;
+                const selection = window.getSelection ? window.getSelection() : null;
+                if (selection && selection.type === 'Range' && String(selection).length) return;
+                focusInput();
             });
         }
 
@@ -1512,12 +1549,22 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', () => setTimeout(scrollTerminalToBottom, 80));
-            window.visualViewport.addEventListener('scroll', () => setTimeout(scrollTerminalToBottom, 80));
+        let viewportQueued = false;
+        function queueScrollToBottom() {
+            if (viewportQueued) return;
+            viewportQueued = true;
+            requestAnimationFrame(() => {
+                viewportQueued = false;
+                scrollTerminalToBottom();
+            });
         }
 
-        window.addEventListener('resize', () => setTimeout(scrollTerminalToBottom, 100));
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', queueScrollToBottom, { passive: true });
+            window.visualViewport.addEventListener('scroll', queueScrollToBottom, { passive: true });
+        }
+
+        window.addEventListener('resize', queueScrollToBottom, { passive: true });
 
         window.runCommand = runCommand;
         window.showPane = showPane;

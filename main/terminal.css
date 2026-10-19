@@ -8,17 +8,32 @@
     --terminal-gap: 0px;
     position: relative;
     height: 450px;
+    margin-top: 10px;
     padding: 12px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     border-radius: 6px;
-    border-top: 1px solid rgba(109, 114, 170, 0.12);
-    background: #282a36;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
-    color: #f8f8f2;
+    border: 1px solid #3a1a5e;
+    border-top: 1px solid rgba(192, 132, 252, 0.28);
+    background: #0a0512;
+    box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, 0.45),
+        inset 0 0 26px rgba(160, 32, 240, 0.08);
+    color: #f2eaff;
     font-family: 'Cascadia Mono', 'Cascadia Code', 'Courier New', monospace;
     font-size: 13px;
     line-height: 1.2;
-    transition: background 0.2s ease, box-shadow 0.2s ease, height 0.2s ease;
+    transition: box-shadow 0.2s ease, height 0.2s ease;
+    scrollbar-color: #6f3a93 #0a0512;
+    scrollbar-width: thin;
+}
+
+.terminal:focus-within {
+    border-color: #6f3a93;
+    box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, 0.45),
+        inset 0 0 26px rgba(160, 32, 240, 0.14),
+        0 0 0 1px rgba(192, 132, 252, 0.18);
 }
 
 .terminal {
@@ -31,15 +46,21 @@
 .terminal-output {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin: 0 0 8px;
-    transform: translateX(-4px);
+    gap: 6px;
+    margin: 0;
     background: transparent;
+}
+
+/* Keep the gap before the prompt identical to the gap between output
+   lines, and drop it entirely while the output is empty. This stops the
+   just-typed command from jumping up when it is echoed. */
+.terminal-output:not(:empty) {
+    margin-bottom: 6px;
 }
 
 .terminal-line {
     width: 100%;
-    color: #f8f8f2;
+    color: #f2eaff;
     font: inherit;
 }
 
@@ -49,7 +70,6 @@
     grid-template-columns: var(--terminal-prompt-width) 1fr;
     column-gap: var(--terminal-gap);
     align-items: center;
-    transform: translateX(3px);
 }
 
 .terminal-text {
@@ -59,21 +79,22 @@
 
 .terminal-prompt {
     display: inline-block;
-    color: #bd93f9;
+    color: #c084fc;
     font: inherit;
+    font-weight: 600;
     white-space: pre;
     text-align: left;
 }
 
 .terminal-command {
-    color: #f8f8f2;
+    color: #f2eaff;
     font: inherit;
     white-space: pre;
     word-break: break-word;
 }
 
 .terminal-muted {
-    color: #6272a4;
+    color: #8b72b8;
 }
 
 .terminal-input {
@@ -82,10 +103,16 @@
     border: 0;
     outline: none;
     background: transparent;
-    color: #f8f8f2;
+    color: #f2eaff;
     font: inherit;
     line-height: inherit;
-    caret-color: #50fa7b;
+    caret-color: #ff4fd8;
+}
+
+.terminal ::selection,
+.terminal ::-moz-selection {
+    background: #6f3a93;
+    color: #f2eaff;
 }
 
 .terminal::-webkit-scrollbar {
@@ -93,23 +120,28 @@
 }
 
 .terminal::-webkit-scrollbar-track {
-    background: #1e1f29;
+    background: #0a0512;
 }
 
 .terminal::-webkit-scrollbar-thumb {
-    background: #44475a;
-    border: 2px solid #1e1f29;
+    background: #6f3a93;
+    border: 2px solid #0a0512;
     border-radius: 8px;
 }
 
+/* Neofetch prints like every other command: plain terminal output with the
+   same font, line rhythm and left alignment — no card, padding or animation. */
 .terminal-neofetch {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin: 2px 0 8px;
+    gap: 6px;
+    margin: 0;
     padding: 0;
     background: transparent;
-    color: #f8f8f2;
+    border: 0;
+    border-radius: 0;
+    color: #f2eaff;
+    font: inherit;
 }
 
 .terminal-neofetch,
@@ -117,9 +149,11 @@
     font: inherit;
 }
 
+/* Size the art column to its content so the logo never bleeds into the
+   info column, exactly like neofetch in a real terminal. */
 .neofetch-grid {
     display: grid;
-    grid-template-columns: minmax(250px, 0.95fr) minmax(0, 1.25fr);
+    grid-template-columns: max-content minmax(0, 1fr);
     gap: 14px;
     align-items: start;
 }
@@ -127,26 +161,25 @@
 .neofetch-logo {
     margin: 0;
     white-space: pre;
-    color: #8be9fd;
+    color: #c084fc;
     font: inherit;
     line-height: 1.02;
-    text-shadow: 0 0 8px rgba(139, 233, 253, 0.18);
 }
 
 .neofetch-info {
-    color: #f8f8f2;
+    color: #f2eaff;
+    min-width: 0;
 }
 
 .neofetch-title {
     margin-bottom: 4px;
-    color: #ff79c6;
+    color: #ff4fd8;
     font-weight: 700;
-    text-shadow: 0 0 8px rgba(255, 121, 198, 0.16);
 }
 
 .neofetch-divider {
     margin-bottom: 6px;
-    color: #bd93f9;
+    color: #6f3a93;
 }
 
 .neofetch-row {
@@ -158,12 +191,14 @@
 
 .neofetch-label {
     flex: 0 0 92px;
-    color: #50fa7b;
+    color: #c084fc;
 }
 
 .neofetch-value {
     flex: 1 1 auto;
-    color: #f8f8f2;
+    min-width: 0;
+    color: #f2eaff;
+    overflow-wrap: anywhere;
 }
 
 .neofetch-palette {
@@ -176,6 +211,7 @@
     width: 30px;
     height: 18px;
     display: inline-block;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 /* Webpage pane and controls */
@@ -207,7 +243,7 @@
     align-items: center;
     justify-content: center;
     gap: 12px;
-    background: radial-gradient(circle at center, rgba(40, 42, 54, 0.92), rgba(11, 2, 22, 0.98));
+    background: radial-gradient(circle at center, rgba(43, 17, 69, 0.92), rgba(11, 6, 29, 0.98));
     color: var(--dr-text);
     pointer-events: none;
 }
@@ -216,11 +252,11 @@
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    border: 4px solid rgba(139, 233, 253, 0.18);
-    border-top-color: #8be9fd;
-    border-right-color: #bd93f9;
+    border: 4px solid rgba(192, 132, 252, 0.18);
+    border-top-color: #c084fc;
+    border-right-color: #ff4fd8;
     animation: webpageSpin 0.8s linear infinite;
-    box-shadow: 0 0 22px rgba(189, 147, 249, 0.25);
+    box-shadow: 0 0 22px rgba(192, 132, 252, 0.28);
 }
 
 .webpage-loader-text {
@@ -243,13 +279,17 @@
 .webpage-fullscreen { position:fixed !important; inset:0 !important; z-index:9999 !important; background:#000 !important; }
 .webpage-fullscreen .webpage-iframe { height:100vh !important; }
 
-/* small sidebar webpage button */
-.sidebar .webpage-btn { display:block; text-align:left; padding:8px 10px; border:1px solid rgba(255,255,255,0.04); border-radius:4px; margin-bottom:8px; background:transparent; color:var(--dr-link); cursor:pointer; width:100%; box-sizing:border-box }
-.sidebar .webpage-btn.active { background: rgba(160,32,240,0.85); color:#fff; }
+/* Sidebar webpage buttons (added by `open <url>`) are placed in the same
+   nav list as Link Exchange / Neofetch, so they intentionally reuse the
+   .sidebar-nav button styling from index.html for identical alignment,
+   hover and active treatment. Nothing extra is needed here. */
 
-@media (max-width: 760px) {
+/* Stack the neofetch art above the info as soon as the two-column
+   layout would leave the info column too narrow to read. */
+@media (max-width: 1040px) {
     .neofetch-grid {
         grid-template-columns: 1fr;
+        gap: 10px;
     }
 }
 
@@ -264,13 +304,11 @@
     .terminal-output {
         gap: 6px;
         margin-bottom: 6px;
-        transform: translateX(0);
     }
 
     .terminal-command-line,
     .terminal-input-line {
         grid-template-columns: auto 1fr;
-        transform: translateX(0);
     }
 
     .terminal-prompt {
@@ -300,10 +338,10 @@
 .terminal-pager {
     position: fixed;
     inset: 8% 6%;
-    background: #0f0f14;
-    border: 1px solid rgba(255,255,255,0.04);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-    color: #f8f8f2;
+    background: #0b061d;
+    border: 1px solid #6f3a93;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 24px rgba(160, 32, 240, 0.18);
+    color: #f2eaff;
     z-index: 10000;
     display: flex;
     flex-direction: column;
@@ -315,11 +353,11 @@
     align-items:center;
     justify-content:space-between;
     padding:8px 12px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
-    border-bottom: 1px solid rgba(255,255,255,0.03);
+    background: linear-gradient(180deg, rgba(192, 132, 252, 0.06), transparent);
+    border-bottom: 1px solid rgba(111, 58, 147, 0.35);
     font-weight:700;
 }
-.terminal-pager-close { background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--dr-text); padding:6px 8px; border-radius:4px; cursor:pointer }
+.terminal-pager-close { background:transparent; border:1px solid rgba(192,132,252,0.18); color:var(--dr-text); padding:6px 8px; border-radius:4px; cursor:pointer }
 .terminal-pager-body {
     padding: 12px;
     margin: 0;
@@ -338,12 +376,12 @@
     outline: none;
     resize: none;
     background: transparent;
-    color: #f8f8f2;
+    color: #f2eaff;
     font-family: inherit;
     font-size: 13px;
     line-height: 1.4;
     height: calc(100vh - 160px);
 }
 .terminal-pager-toggle,
-.terminal-pager-save { background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--dr-text); padding:6px 8px; border-radius:4px; cursor:pointer; margin-left:8px }
+.terminal-pager-save { background:transparent; border:1px solid rgba(192,132,252,0.18); color:var(--dr-text); padding:6px 8px; border-radius:4px; cursor:pointer; margin-left:8px }
 .terminal-pager .terminal-pager-close { margin-left:8px }

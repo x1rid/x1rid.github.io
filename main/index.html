@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>r3d1bruh</title>
+    <meta name="theme-color" content="#0b061d">
+    <meta name="description" content="r3d1bruh — retro purple desktop, links, music and terminal.">
+    <link rel="preconnect" href="https://fonts.cdnfonts.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.simpleicons.org" crossorigin>
+    <link rel="icon" type="image/webp" href="./socials/pfp.webp">
     <link href="https://fonts.cdnfonts.com/css/cascadia-mono" rel="stylesheet">
     <style>
         /* ============================================================
@@ -18,14 +23,14 @@
             --border-light: #6f3a93;
             --border-dark:  #4d286b;
 
-            /* Dracula design-system tokens — overridden by random palette in mobile.js */
+            /* Fixed retro palette tokens */
             --dr-bg:     #0b061d;
             --dr-panel:  #130927;
             --dr-text:   #f2eaff;
             --dr-accent: #bd93f9;
-            --dr-link:   #8be9fd;
-            --dr-green:  #50fa7b;
-            --dr-muted:  #6272a4;
+            --dr-link:   #cda6ff;
+            --dr-green:  #55ff99;
+            --dr-muted:  #8b72b8;
 
             --marquee-width: 0px; /* set by JS */
         }
@@ -47,16 +52,16 @@
             color: var(--dr-text, var(--text-color)) !important;
             font-family: 'Courier New', 'Cascadia Mono', monospace;
             min-width: 0;
-            scrollbar-color: #44475a #1e1f29;
+            scrollbar-color: #6f3a93 #0b061d;
             scrollbar-width: thin;
         }
 
         body::-webkit-scrollbar { width: 10px; }
-        body::-webkit-scrollbar-track { background: #1e1f29; }
+        body::-webkit-scrollbar-track { background: #0b061d; }
         body::-webkit-scrollbar-thumb {
-            background: #44475a;
+            background: #6f3a93;
             border-radius: 8px;
-            border: 2px solid #1e1f29;
+            border: 2px solid #0b061d;
         }
 
         a { color: var(--dr-link, var(--link-color)) !important; }
@@ -121,15 +126,54 @@
          * ============================================================ */
         .layout-grid {
             display: grid;
-            grid-template-columns: 224px minmax(0, 1fr);
-            gap: 14px;
+            /* Compact by default; the splitter restores a saved width on load. */
+            --sidebar-width: 220px;
+            grid-template-columns: var(--sidebar-width) 10px minmax(0, 1fr);
+            gap: 0;
             align-items: start;
-            transition: grid-template-columns 220ms ease, column-gap 220ms ease;
         }
 
         .layout-grid.terminal-layout {
-            grid-template-columns: minmax(100px, 160px) minmax(0, 2.2fr);
-            gap: 10px;
+            grid-template-columns: var(--sidebar-width) 10px minmax(0, 1fr);
+        }
+
+        .panel-splitter {
+            align-self: stretch;
+            min-height: 320px;
+            position: relative;
+            cursor: col-resize;
+            touch-action: none;
+        }
+
+        .panel-splitter::before,
+        .panel-splitter::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .panel-splitter::before {
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border-light);
+            box-shadow: 0 0 8px rgba(160, 32, 240, 0.45);
+        }
+
+        .panel-splitter::after {
+            top: 50%;
+            width: 8px;
+            height: 34px;
+            border: 1px solid #55ff99;
+            background: #130927;
+            box-shadow: 0 0 6px rgba(85, 255, 153, 0.35);
+        }
+
+        body.is-splitting,
+        body.is-splitting * {
+            cursor: col-resize !important;
+            user-select: none !important;
         }
 
         /* ============================================================
@@ -166,13 +210,13 @@
             display: block;
             width: auto;
             margin: 8px 0 0;
-            color: var(--profile-color, var(--dr-accent));
+            color: var(--dr-accent);
             font-weight: 800;
             font-size: 1.2rem;
             letter-spacing: 0.02em;
             text-align: center;
             text-shadow: 0 2px 0 rgba(0,0,0,0.6),
-                         0 0 8px color-mix(in srgb, var(--profile-color, var(--dr-accent)) 44%, transparent);
+                         0 0 8px rgba(189, 147, 249, 0.44);
         }
 
         .stats-box {
@@ -189,7 +233,7 @@
         .sidebar-nav {
             display: flex;
             flex-direction: column;
-            align-items: stretch;
+            align-items: center;
             gap: 6px;
             margin-top: 0;
             text-align: left;
@@ -207,6 +251,8 @@
             font: 700 0.82rem 'Courier New', monospace;
             text-align: left;
             cursor: pointer;
+            width: max-content;
+            min-width: 176px;
             transition: color 120ms, border-color 120ms, box-shadow 120ms;
         }
 
@@ -347,6 +393,17 @@
             transform: translateY(-1px);
         }
 
+        /* Staggered entrance when a category is selected */
+        .social-tile {
+            animation: tile-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+            animation-delay: calc(var(--tile-index, 0) * 18ms);
+        }
+
+        @keyframes tile-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
         .social-tile:hover .badge-label,
         .social-tile:focus-visible .badge-label,
         .social-tile:focus-within .badge-label {
@@ -362,6 +419,7 @@
             justify-content: center;
             overflow: hidden;
             background: #100721;
+            position: relative;
         }
 
         /* Images fill the frame, contained (never distorted/cropped) */
@@ -402,179 +460,9 @@
         }
 
         /* ============================================================
-         *  NEOFETCH SECTION
+         *  TERMINAL PANE
+         *  Terminal and neofetch styling lives in terminal.css.
          * ============================================================ */
-        .neofetch {
-            background: #0b0b0b;
-            color: #d7d7d7;
-            padding: 12px 14px;
-            border-radius: 4px;
-            font-family: 'Cascadia Mono', 'Cascadia Code', 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.15;
-            overflow: hidden;
-        }
-
-        .neofetch, .neofetch * {
-            font-family: 'Cascadia Mono', 'Cascadia Code', 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.15;
-        }
-
-        .neofetch-shell { width: 100%; }
-
-        .neofetch-cmd, .neofetch-prompt {
-            color: #d7d7d7;
-            white-space: pre;
-            word-break: normal;
-        }
-
-        .neofetch-cmd  { margin-bottom: 10px; }
-        .cmd-name      { color: #42f15f; }
-        .neofetch-prompt { margin-top: 10px; }
-
-        /* ── Dracula terminal theme ────────────────────────────── */
-        .terminal {
-            margin-top: 10px;
-            padding: 12px;
-            background: #282a36;
-            border-radius: 6px;
-            border-top: 1px solid rgba(109,114,170,0.12);
-            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12);
-            height: 360px;
-            overflow-y: auto;
-            scrollbar-color: #44475a #1e1f29;
-            scrollbar-width: thin;
-        }
-
-        .terminal::-webkit-scrollbar       { width: 10px; }
-        .terminal::-webkit-scrollbar-track { background: #1e1f29; }
-        .terminal::-webkit-scrollbar-thumb {
-            background: #44475a;
-            border-radius: 8px;
-            border: 2px solid #1e1f29;
-        }
-
-        .terminal-output {
-            margin-bottom: 8px;
-            color: #f8f8f2;
-            padding: 6px 4px;
-            background: transparent;
-        }
-
-        .terminal-line {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            white-space: pre;
-            color: #f8f8f2;
-        }
-
-        .terminal-prompt { color: #bd93f9; font-weight: 600; }
-
-        .terminal-input {
-            flex: 1 1 auto;
-            background: transparent;
-            border: 0;
-            outline: none;
-            color: #f8f8f2;
-            font: inherit;
-            line-height: 1.2;
-            caret-color: #50fa7b;
-        }
-
-        .terminal-output .line { white-space: pre-wrap; }
-        .terminal-muted { color: #6272a4; }
-
-        .terminal ::selection,
-        .terminal ::-moz-selection { background: #44475a; color: #f8f8f2; }
-
-        .terminal-neofetch {
-            margin: 6px 0 10px;
-            padding: 8px;
-            border-radius: 6px;
-            background: rgba(68,71,90,0.25);
-            color: #f8f8f2;
-            font: inherit;
-        }
-
-        .neofetch-grid {
-            display: grid;
-            grid-template-columns: minmax(250px, 0.95fr) minmax(0, 1.25fr);
-            gap: 14px;
-            align-items: start;
-        }
-
-        .neofetch-logo {
-            margin: 0;
-            white-space: pre;
-            line-height: 1.0;
-        }
-
-        .logo-red    { color: #ff5c6a; }
-        .logo-pink   { color: #ff4fc7; }
-        .logo-blue   { color: #4da7ff; }
-        .logo-green  { color: #2ddc4a; }
-        .logo-yellow { color: #efdf67; }
-        .logo-gray   { color: #dadada; }
-
-        .neofetch-info    { color: #d7d7d7; }
-
-        .neofetch-title {
-            color: #ff5c6a;
-            font-weight: 700;
-            text-decoration: underline;
-            text-decoration-color: #ff5c6a;
-            text-underline-offset: 2px;
-            margin-bottom: 4px;
-        }
-
-        .neofetch-divider { color: #d7d7d7; margin-bottom: 6px; }
-
-        .neofetch-row {
-            display: flex;
-            gap: 6px;
-            align-items: baseline;
-            margin: 0;
-        }
-
-        .neofetch-label { color: #2ddc4a; min-width: 92px; flex: 0 0 auto; }
-        .neofetch-value { color: #d7d7d7; }
-
-        .neofetch-bars   { display: none !important; }
-
-        .neofetch-palette {
-            display: flex;
-            justify-content: flex-start;
-            gap: 0;
-            margin-top: 12px;
-        }
-
-        .neofetch-palette span { width: 30px; height: 18px; display: inline-block; }
-
-        .blue { color: #4da7ff; }
-        .gray { color: #d7d7d7; }
-
-        /* Dracula neofetch variant */
-        .neofetch.dracula { background: #282a36 !important; color: #f8f8f2 !important; border-radius: 6px !important; padding: 12px !important; }
-        .neofetch.dracula .neofetch-logo   { color: #bd93f9 !important; }
-        .neofetch.dracula .neofetch-title  { color: #ff79c6 !important; }
-        .neofetch.dracula .neofetch-label  { color: #8be9fd !important; }
-        .neofetch.dracula .neofetch-value  { color: #f8f8f2 !important; }
-        .neofetch.dracula .neofetch-divider{ color: #6272a4 !important; }
-        .neofetch.dracula .neofetch-bar span   { background: #50fa7b !important; }
-        .neofetch.dracula .neofetch-palette span { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12) !important; }
-        .neofetch.dracula .neofetch-cmd,
-        .neofetch.dracula .neofetch-prompt { color: #f8f8f2 !important; }
-        .neofetch.dracula .neofetch-cmd span:first-child { color: #bd93f9 !important; font-weight: 600 !important; }
-        .neofetch.dracula .neofetch-cmd .cmd-name { color: #50fa7b !important; font-weight: 700 !important; }
-        .neofetch.dracula pre.neofetch-logo { color: #bd93f9 !important; }
-        .neofetch.dracula .neofetch-logo * { color: #bd93f9 !important; }
-        #pc-specs.neofetch.dracula,
-        #pc-specs.neofetch.dracula .neofetch-shell,
-        #pc-specs.neofetch.dracula .neofetch-grid { background: #282a36 !important; }
-
-        /* ── terminal-mode — PC specs pane active ─────────────── */
         .content-area.terminal-mode {
             background: #07020a !important;
             color: #e9dfff !important;
@@ -591,36 +479,15 @@
 
         .content-area.terminal-mode #pc-specs { display: block !important; }
 
-        /* ============================================================
-         *  VIDEO GAME STATS
-         * ============================================================ */
-        details {
-            background: rgba(15,6,20,0.35);
-            border: 1px solid rgba(205,166,255,0.08);
-            padding: 8px;
-            border-radius: 6px;
-            margin: 8px 0;
+        /* Panes fade/slide in when switched */
+        .pane.is-entering {
+            animation: pane-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
         }
 
-        summary {
-            cursor: pointer;
-            font-weight: 700;
-            color: var(--dr-link, var(--link-color));
-            list-style: none;
+        @keyframes pane-in {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
-
-        /* ============================================================
-         *  MISC COMPONENTS
-         * ============================================================ */
-        .retro-button {
-            width: 88px;
-            border: 2px outset #555;
-            cursor: pointer;
-            transition: transform 0.1s;
-            display: block;
-        }
-
-        .retro-button:active { border-style: inset; transform: scale(0.95); }
 
         /* ============================================================
          *  FOOTER
@@ -647,211 +514,70 @@
         .blink { animation: blinker 1s linear infinite; }
         @keyframes blinker { 50% { opacity: 0; } }
 
-        /* ============================================================
-         *  MUSIC WIDGET
-         * ============================================================ */
-        .music-panel {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-            gap: 5px 10px;
-            margin-top: 10px;
-            padding: 8px 12px;
-            border: 1px solid var(--border-dark);
-            background: #100721;
-            color: #bba4d9;
-            font-size: 0.75rem;
-        }
-
-        .music-label {
-            font-weight: 700;
-            letter-spacing: 0.06em;
-        }
-
-        .music-toggle {
-            border: 1px solid var(--border-dark);
-            border-radius: 0;
-            background: transparent;
-            color: #bba4d9;
-            cursor: pointer;
-            font: 700 0.72rem 'Courier New', monospace;
-            padding: 3px 8px;
-            transition: color 120ms, border-color 120ms;
-        }
-
-        .music-toggle:hover,
-        .music-toggle:focus-visible,
-        .music-toggle.is-on {
-            border-color: #55ff99;
-            color: #55ff99;
-            outline: 1px dotted #55ff99;
-            outline-offset: 2px;
-        }
-
-        .music-now-playing {
-            flex-basis: 100%;
-            font-size: 0.68rem;
-            text-align: center;
-            color: #bba4d9;
-        }
-
-        .music-link {
-            color: #cdb0ff !important;
-            font-size: 0.68rem;
-            text-decoration: none;
-        }
-
-        .music-link:hover,
-        .music-link:focus-visible { color: #55ff99 !important; }
-
-        /* Hidden YouTube player frame */
-        .music-player-frame {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            opacity: 0;
-            pointer-events: none;
-            border: 0;
-        }
+        /* Music widget + player styles live in music.css.
+           Webpage pane + terminal styles live in terminal.css. */
 
         /* ============================================================
          *  CUSTOM CURSOR
+         *  The class is toggled on <html> by custom-cursor.js only when
+         *  the animated cursor actually loads (and motion is allowed).
          * ============================================================ */
         .custom-cursor-enabled,
         .custom-cursor-enabled * { cursor: none !important; }
 
-        /* ============================================================
-         *  WEBPAGE PANE
-         * ============================================================ */
-        .webpage-toolbar {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
-            background: rgba(0,0,0,0.12);
+        .custom-cursor-main {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 48px;
             height: 48px;
-            flex: 0 0 48px;
-        }
-
-        .webpage-toolbar button {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.04);
-            color: var(--dr-text);
-            padding: 6px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .webpage-pane {
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            width: 100%;
-            box-sizing: border-box;
-            padding: 0;
-            margin: 0;
-            height: auto;
-            min-height: 0;
-            background: #000;
-        }
-
-        .webpage-container {
-            position: relative;
-            flex: 1 1 auto;
-        }
-
-        .webpage-iframe {
-            width: 100%;
-            height: 100%;
-            border: 0;
-            display: block;
-            background: #fff;
-            min-height: 320px;
-        }
-
-        .webpage-loader {
-            position: absolute;
-            inset: 0;
-            z-index: 6;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            background: radial-gradient(circle at center, rgba(40,42,54,0.92), rgba(11,2,22,0.98));
-            color: var(--dr-text);
+            background-size: contain;
+            background-repeat: no-repeat;
             pointer-events: none;
+            z-index: 20000;
+            transform: translate3d(-9999px, -9999px, 0);
+            will-change: transform;
+            display: none;
         }
 
-        .webpage-loader-ring {
-            width: 52px;
-            height: 52px;
+        .custom-cursor-glow {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 96px;
+            height: 96px;
+            margin: -24px 0 0 -24px;
             border-radius: 50%;
-            border: 4px solid rgba(139,233,253,0.18);
-            border-top-color: #8be9fd;
-            border-right-color: #bd93f9;
-            animation: webpageSpin 0.8s linear infinite;
-            box-shadow: 0 0 22px rgba(189,147,249,0.25);
-        }
-
-        .webpage-loader-text {
-            font-weight: 700;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-        }
-
-        @keyframes webpageSpin {
-            from { transform: rotate(0deg); }
-            to   { transform: rotate(360deg); }
-        }
-
-        .unlock-overlay {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             pointer-events: none;
-            z-index: 5;
+            z-index: 19998;
+            display: none;
+            background: radial-gradient(circle, rgba(192,132,252,0.55) 0%, rgba(160,32,240,0.18) 45%, rgba(160,32,240,0) 70%);
+            will-change: transform, opacity;
         }
 
-        .unlock-overlay::before {
-            content: '';
-            width: 120px;
-            height: 120px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-            box-shadow: 0 0 40px rgba(160,32,240,0.5);
-            transform: scale(0.9);
-            opacity: 0;
-            animation: unlockPulse 700ms ease forwards;
+        .custom-cursor-enabled .custom-cursor-glow {
+            animation: cursor-glow 3.2s ease-in-out infinite;
         }
 
-        @keyframes unlockPulse { to { transform: scale(1); opacity: 1; } }
-
-        .webpage-fullscreen { position: fixed !important; inset: 0 !important; z-index: 9999 !important; background: #000 !important; }
-        .webpage-fullscreen .webpage-iframe { height: 100vh !important; }
-
-        #pc-specs { position: relative; }
-
-        /* Sidebar webpage button */
-        .sidebar .webpage-btn {
-            display: block;
-            text-align: left;
-            padding: 8px 10px;
-            border: 1px solid rgba(255,255,255,0.04);
-            border-radius: 4px;
-            margin-bottom: 8px;
-            background: transparent;
-            color: var(--dr-link);
-            cursor: pointer;
-            width: 100%;
-            box-sizing: border-box;
+        @keyframes cursor-glow {
+            0%, 100% { opacity: 0.55; }
+            50%      { opacity: 0.95; }
         }
 
-        .sidebar .webpage-btn.active { background: rgba(160,32,240,0.85); color: #fff; }
+        #cursor-trail {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 19999;
+            display: none;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .custom-cursor-enabled .custom-cursor-glow { animation: none; }
+        }
 
         /* ============================================================
          *  RESPONSIVE — tablet / large mobile
@@ -862,6 +588,7 @@
             .marquee-top { margin-bottom: 10px; font-size: 0.8rem !important; padding: 6px !important; }
             .layout-grid { grid-template-columns: 1fr; gap: 10px; }
             .layout-grid.terminal-layout { grid-template-columns: 1fr; gap: 20px; }
+            .panel-splitter { display: none; }
             .sidebar { padding: 10px; }
             .content-area { padding: 12px 10px; }
             .link-exchange-categories { margin-bottom: 10px; }
@@ -876,16 +603,19 @@
          * ============================================================ */
         @media (prefers-reduced-motion: reduce) {
             .marquee-track { animation: none; }
-            .social-tile   { transition: none; }
+            .social-tile   { transition: none; animation: none; }
             .link-exchange-category { transition: none; }
             .sidebar-nav button { transition: none; }
+            .pane.is-entering { animation: none; }
             *, *::before, *::after { scroll-behavior: auto !important; }
         }
 
     </style>
     <link rel="stylesheet" href="./terminal.css">
+    <link rel="stylesheet" href="./music.css">
     <link rel="stylesheet" href="./mobile.css" media="(max-width:760px)">
     <link rel="preload" as="image" href="./socials/github.webp">
+    <link rel="prefetch" as="fetch" href="./playlist/playlist.json" crossorigin>
 </head>
 <body>
 <div class="geocities-container">
@@ -915,15 +645,14 @@
                     <button id="nav-pc-specs" aria-controls="pc-specs">
                         <span class="nav-prompt" aria-hidden="true">&gt;</span>Neofetch
                     </button>
-                    <button id="nav-game-stats" aria-controls="video-game-stats">
-                        <span class="nav-prompt" aria-hidden="true">&gt;</span>Video Game Stats
-                    </button>
                 </div>
                 <div class="sidebar-nav" aria-label="webpage navigation" id="webpages-list">
                     <!-- dynamically added webpage buttons appear here -->
                 </div>
             </div>
         </div>
+
+        <div class="panel-splitter" role="separator" aria-label="Resize sidebar" aria-orientation="vertical" tabindex="0"></div>
 
         <!-- ======= CONTENT AREA ======= -->
         <div class="content-area">
@@ -953,16 +682,6 @@
                 </div>
             </div>
 
-            <!-- ── VIDEO GAME STATS PANE ── -->
-            <div id="video-game-stats" class="pane" style="display:none;">
-                <h2 class="section-title">VIDEO GAME STATS</h2>
-                <div id="steam-stats-panel" style="background:rgba(15,6,20,0.35);border:1px solid rgba(205,166,255,0.08);border-radius:6px;padding:12px;">
-                    <p style="margin-top:0;color:var(--dr-text)">Steam data loads from a secure serverless proxy so your API key stays private.</p>
-                    <div id="steam-stats-loading" style="color:var(--dr-link);font-weight:700">Waiting for data...</div>
-                    <pre id="steam-stats-output" style="white-space:pre-wrap;margin:10px 0 0;color:var(--dr-text)"></pre>
-                </div>
-            </div>
-
             <!-- ── WEBPAGE PANE ── -->
             <div id="webpage-pane" class="pane" style="display:none;">
                 <div class="webpage-toolbar" aria-hidden="false">
@@ -988,14 +707,14 @@
 
     <!-- ======= FOOTER ======= -->
     <div class="footer">
-        VISITOR COUNT: <span class="hit-counter">001337</span>
+        VISITOR COUNT: <span class="hit-counter" title="Retro decorative counter">001337</span>
 
         <!-- ── MUSIC WIDGET ── -->
         <div class="music-panel" aria-label="Background music">
             <span class="music-label">♪ LOCAL AUDIO</span>
             <button class="music-toggle" type="button" aria-pressed="false">OFF</button>
-            <a class="music-link" href="#retro-music-window" aria-label="Open music player">PLAYER ↗</a>
-            <span class="music-now-playing">NOW PLAYING: Music ready</span>
+            <button class="music-link" type="button" aria-label="Open music player">OPEN PLAYER</button>
+            <span class="music-now-playing" aria-live="polite">NOW PLAYING: ready</span>
         </div>
 
         <p>&copy; 1998-2024 r3d1bruh &nbsp;·&nbsp; ALL RIGHTS RESERVED &nbsp;·&nbsp; STAY RAD</p>
@@ -1006,66 +725,42 @@
 <script src="./mobile.js" defer></script>
 <script src="./link-exchange.js" defer></script>
 <script src="./custom-cursor.js" defer></script>
+<script src="./splitter.js" defer></script>
 <script src="./music.js" defer></script>
 <script src="./terminal.js" defer></script>
 
 <!-- ── Marquee: measure actual copy width → set CSS var ── -->
 <script>
 (function () {
-    function fixMarquee() {
-        var track = document.getElementById('marquee-track');
-        if (!track) return;
-        var copies = track.querySelectorAll('.marquee-copy');
-        if (!copies.length) return;
-        // Measure the first copy's rendered width
-        var w = copies[0].getBoundingClientRect().width;
-        if (w > 0) {
-            document.documentElement.style.setProperty('--marquee-width', w + 'px');
-        }
-    }
-    // Run after layout
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', fixMarquee);
-    } else {
-        fixMarquee();
-    }
-    window.addEventListener('resize', fixMarquee);
-})();
-</script>
+    var track = document.getElementById('marquee-track');
+    if (!track) return;
+    var copy = track.querySelector('.marquee-copy');
+    if (!copy) return;
+    var queued = false;
 
-<!-- ── Visitor counter ── -->
-<script>
-(async function () {
-    var el = document.querySelector('.hit-counter');
-    if (!el) return;
-    var namespace = 'r3d1bruh.github.io';
-    var key = 'linktree';
-    var policy = 'permanent';
-    var markerKey = 'visited:' + namespace + ':' + key;
-    var visited = localStorage.getItem(markerKey);
-    var today = new Date().toISOString().slice(0, 10);
-    var shouldIncrement = policy === 'permanent' ? !visited : visited !== today;
-    var isProd = location.hostname === 'r3d1bruh.github.io' || location.hostname.endsWith('github.io');
-    try {
-        if (!isProd) {
-            var r = await fetch('https://api.countapi.xyz/get/' + namespace + '/' + key);
-            var j = await r.json();
-            el.textContent = String(j.value || 0).padStart(6, '0');
-            return;
+    function applyWidth() {
+        queued = false;
+        var width = copy.getBoundingClientRect().width;
+        if (width > 0) {
+            document.documentElement.style.setProperty('--marquee-width', width + 'px');
         }
-        if (shouldIncrement) {
-            var res = await fetch('https://api.countapi.xyz/hit/' + namespace + '/' + key);
-            if (!res.ok) throw new Error('CountAPI ' + res.status);
-            var json = await res.json();
-            el.textContent = String(json.value).padStart(6, '0');
-            localStorage.setItem(markerKey, policy === 'daily' ? today : '1');
-        } else {
-            var res2 = await fetch('https://api.countapi.xyz/get/' + namespace + '/' + key);
-            if (!res2.ok) throw new Error('CountAPI ' + res2.status);
-            var json2 = await res2.json();
-            el.textContent = String(json2.value || 0).padStart(6, '0');
-        }
-    } catch (err) { console.warn('CountAPI error', err); }
+    }
+
+    function queueMeasure() {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(applyWidth);
+    }
+
+    if ('ResizeObserver' in window) {
+        new ResizeObserver(queueMeasure).observe(copy);
+    } else {
+        window.addEventListener('resize', queueMeasure, { passive: true });
+    }
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(queueMeasure).catch(function () {});
+    }
+    queueMeasure();
 })();
 </script>
 </body>
