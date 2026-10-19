@@ -1,0 +1,44 @@
+
+/* ============================================================
+ *  BASE RESET
+ * ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+    background: var(--bg-dark);
+    overflow-x: hidden;
+}
+
+body {
+    margin: 0;
+    padding: 12px;
+    background: var(--dr-bg, var(--bg-dark)) !important;
+    color: var(--dr-text, var(--text-color)) !important;
+    font-family: 'Courier New', 'Cascadia Mono', monospace;
+    min-width: 0;
+    scrollbar-color: #6f3a93 #0b061d;
+    scrollbar-width: thin;
+}
+
+body::-webkit-scrollbar { width: 10px; }
+body::-webkit-scrollbar-track { background: #0b061d; }
+body::-webkit-scrollbar-thumb {
+    background: #6f3a93;
+    border-radius: 8px;
+    border: 2px solid #0b061d;
+}
+
+a { color: var(--dr-link, var(--link-color)) !important; }
+
+/* ============================================================
+ *  OUTER CONTAINER
+ * ============================================================ */
+.geocities-container {
+    width: min(1180px, calc(100% - 24px));
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 12px;
+    background: var(--dr-bg, var(--bg-dark)) !important;
+    border: 1px solid var(--border-light) !important;
+    box-shadow: 0 0 18px rgba(138, 0, 255, 0.14) !important;
+}

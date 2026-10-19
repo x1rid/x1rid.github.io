@@ -10,10 +10,14 @@ dependencies, no framework.
 ```
 index.html          → redirect to ./main/index.html
 main/               → the retro homepage
-    index.html      → page shell + inline styles
+    index.html      → page shell (markup + tags only)
+    css/            → theme/layout modules (variables, base, marquee, layout,
+                      links, components, responsive)
+    data/           → links.json (link tiles) + vfs.json (terminal filesystem)
     terminal.css    → terminal / neofetch / webpage-pane styles
     music.css       → music widget + player styles
     mobile.css      → <=760px layout
+    draggable.js    → shared drag physics for the player window + dock
     custom-cursor.js→ animated GIF cursor + particle trail
     link-exchange.js→ link tiles (animated on hover only)
     splitter.js     → draggable sidebar divider
@@ -25,6 +29,7 @@ main/               → the retro homepage
 dora/               → doraverse / anushkaverse side project site
 l/                  → link-tree page
 serve.py            → local dev server (also auto-lists /main/playlist)
+verify.py           → static checks (JSON, asset references, JS syntax)
 ```
 
 ## Terminal
@@ -74,13 +79,16 @@ hidden if the GIF fails to load.
 
 ## Link exchange
 
-Social/gaming tiles use static `.webp` icons; animated `.gif` versions are only
-fetched and played while a tile is hovered or focused.
+Tiles are defined in `main/data/links.json` — edit it to add or change a link
+(the inline fallback in `link-exchange.js` keeps the page working offline).
+Icons are static `.webp`; animated `.gif` versions are only fetched and played
+while a tile is hovered or focused.
 
 ## Development
 
 ```
 python serve.py [port]   # default 5500
+python verify.py         # static checks: JSON, asset refs, JS syntax
 ```
 
 Then open http://127.0.0.1:5500/main/index.html

@@ -5,7 +5,7 @@
    * category field so there is no duplication.
    * --------------------------------------------------------------- */
 
-  const LINKS = [
+  const FALLBACK_LINKS = [
     // SOCIAL
     { name: 'GitHub',    category: 'social',   url: 'https://github.com/r3d1bruh',           icon: './socials/github.webp',   gif: './socials/github.gif'   },
     { name: 'Reddit',    category: 'social',   url: 'https://reddit.com/user/r3d1bruh',      icon: './socials/reddit.webp',   gif: './socials/reddit.gif'   },
@@ -32,7 +32,7 @@
   ];
 
   /* Per-icon sizing class. Adjust visual scale without changing the grid. */
-  const ICON_SCALE = {
+  const FALLBACK_ICON_SCALE = {
     'Steam':      'icon--wide',
     'Riot Games': 'icon--small',
     'Epic Games': 'icon--small',
@@ -40,12 +40,20 @@
     'GOG':        'icon--small',
   };
 
-  const LABELS = {
+  const FALLBACK_LABELS = {
     all:      'All links',
     social:   'Social links',
     gaming:   'Gaming links',
     'ai-tech':'AI and tech links',
   };
+
+  /* Live data. The arrays above are the offline/file:// fallback and are
+     replaced by ./data/links.json when it can be fetched (see the loader at
+     the bottom of this file). */
+  let LINKS = FALLBACK_LINKS;
+  let ICON_SCALE = FALLBACK_ICON_SCALE;
+  let LABELS = FALLBACK_LABELS;
+  let activeCategory = 'all';
 
   const grid    = document.querySelector('.link-exchange-grid');
   const buttons = Array.from(document.querySelectorAll('[data-link-category]'));
@@ -55,6 +63,7 @@
    * renderCategory — replaces grid children with matching links
    * ------------------------------------------------------------------ */
   function renderCategory(category) {
+    activeCategory = category;
     const links = category === 'all'
       ? LINKS
       : LINKS.filter((l) => l.category === category);
@@ -148,4 +157,25 @@
 
   /* Default: show ALL links on first render */
   renderCategory('all');
+
+  /* ------------------------------------------------------------------
+   * Optional external data — main/data/links.json
+   * Add or edit links there (JSON only, no JavaScript). When the fetch is
+   * unavailable (file://, offline, blocked) the fallback arrays above stay
+   * in charge, so the tile grid never breaks.
+   * ------------------------------------------------------------------ */
+  fetch('./data/links.json')
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => {
+      if (!data || !Array.isArray(data.links) || !data.links.length) return;
+      /* Identical to the fallback (the normal case): nothing to redraw. */
+      if (JSON.stringify(data.links) === JSON.stringify(FALLBACK_LINKS)) return;
+      LINKS = data.links;
+      ICON_SCALE = data.iconScale || FALLBACK_ICON_SCALE;
+      LABELS = data.labels || FALLBACK_LABELS;
+      renderCategory(activeCategory);
+    })
+    .catch(() => {
+      /* file:// or offline — the fallbacks are already rendered. */
+    });
 })();

@@ -45,6 +45,26 @@ document.addEventListener('DOMContentLoaded', () => {
         let history = loadHistory();
         let historyIndex = history.length;
 
+        /* ------------------------------------------------------------------
+         * Optional external VFS — main/data/vfs.json
+         * The inline tree above is the offline/file:// fallback. The tree is
+         * read-only (site files can never be removed), so swapping the loaded
+         * copy is safe at any point; if the fetch fails, nothing changes.
+         * ------------------------------------------------------------------ */
+        function applyExternalVfs(data) {
+            if (!data || typeof data !== 'object' || !data['/'] || typeof data['/'] !== 'object') return;
+            Object.keys(vfs).forEach((key) => { delete vfs[key]; });
+            Object.keys(data).forEach((key) => { vfs[key] = data[key]; });
+            if (!getNode(cwd)) cwd = '/';
+        }
+
+        fetch('./data/vfs.json')
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => { if (data) applyExternalVfs(data); })
+            .catch(() => {
+                /* file:// or offline — the inline fallback tree is already active. */
+            });
+
         if (terminalInput && terminalInput.parentElement) {
             terminalInput.parentElement.classList.add('terminal-input-line');
         }

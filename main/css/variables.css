@@ -1,0 +1,23 @@
+/* ============================================================
+ *  CSS CUSTOM PROPERTIES
+ * ============================================================ */
+:root {
+    --bg-dark:      #0b061d;
+    --panel-bg:     #130927;
+    --text-color:   #f2eaff;
+    --accent-color: #a020f0;
+    --link-color:   #cda6ff;
+    --border-light: #6f3a93;
+    --border-dark:  #4d286b;
+
+    /* Fixed retro palette tokens */
+    --dr-bg:     #0b061d;
+    --dr-panel:  #130927;
+    --dr-text:   #f2eaff;
+    --dr-accent: #bd93f9;
+    --dr-link:   #cda6ff;
+    --dr-green:  #55ff99;
+    --dr-muted:  #8b72b8;
+
+    --marquee-width: 0px; /* set by JS */
+}

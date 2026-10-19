@@ -68,9 +68,6 @@
     let miniOpenBtn = null;
     let miniPlayBtn = null;
     let miniTrackEl = null;
-    /* Set while the minimized dock is being dragged, so the release does not
-       also count as a click on it. */
-    let miniDragged = false;
 
     /* ------------------------------------------------------------------
      * Storage helpers
@@ -651,330 +648,48 @@
             listBtn.classList.toggle('is-on', willShow);
             listBtn.setAttribute('aria-expanded', String(willShow));
         }
-        clampWindowPosition();
+        if (winDrag) winDrag.clamp();
     }
 
-    /* ------------------------------------------------------------------
-     * Window placement + dragging
-     * ------------------------------------------------------------------ */
     function clamp(value, min, max) {
         if (max < min) return min;
         return Math.min(max, Math.max(min, value));
     }
 
-    function clampPosition(left, top) {
-        const width = winEl ? winEl.offsetWidth : 326;
-        const height = winEl ? winEl.offsetHeight : 260;
-        const margin = 8;
-        const maxLeft = Math.max(margin, window.innerWidth - width - margin);
-        const maxTop = Math.max(margin, window.innerHeight - height - margin);
-        return {
-            left: clamp(left, margin, maxLeft),
-            top: clamp(top, margin, maxTop)
-        };
-    }
-
-    function applyPosition(left, top) {
-        const position = clampPosition(left, top);
-        if (!winEl) return position;
-        winEl.style.left = `${Math.round(position.left)}px`;
-        winEl.style.top = `${Math.round(position.top)}px`;
-        return position;
-    }
-
-    function defaultPosition() {
-        const width = winEl ? winEl.offsetWidth : 326;
-        const height = winEl ? winEl.offsetHeight : 260;
-        return clampPosition(
-            window.innerWidth - width - 16,
-            window.innerHeight - height - 16
-        );
-    }
-
-    function restorePosition() {
-        if (!winEl) return;
-        let saved = null;
-        try {
-            const raw = localStorage.getItem(PREF_POSITION_KEY);
-            saved = raw ? JSON.parse(raw) : null;
-        } catch (_) {
-            saved = null;
-        }
-
-        if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
-            applyPosition(saved.left, saved.top);
-        } else {
-            const position = defaultPosition();
-            applyPosition(position.left, position.top);
-        }
-    }
-
-    function savePosition() {
-        if (!winEl) return;
-        const position = {
-            left: Math.round(parseFloat(winEl.style.left) || 0),
-            top: Math.round(parseFloat(winEl.style.top) || 0)
-        };
-        try {
-            localStorage.setItem(PREF_POSITION_KEY, JSON.stringify(position));
-        } catch (_) {
-            /* ignore storage errors */
-        }
-    }
-
-    function clampWindowPosition() {
-        if (!winEl || winEl.hidden) return;
-        const left = parseFloat(winEl.style.left);
-        const top = parseFloat(winEl.style.top);
-        const position = applyPosition(
-            Number.isFinite(left) ? left : defaultPosition().left,
-            Number.isFinite(top) ? top : defaultPosition().top
-        );
-        winEl.style.left = `${Math.round(position.left)}px`;
-        winEl.style.top = `${Math.round(position.top)}px`;
-    }
-
     /* ------------------------------------------------------------------
-     * Minimized dock placement + dragging
-     * (docks to the lower-right corner by default, position remembered)
+     * Window + dock dragging
+     * The pointer physics (capture, clamping, persistence) live in the shared
+     * draggable.js module; this file only supplies the storage keys, corner
+     * offsets and the dock's tap-vs-drag threshold. The controllers are
+     * created in initFloatingWindow(), once the elements exist.
      * ------------------------------------------------------------------ */
-    function clampMiniPosition(left, top) {
-        const width = miniEl ? miniEl.offsetWidth : 250;
-        const height = miniEl ? miniEl.offsetHeight : 38;
-        const margin = 8;
-        const maxLeft = Math.max(margin, window.innerWidth - width - margin);
-        const maxTop = Math.max(margin, window.innerHeight - height - margin);
-        return {
-            left: clamp(left, margin, maxLeft),
-            top: clamp(top, margin, maxTop)
-        };
-    }
+    let winDrag = null;
+    let miniDrag = null;
 
-    function applyMiniPosition(left, top) {
-        const position = clampMiniPosition(left, top);
-        if (!miniEl) return position;
-        /* Once moved, the dock is positioned from the top-left instead of
-           being pinned by the corner offsets. */
-        miniEl.style.right = 'auto';
-        miniEl.style.bottom = 'auto';
-        miniEl.style.left = `${Math.round(position.left)}px`;
-        miniEl.style.top = `${Math.round(position.top)}px`;
-        return position;
-    }
+    function createDragControllers() {
+        const api = window.RetroDrag;
+        if (!api) return;
 
-    function defaultMiniPosition() {
-        const width = miniEl ? miniEl.offsetWidth : 250;
-        const height = miniEl ? miniEl.offsetHeight : 38;
-        return clampMiniPosition(
-            window.innerWidth - width - 14,
-            window.innerHeight - height - 14
-        );
-    }
-
-    function restoreMiniPosition() {
-        if (!miniEl) return;
-        let saved = null;
-        try {
-            const raw = localStorage.getItem(PREF_DOCK_KEY);
-            saved = raw ? JSON.parse(raw) : null;
-        } catch (_) {
-            saved = null;
+        if (winEl && !winDrag) {
+            winDrag = api.makeDraggable(winEl, winEl.querySelector('#retro-titlebar'), {
+                storageKey: PREF_POSITION_KEY,
+                offset: 16,
+                threshold: 0,           /* title bar: drag starts on pointer-down */
+                ignoreButtons: true,    /* the min/max buttons keep their clicks */
+                fallbackSize: { width: 326, height: 260 }
+            });
         }
 
-        if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
-            applyMiniPosition(saved.left, saved.top);
-        } else {
-            const position = defaultMiniPosition();
-            applyMiniPosition(position.left, position.top);
+        if (miniEl && !miniDrag) {
+            miniDrag = api.makeDraggable(miniEl, miniEl, {
+                storageKey: PREF_DOCK_KEY,
+                offset: 14,
+                threshold: 6,           /* a small movement stays a tap */
+                cornerPinned: true,     /* docked with right/bottom by default */
+                fallbackSize: { width: 250, height: 38 },
+                dblclickReset: true     /* double-click snaps it back home */
+            });
         }
-    }
-
-    function saveMiniPosition() {
-        if (!miniEl) return;
-        const position = {
-            left: Math.round(parseFloat(miniEl.style.left) || 0),
-            top: Math.round(parseFloat(miniEl.style.top) || 0)
-        };
-        try {
-            localStorage.setItem(PREF_DOCK_KEY, JSON.stringify(position));
-        } catch (_) {
-            /* ignore storage errors */
-        }
-    }
-
-    function resetMiniPosition() {
-        try {
-            localStorage.removeItem(PREF_DOCK_KEY);
-        } catch (_) {
-            /* ignore storage errors */
-        }
-        const position = defaultMiniPosition();
-        applyMiniPosition(position.left, position.top);
-    }
-
-    function clampMiniPositionNow() {
-        if (!miniEl || miniEl.hidden) return;
-        const left = parseFloat(miniEl.style.left);
-        const top = parseFloat(miniEl.style.top);
-        applyMiniPosition(
-            Number.isFinite(left) ? left : defaultMiniPosition().left,
-            Number.isFinite(top) ? top : defaultMiniPosition().top
-        );
-    }
-
-    function makeMiniDraggable() {
-        if (!miniEl) return;
-        let drag = null;
-        let moved = false;
-        let moveRaf = 0;
-        let pending = null;
-
-        miniEl.addEventListener('pointerdown', (event) => {
-            miniDragged = false;
-            moved = false;
-            pending = null;
-            drag = null;
-            if (event.button !== 0) return;
-            const rect = miniEl.getBoundingClientRect();
-            drag = {
-                pointerId: event.pointerId,
-                startX: event.clientX,
-                startY: event.clientY,
-                offsetX: event.clientX - rect.left,
-                offsetY: event.clientY - rect.top,
-                width: miniEl.offsetWidth,
-                height: miniEl.offsetHeight
-            };
-        });
-
-        miniEl.addEventListener('pointermove', (event) => {
-            if (!drag || event.pointerId !== drag.pointerId) return;
-
-            if (!moved) {
-                const dx = event.clientX - drag.startX;
-                const dy = event.clientY - drag.startY;
-                /* Small movements are still taps (open the player). */
-                if (Math.abs(dx) + Math.abs(dy) < 6) return;
-                moved = true;
-                miniDragged = true;
-                miniEl.classList.add('is-dragging');
-                try {
-                    miniEl.setPointerCapture(event.pointerId);
-                } catch (_) {
-                    /* capture is best-effort */
-                }
-            }
-
-            const margin = 8;
-            const maxLeft = Math.max(margin, window.innerWidth - drag.width - margin);
-            const maxTop = Math.max(margin, window.innerHeight - drag.height - margin);
-            pending = {
-                left: clamp(event.clientX - drag.offsetX, margin, maxLeft),
-                top: clamp(event.clientY - drag.offsetY, margin, maxTop)
-            };
-
-            if (!moveRaf) {
-                moveRaf = requestAnimationFrame(() => {
-                    moveRaf = 0;
-                    if (!pending || !miniEl) return;
-                    miniEl.style.right = 'auto';
-                    miniEl.style.bottom = 'auto';
-                    miniEl.style.left = `${Math.round(pending.left)}px`;
-                    miniEl.style.top = `${Math.round(pending.top)}px`;
-                });
-            }
-
-            event.preventDefault();
-        });
-
-        function endMiniDrag(event) {
-            if (!drag || (event && event.pointerId !== drag.pointerId)) return;
-            if (moveRaf) {
-                cancelAnimationFrame(moveRaf);
-                moveRaf = 0;
-            }
-            if (moved && pending && miniEl) {
-                miniEl.style.right = 'auto';
-                miniEl.style.bottom = 'auto';
-                miniEl.style.left = `${Math.round(pending.left)}px`;
-                miniEl.style.top = `${Math.round(pending.top)}px`;
-                saveMiniPosition();
-            }
-            drag = null;
-            pending = null;
-            if (miniEl) miniEl.classList.remove('is-dragging');
-        }
-
-        miniEl.addEventListener('pointerup', endMiniDrag);
-        miniEl.addEventListener('pointercancel', endMiniDrag);
-        miniEl.addEventListener('lostpointercapture', endMiniDrag);
-
-        /* Double-click snaps it back to the lower-right corner. */
-        miniEl.addEventListener('dblclick', () => {
-            if (miniDragged) return;
-            resetMiniPosition();
-        });
-    }
-
-    function makeDraggable(handle) {
-        let drag = null;
-        let moveRaf = 0;
-        let pending = null;
-
-        handle.addEventListener('pointerdown', (event) => {
-            if (event.button !== 0 || event.target.closest('button')) return;
-            const rect = winEl.getBoundingClientRect();
-            drag = {
-                pointerId: event.pointerId,
-                offsetX: event.clientX - rect.left,
-                offsetY: event.clientY - rect.top,
-                width: winEl.offsetWidth,
-                height: winEl.offsetHeight
-            };
-            handle.setPointerCapture(event.pointerId);
-            winEl.classList.add('is-dragging');
-            event.preventDefault();
-        });
-
-        handle.addEventListener('pointermove', (event) => {
-            if (!drag || event.pointerId !== drag.pointerId) return;
-            const margin = 8;
-            const maxLeft = Math.max(margin, window.innerWidth - drag.width - margin);
-            const maxTop = Math.max(margin, window.innerHeight - drag.height - margin);
-            pending = {
-                left: clamp(event.clientX - drag.offsetX, margin, maxLeft),
-                top: clamp(event.clientY - drag.offsetY, margin, maxTop)
-            };
-
-            if (!moveRaf) {
-                moveRaf = requestAnimationFrame(() => {
-                    moveRaf = 0;
-                    if (!pending || !winEl) return;
-                    winEl.style.left = `${Math.round(pending.left)}px`;
-                    winEl.style.top = `${Math.round(pending.top)}px`;
-                });
-            }
-        });
-
-        function endDrag(event) {
-            if (!drag || (event && event.pointerId !== drag.pointerId)) return;
-            if (moveRaf) {
-                cancelAnimationFrame(moveRaf);
-                moveRaf = 0;
-            }
-            if (pending && winEl) {
-                winEl.style.left = `${Math.round(pending.left)}px`;
-                winEl.style.top = `${Math.round(pending.top)}px`;
-            }
-            drag = null;
-            pending = null;
-            winEl.classList.remove('is-dragging');
-            savePosition();
-        }
-
-        handle.addEventListener('pointerup', endDrag);
-        handle.addEventListener('pointercancel', endDrag);
-        handle.addEventListener('lostpointercapture', endDrag);
     }
 
     /* ------------------------------------------------------------------
@@ -987,8 +702,8 @@
         if (miniEl) miniEl.hidden = isWindowVisible;
 
         if (isWindowVisible) {
-            restorePosition();
-            requestAnimationFrame(clampWindowPosition);
+            if (winDrag) winDrag.restore();
+            requestAnimationFrame(() => { if (winDrag) winDrag.clamp(); });
         }
     }
 
@@ -1090,8 +805,7 @@
         miniPlayBtn = miniEl.querySelector('#retro-mini-play');
         miniTrackEl = miniEl.querySelector('#retro-mini-track');
 
-        makeDraggable(winEl.querySelector('#retro-titlebar'));
-        makeMiniDraggable();
+        createDragControllers();
 
         playPauseBtn.addEventListener('click', togglePlayPause);
         prevBtn.addEventListener('click', previousTrack);
@@ -1102,11 +816,11 @@
         closeBtn.addEventListener('click', () => setWindowVisible(false));
         minimizeBtn.addEventListener('click', () => setWindowVisible(false));
         miniOpenBtn.addEventListener('click', () => {
-            if (miniDragged) return;
+            if (miniDrag && miniDrag.wasDragged()) return;
             setWindowVisible(true);
         });
         miniPlayBtn.addEventListener('click', () => {
-            if (miniDragged) return;
+            if (miniDrag && miniDrag.wasDragged()) return;
             togglePlayPause();
         });
 
@@ -1146,16 +860,16 @@
         });
 
         window.addEventListener('resize', () => {
-            clampWindowPosition();
-            clampMiniPositionNow();
+            if (winDrag) winDrag.clamp();
+            if (miniDrag) miniDrag.clamp();
         }, { passive: true });
 
         /* Always boot minimized: the dock in the lower-right corner is the
            way in, and the set positions are restored when they are shown. */
-        restorePosition();
+        if (winDrag) winDrag.restore();
         setWindowVisible(false);
         updateTrackUI();
-        restoreMiniPosition();
+        if (miniDrag) miniDrag.restore();
     }
 
     /* Browsers only allow audible autoplay after a user gesture, so try on

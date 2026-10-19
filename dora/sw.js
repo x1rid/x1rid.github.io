@@ -1,12 +1,14 @@
 /* Simple offline cache for Dora's app shell. */
 
-const CACHE_NAME = 'dora-app-v1';
+const CACHE_NAME = 'dora-app-v2';
 
 const APP_SHELL = [
+  './',
+  './index.html',
   './app.html',
+  './manifest.json',
   './app-manifest.json',
-  './dora.webp',
-  './'
+  './dora.webp'
 ];
 
 self.addEventListener('install', (event) => {

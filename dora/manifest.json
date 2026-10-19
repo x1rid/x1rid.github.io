@@ -8,9 +8,9 @@
   "theme_color": "#fb7185",
   "icons": [
     {
-      "src": "../assets/windows-xp/logo.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "./dora.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
       "purpose": "any"
     }
   ]

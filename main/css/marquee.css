@@ -1,0 +1,42 @@
+
+/* ============================================================
+ *  MARQUEE
+ * ============================================================ */
+.marquee-top {
+    display: block;
+    height: 32px;
+    margin: 0 0 14px;
+    padding: 0 12px;
+    overflow: hidden;
+    box-sizing: border-box;
+    background: #8a00ff;
+    border: 2px outset #bb70ff;
+    color: #fff7ff;
+    line-height: 28px;
+    white-space: nowrap;
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+}
+
+/* Two identical copies — JS measures one copy and sets --marquee-width */
+.marquee-track {
+    display: inline-flex;   /* shrink-wraps to content */
+    white-space: nowrap;
+    will-change: transform;
+    animation: retro-marquee 42s linear infinite;
+}
+
+.marquee-copy {
+    display: inline-block;
+    padding-right: 48px;   /* gap between the two copies */
+    flex-shrink: 0;
+}
+
+/* Animation distance = exactly one copy's rendered width (set by JS) */
+@keyframes retro-marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(calc(-1 * var(--marquee-width))); }
+}

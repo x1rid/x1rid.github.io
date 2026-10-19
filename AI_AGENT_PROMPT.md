@@ -12,14 +12,19 @@ There is **no React, no bundler, no build step** and none should be introduced.
 
 ## Layout
 
-- `main/index.html` — main page shell; inline CSS for theme/layout; pane markup.
-- `main/*.css` — `terminal.css` (terminal/neofetch/webpage pane), `music.css`
-  (music widget/player), `mobile.css` (≤760px).
-- `main/*.js` — `mobile.js`, `link-exchange.js`, `splitter.js`, `music.js`,
-  `terminal.js`, `custom-cursor.js` (all defer, plain scripts).
+- `main/index.html` — main page shell; markup + stylesheet/script tags only.
+- `main/css/*.css` — page theme/layout modules in cascade order: `variables`,
+  `base`, `marquee`, `layout`, `links`, `components`, `responsive` (keep
+  `responsive` last). Feature sheets: `terminal.css` (terminal/neofetch/webpage
+  pane), `music.css` (music widget/player), `mobile.css` (≤760px).
+- `main/*.js` — `draggable.js` (shared window/dock drag physics), `mobile.js`,
+  `link-exchange.js`, `splitter.js`, `music.js`, `terminal.js`,
+  `custom-cursor.js` (all defer, plain classic scripts).
+- `main/data/` — `links.json` (link tiles) and `vfs.json` (terminal filesystem).
 - `main/assets/` — cursor gifs. `main/socials/` — profile/social icons.
 - `main/playlist/` — music tracks + `playlist.json` (committed manifest).
 - `serve.py` — dev server; `python serve.py [port]` (default 5500).
+- `verify.py` — static checks; `python verify.py` (must print `VERIFY OK`).
 
 ## Hard rules
 
@@ -29,11 +34,20 @@ There is **no React, no bundler, no build step** and none should be introduced.
 3. **Performance matters**: lazy-loaded images, animations only on
    hover/interaction, cached fragments, capped canvas DPR.
 4. Validate JS with `node --check main/<file>.js` after every edit.
-5. After behavioural changes, verify with `serve.py` + a browser (no console
+5. Run `python verify.py` before committing — it parses every JSON, checks that
+   every referenced asset exists (HTML/CSS/manifests/links/playlist) and
+   `node --check`s every script. It must print `VERIFY OK`.
+6. After behavioural changes, verify with `serve.py` + a browser (no console
    errors, no 4xx on load).
 
 ## Project-specific gotchas
 
+- `main/css/` must be loaded in order and `responsive.css` must stay last, or
+  the media-query overrides stop winning.
+- `main/data/links.json` and `main/data/vfs.json` are optional data files:
+  `link-exchange.js` and `terminal.js` keep inline fallbacks so the pages still
+  work from `file://` and offline. Never make the fallback path depend on the
+  fetch.
 - `main/socials/*.gif` are animated only on tile hover (`link-exchange.js`
   swaps `src` webp⇄gif); the GIF is fetched on first hover — keep it that way.
 - The custom cursor should never hide the native cursor unless its own GIF
@@ -51,9 +65,10 @@ There is **no React, no bundler, no build step** and none should be introduced.
   (`#retro-music-mini`); tapping the dock restores the player window. Audible
   autoplay needs a gesture, so keep the `armAutoplayUnlock()` retry in sync
   when touching playback controls.
-- The minimized dock is draggable and remembers its position
-  (`retroMusicDockPosition`); a small pointer movement must stay a tap
-  (`miniDragged` guard), and double-click resets it to the lower-right corner.
+- The player window and the minimized dock share `main/draggable.js`
+  (`window.RetroDrag.makeDraggable`, loaded before `music.js`). The dock uses a
+  6px tap threshold so a small movement stays a tap (`wasDragged()` guards the
+  click) and a double-click resets it to the lower-right corner.
 - Music: GitHub Pages cannot list directories — keep
   `main/playlist/playlist.json` in sync with the track files. The player also
   falls back to a baked-in list when discovery fails.

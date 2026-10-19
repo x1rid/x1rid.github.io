@@ -14,12 +14,27 @@ and no build step.
 - `index.html` (root) — meta-redirect to `./main/index.html`
 - `serve.py` — optional local dev server; adds automatic directory listing for
   `/playlist` and `/main/playlist` so the music player can rescan tracks
+- `verify.py` — zero-dependency static checks. Run `python verify.py` before
+  committing: parses every JSON, proves every referenced asset exists
+  (HTML/CSS/manifests/links/playlist) and `node --check`s every script.
 
 ## `main/index.html`
 
-Single HTML shell containing all pane markup plus an inline `<style>` block with
-the theme (purple/black), layout grid, sidebar, splitter, link-exchange grid,
-marquee, custom-cursor CSS and responsive rules.
+Slim HTML shell (~170 lines) holding the pane markup and the stylesheet/script
+tags. All page CSS lives in the `main/css/` modules, loaded in cascade order:
+
+| File | Contents |
+|------|----------|
+| `variables.css` | `:root` design tokens (colours, sizes) |
+| `base.css` | reset, typography, scrollbars, outer container |
+| `marquee.css` | top marquee |
+| `layout.css` | grid, splitter, sidebar, content area, panes |
+| `links.css` | link-exchange grid, tiles, badges |
+| `components.css` | terminal-mode overrides, footer, hit counter, cursor |
+| `responsive.css` | `@media` blocks — must stay last |
+
+The split preserves the original inline declaration order exactly; keep that
+property if you ever move rules between these files.
 
 Panes:
 
@@ -30,22 +45,27 @@ Panes:
 Grid: `.layout-grid` is `sidebar | 10px splitter | content`, sized by the
 `--sidebar-width` custom property (defaults to the compact 220px).
 
-External stylesheets: `terminal.css`, `music.css`, `mobile.css (<=760px)`.
+External stylesheets: the `css/` modules above, then `terminal.css`,
+`music.css`, `mobile.css (<=760px)`.
 
 ## JavaScript (plain scripts, deferred)
 
 | File | Responsibility |
 |------|----------------|
+| `draggable.js` | shared pointer-drag physics (`window.RetroDrag.makeDraggable`) for the music window + dock: pointer capture, clamping, persisted `{left, top}`, tap-vs-drag threshold, double-click reset |
 | `mobile.js` | mobile header behaviour / chevrons |
-| `link-exchange.js` | renders tiles from a data array; category filtering; animated GIF swap on `pointerenter`/`focusin`, back to `.webp` on leave/blur; error fallback shows initials |
+| `link-exchange.js` | renders tiles from `data/links.json` (inline fallback array); category filtering; animated GIF swap on `pointerenter`/`focusin`, back to `.webp` on leave/blur; error fallback shows initials |
 | `splitter.js` | draggable + keyboard-resizable sidebar; dblclick resets; persists width in `localStorage['retroSidebarWidth']`; default/compact width = 220px |
 | `music.js` | music widget + player (see Music below) |
-| `terminal.js` | the terminal, neofetch, fake VFS, in-page browsing |
+| `terminal.js` | the terminal, neofetch, fake VFS (`data/vfs.json`), in-page browsing |
 | `custom-cursor.js` | custom GIF cursor + particle trail |
 
 ## Terminal (`main/terminal.js`)
 
-- Fake VFS (`const vfs`) mirrors the repository layout so `ls`/`cd` feel real.
+- Fake VFS (`const vfs`) mirrors the repository layout so `ls`/`cd` feel real,
+  and is mirrored in `main/data/vfs.json`. The script swaps the JSON in when the
+  fetch succeeds and keeps the inline tree otherwise (`file://`, offline). The
+  tree is read-only — `rm`/`rmdir`/`cp` only touch localStorage saved files.
 - `#terminal-output` is a flex column with `gap: 6px`. A sibling input line
   remains focused at all times regardless of which pane is visible.
 - Commands: `cls`, `dir`/`ls`, `cd`, `start`/`open`, `echo`, `man`, `rm`,
@@ -71,7 +91,11 @@ External stylesheets: `terminal.css`, `music.css`, `mobile.css (<=760px)`.
 
 ## Link exchange (`main/link-exchange.js`)
 
-- `LINKS`: `{ name, category, url, icon = './socials/*.webp', gif? = './socials/*.gif' }`.
+- `main/data/links.json` holds `{ labels, iconScale, links }`. `link-exchange.js`
+  keeps an identical inline `FALLBACK_*` copy and only re-renders when the JSON
+  differs, so a normal load never flashes.
+- Entry shape: `{ name, category, url, icon = './socials/*.webp', gif? = './socials/*.gif' }`
+  (icon paths are relative to `main/index.html`, not to the JSON file).
 - Tiles swap `img.src` webp⇄gif on hover/focus only; the GIF is fetched on
   first hover so idle tiles cost nothing.
 - Broken images fall back to a two-letter initials span.
@@ -95,17 +119,17 @@ External stylesheets: `terminal.css`, `music.css`, `mobile.css (<=760px)`.
   **minimized**: the only UI is the dock in the lower-right corner
   (`#retro-music-mini`). Clicking/tapping the dock restores the full window;
   the window is put away again with `_` or `×`.
-- The dock is draggable (pointer events with a 6px tap threshold, so a click
-  still restores and a drag never does). Its position persists in
-  `retroMusicDockPosition`, defaults to the lower-right corner, is clamped back
-  into view on resize, and a double-click snaps it home. Its width is fixed so
-  it cannot grow off-screen when the track name changes.
+- The dock and the player window share `main/draggable.js`
+  (`window.RetroDrag.makeDraggable`). The dock uses a 6px tap threshold (a click
+  still restores, a drag never does), is pinned to `right/bottom: 14px` by
+  default, persists in `retroMusicDockPosition`, is clamped back into view on
+  resize, and a double-click snaps it home. Its width is fixed so it cannot grow
+  off-screen when the track name changes.
 - Browser autoplay policies block audible playback until the user interacts
   (`#retro-btn-play`, `.music-toggle`), so an unlock handler retries on the
   first pointer/key gesture and the status shows `PRESS PLAY` until then.
 - Window: draggable, position persisted (`retroMusicWindowPosition`), default
-  lower-right. The minimized dock defaults to `right/bottom: 14px` and keeps
-  whatever position it was dragged to.
+  lower-right.
 - `retroMusicEnabled` is the sound preference. Missing = on (autoplay);
   an explicit `false` (set by "SOUND: OFF") keeps it silent.
 
@@ -113,11 +137,22 @@ External stylesheets: `terminal.css`, `music.css`, `mobile.css (<=760px)`.
 
 - Whole site stays purple/black (#470d69 / #130927 family).
 - No dependencies or frameworks; if you must add one, discuss first.
-- Keep scripts framework-free so `node --check file.js` validates them.
-- Static first: every page should work with a plain static host.
+- Keep scripts framework-free and classic (no ES modules) so they validate with
+  `node --check` and still run from `file://`.
+- Static first: every page should work on a plain static host, and data-backed
+  features must keep working when their JSON is missing or slow.
+- Run `python verify.py` before committing.
 
 ## Known quirks
 
 - Root `index.html` is only a redirect wrapper; all styling lives under `main/`.
 - `public/main/index.html`-style historical copies were removed with the old
   Windows-XP app; don't reintroduce mirrored copies of `main/`.
+- `dora/` ships two deliberately divergent attendance apps: `index.html`
+  (streaks, chips, desktop-height sync) and `app.html` (auth modal, confetti,
+  calendar). Both are kept; `manifest.json` + `app-manifest.json` reference
+  `./dora.webp` (512×512) and `sw.js` precaches both shells.
+- `ls` of a root folder right after `cd main` (or any root folder) prints
+  `(empty)`, because the root children carry bare `{ type: 'dir' }` stubs while
+  the full tree lives under `/main`. `ls /` and deeper paths are complete.
+  Pre-existing behaviour, left as is.

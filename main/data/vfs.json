@@ -1,0 +1,233 @@
+{
+  "/": {
+    "type": "dir",
+    "children": {
+      ".gitignore": {
+        "type": "file"
+      },
+      ".prettierrc": {
+        "type": "file"
+      },
+      "AI_AGENT_PROMPT.md": {
+        "type": "file"
+      },
+      "CODEBASE.md": {
+        "type": "file"
+      },
+      "LICENSE": {
+        "type": "file"
+      },
+      "README.md": {
+        "type": "file"
+      },
+      "REFACTORING_PROPOSAL.md": {
+        "type": "file"
+      },
+      "dora": {
+        "type": "dir"
+      },
+      "l": {
+        "type": "dir"
+      },
+      "main": {
+        "type": "dir"
+      },
+      "index.html": {
+        "type": "file"
+      },
+      "serve.py": {
+        "type": "file"
+      },
+      "verify.py": {
+        "type": "file"
+      }
+    }
+  },
+  "/dora": {
+    "type": "dir",
+    "children": {
+      "anushkaverse.html": {
+        "type": "file"
+      },
+      "app-manifest.json": {
+        "type": "file"
+      },
+      "app.html": {
+        "type": "file"
+      },
+      "doraverse.html": {
+        "type": "file"
+      },
+      "gallery": {
+        "type": "dir"
+      },
+      "index.html": {
+        "type": "file"
+      },
+      "manifest.json": {
+        "type": "file"
+      },
+      "sw.js": {
+        "type": "file"
+      }
+    }
+  },
+  "/l": {
+    "type": "dir",
+    "children": {
+      "index.html": {
+        "type": "file"
+      }
+    }
+  },
+  "/main": {
+    "type": "dir",
+    "children": {
+      "assets": {
+        "type": "dir",
+        "children": {
+          "cursor.gif": {
+            "type": "file"
+          },
+          "cursor-reversed.gif": {
+            "type": "file"
+          }
+        }
+      },
+      "custom-cursor.js": {
+        "type": "file"
+      },
+      "css": {
+        "type": "dir",
+        "children": {
+          "variables.css": {
+            "type": "file"
+          },
+          "base.css": {
+            "type": "file"
+          },
+          "marquee.css": {
+            "type": "file"
+          },
+          "layout.css": {
+            "type": "file"
+          },
+          "links.css": {
+            "type": "file"
+          },
+          "components.css": {
+            "type": "file"
+          },
+          "responsive.css": {
+            "type": "file"
+          }
+        }
+      },
+      "data": {
+        "type": "dir",
+        "children": {
+          "links.json": {
+            "type": "file"
+          },
+          "vfs.json": {
+            "type": "file"
+          }
+        }
+      },
+      "draggable.js": {
+        "type": "file"
+      },
+      "index.html": {
+        "type": "file"
+      },
+      "link-exchange.js": {
+        "type": "file"
+      },
+      "mobile.css": {
+        "type": "file"
+      },
+      "mobile.js": {
+        "type": "file"
+      },
+      "music.css": {
+        "type": "file"
+      },
+      "music.js": {
+        "type": "file"
+      },
+      "playlist": {
+        "type": "dir"
+      },
+      "socials": {
+        "type": "dir"
+      },
+      "splitter.js": {
+        "type": "file"
+      },
+      "terminal.css": {
+        "type": "file"
+      },
+      "terminal.js": {
+        "type": "file"
+      }
+    }
+  },
+  "/main/playlist": {
+    "type": "dir",
+    "children": {
+      "playlist.json": {
+        "type": "file"
+      },
+      "Basshunter - In Her Eyes": {
+        "type": "file"
+      },
+      "Crystal Castles - Suffocation": {
+        "type": "file"
+      },
+      "Pretty Scene Girl": {
+        "type": "file"
+      },
+      "The Cure - Friday Im In Love": {
+        "type": "file"
+      }
+    }
+  },
+  "/main/socials": {
+    "type": "dir",
+    "children": {
+      "pfp.webp": {
+        "type": "file"
+      },
+      "xbox.svg": {
+        "type": "file"
+      },
+      "github": {
+        "type": "dir"
+      },
+      "reddit": {
+        "type": "dir"
+      },
+      "discord": {
+        "type": "dir"
+      },
+      "insta": {
+        "type": "dir"
+      },
+      "snapchat": {
+        "type": "dir"
+      },
+      "tiktok": {
+        "type": "dir"
+      },
+      "x": {
+        "type": "dir"
+      },
+      "linkedin": {
+        "type": "dir"
+      },
+      "steam": {
+        "type": "dir"
+      }
+    }
+  }
+}

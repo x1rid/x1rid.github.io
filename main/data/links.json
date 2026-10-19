@@ -1,0 +1,39 @@
+{
+  "labels": {
+    "all": "All links",
+    "social": "Social links",
+    "gaming": "Gaming links",
+    "ai-tech": "AI and tech links"
+  },
+  "iconScale": {
+    "Steam": "icon--wide",
+    "Riot Games": "icon--small",
+    "Epic Games": "icon--small",
+    "EA": "icon--small",
+    "GOG": "icon--small"
+  },
+  "links": [
+    { "name": "GitHub", "category": "social", "url": "https://github.com/r3d1bruh", "icon": "./socials/github.webp", "gif": "./socials/github.gif" },
+    { "name": "Reddit", "category": "social", "url": "https://reddit.com/user/r3d1bruh", "icon": "./socials/reddit.webp", "gif": "./socials/reddit.gif" },
+    { "name": "Discord", "category": "social", "url": "#", "icon": "./socials/discord.webp", "gif": "./socials/discord.gif" },
+    { "name": "Instagram", "category": "social", "url": "https://instagram.com/r3d1bruh", "icon": "./socials/insta.webp", "gif": "./socials/insta.gif" },
+    { "name": "Snapchat", "category": "social", "url": "https://snapchat.com/add/r3d1bruh", "icon": "./socials/snapchat.webp", "gif": "./socials/snapchat.gif" },
+    { "name": "TikTok", "category": "social", "url": "https://tiktok.com/@r3d1bruh", "icon": "./socials/tiktok.webp", "gif": "./socials/tiktok.gif" },
+    { "name": "X", "category": "social", "url": "https://twitter.com/r3d1bruh", "icon": "./socials/x.webp", "gif": "./socials/x.gif" },
+    { "name": "LinkedIn", "category": "social", "url": "https://linkedin.com/in/r3d1bruh", "icon": "./socials/linkedin.webp", "gif": "./socials/linkedin.gif" },
+    { "name": "Telegram", "category": "social", "url": "https://telegram.org", "icon": "https://cdn.simpleicons.org/telegram/26A5E4" },
+    { "name": "WhatsApp", "category": "social", "url": "https://www.whatsapp.com", "icon": "https://cdn.simpleicons.org/whatsapp/25D366" },
+    { "name": "Facebook", "category": "social", "url": "https://www.facebook.com", "icon": "https://cdn.simpleicons.org/facebook/1877F2" },
+
+    { "name": "Steam", "category": "gaming", "url": "https://steamcommunity.com/id/r3d1bruh", "icon": "./socials/steam.webp", "gif": "./socials/steam.gif" },
+    { "name": "Xbox", "category": "gaming", "url": "https://www.xbox.com", "icon": "./socials/xbox.svg" },
+    { "name": "Riot Games", "category": "gaming", "url": "https://www.riotgames.com", "icon": "https://cdn.simpleicons.org/riotgames/D32936" },
+    { "name": "Epic Games", "category": "gaming", "url": "https://store.epicgames.com", "icon": "https://cdn.simpleicons.org/epicgames/FFFFFF" },
+    { "name": "itch.io", "category": "gaming", "url": "https://itch.io", "icon": "https://cdn.simpleicons.org/itchdotio/FA5C5C" },
+    { "name": "Ubisoft Connect", "category": "gaming", "url": "https://ubisoftconnect.com", "icon": "https://cdn.simpleicons.org/ubisoft/FFFFFF" },
+    { "name": "EA", "category": "gaming", "url": "https://www.ea.com", "icon": "https://cdn.simpleicons.org/ea/FFFFFF" },
+    { "name": "GOG", "category": "gaming", "url": "https://www.gog.com", "icon": "https://cdn.simpleicons.org/gogdotcom/86328A" },
+
+    { "name": "Hugging Face", "category": "ai-tech", "url": "https://huggingface.co", "icon": "https://cdn.simpleicons.org/huggingface/FFD21E" }
+  ]
+}
