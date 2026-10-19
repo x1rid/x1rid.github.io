@@ -152,7 +152,6 @@ External stylesheets: the `css/` modules above, then `terminal.css`,
   (streaks, chips, desktop-height sync) and `app.html` (auth modal, confetti,
   calendar). Both are kept; `manifest.json` + `app-manifest.json` reference
   `./dora.webp` (512×512) and `sw.js` precaches both shells.
-- `ls` of a root folder right after `cd main` (or any root folder) prints
-  `(empty)`, because the root children carry bare `{ type: 'dir' }` stubs while
-  the full tree lives under `/main`. `ls /` and deeper paths are complete.
-  Pre-existing behaviour, left as is.
+- `getNode` must keep preferring the absolute `vfs` entry over the root child
+  stubs: root children are bare `{ type: 'dir' }` placeholders used only for
+  listing, so walking into them first made `cd main` + `ls` print `(empty)`.

@@ -106,14 +106,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (let i = 0; i < segments.length; i++) {
                     const seg = segments[i];
                     if (!node) return null;
-                    if (node.children && Object.prototype.hasOwnProperty.call(node.children, seg)) {
-                        node = node.children[seg];
-                        continue;
-                    }
-                    // fallback: check absolute key in vfs map
+                    // Prefer the authoritative absolute entry: root children are
+                    // bare { type: 'dir' } stubs used only for listing, so walking
+                    // into them first would lose the real subtree (and make
+                    // `cd main` + `ls` print "(empty)").
                     const abs = '/' + segments.slice(0, i + 1).join('/');
                     if (vfs[abs]) {
                         node = vfs[abs];
+                        continue;
+                    }
+                    if (node.children && Object.prototype.hasOwnProperty.call(node.children, seg)) {
+                        node = node.children[seg];
                         continue;
                     }
                     return null;

@@ -355,8 +355,11 @@
 
         function step(now) {
             if (token !== fadeToken || !audio) return;
-            const progress = Math.min(1, (now - startTime) / durationMs);
-            audio.volume = startVolume + (targetVolume - startVolume) * progress;
+            // A rAF timestamp can land a hair before the performance.now() used
+            // to schedule it, which would make progress (and the interpolated
+            // volume) negative -> HTMLMediaElement throws IndexSizeError.
+            const progress = Math.min(1, Math.max(0, (now - startTime) / durationMs));
+            audio.volume = Math.min(1, Math.max(0, startVolume + (targetVolume - startVolume) * progress));
 
             if (progress < 1) {
                 fadeId = requestAnimationFrame(step);
