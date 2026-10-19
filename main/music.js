@@ -448,6 +448,18 @@
                 else item.removeAttribute('aria-current');
             });
         }
+
+        /* The footer badge and the tab title tell the same truth as the
+           player: nothing claims to be playing when it is not. */
+        const footerPanel = document.querySelector('.music-panel');
+        if (footerPanel) {
+            footerPanel.classList.toggle('is-on', isEnabled);
+            footerPanel.classList.toggle('is-playing', isPlaying);
+        }
+
+        document.title = track && isPlaying
+            ? `r3d1bruh — ♫ ${track.name}`
+            : 'r3d1bruh';
     }
 
     function updateProgress() {
@@ -460,6 +472,12 @@
         }
         if (timeEl) timeEl.textContent = formatTime(current);
         if (durationEl) durationEl.textContent = formatTime(duration);
+
+        /* 2px progress spine on the minimized dock — real position only. */
+        if (miniEl) {
+            const ratio = duration > 0 ? Math.min(1, current / duration) : 0;
+            miniEl.style.setProperty('--rp-progress', String(ratio));
+        }
     }
 
     function formatTime(seconds) {
@@ -776,13 +794,14 @@
         miniEl.className = 'rp-mini';
         miniEl.hidden = true;
         miniEl.innerHTML = `
-            <button class="rp-mini-main" id="retro-mini-open" type="button" aria-label="Open music player" title="Restore RETRO.AUDIO">
+            <button class="rp-mini-main" id="retro-mini-open" type="button" title="Restore RETRO.AUDIO">
                 <span class="rp-mini-led" aria-hidden="true"></span>
                 <span class="rp-mini-text">
                     <span class="rp-mini-title">RETRO.AUDIO</span>
                     <span class="rp-mini-track" id="retro-mini-track">DISCOVERING TRACKS...</span>
                 </span>
                 <span class="rp-mini-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                <span class="visually-hidden"> — open music player</span>
             </button>
             <button class="rp-mini-btn" id="retro-mini-play" type="button" aria-label="Play">▶</button>
         `;

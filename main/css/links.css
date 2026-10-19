@@ -22,27 +22,30 @@
     width: 92px;
     min-height: 28px;
     padding: 4px 9px;
-    border: 1px solid var(--border-dark);
+    border: 1px solid var(--line);
     border-radius: 0;
-    background: #100721;
-    color: #bba4d9;
+    background: var(--surface-2);
+    color: var(--ink-70);
     cursor: pointer;
-    font: 700 0.76rem 'Courier New', monospace;
+    font: 700 var(--text-xs) 'Courier New', monospace;
+    letter-spacing: 0.04em;
     text-align: center;
-    transition: color 120ms, border-color 120ms, box-shadow 120ms;
+    transition: color var(--motion-fast), border-color var(--motion-fast),
+                background-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 
 .link-exchange-category:hover,
-.link-exchange-category:focus-visible,
-.link-exchange-category.active {
-    border-color: #55ff99;
-    color: #55ff99;
-    outline: 1px dotted #55ff99;
-    outline-offset: 2px;
+.link-exchange-category:focus-visible {
+    border-color: var(--signal-active);
+    color: var(--signal-active);
+    background: rgba(192, 132, 252, 0.08);
 }
 
 .link-exchange-category.active {
-    box-shadow: 0 0 7px rgba(85, 255, 153, 0.24);
+    border-color: var(--signal-active);
+    color: var(--signal-active);
+    background: rgba(192, 132, 252, 0.1);
+    box-shadow: 0 0 7px rgba(192, 132, 252, 0.24);
 }
 
 /* ── Link grid — full available width ─────────────────── */
@@ -68,23 +71,26 @@
     min-height: 0;
     padding: 10px 8px 6px;
     box-sizing: border-box;
-    border: 1px solid var(--border-dark);
+    border: 1px solid var(--line);
     border-radius: 0;
-    background: #100721;
+    background: var(--surface-2);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        0 1px 0 rgba(0, 0, 0, 0.4);
     text-decoration: none;
     overflow: visible;
-    transition: border-color 140ms ease,
-                box-shadow  140ms ease,
-                transform   140ms ease;
+    transition: border-color var(--motion-fast) ease,
+                box-shadow  var(--motion-fast) ease,
+                transform   var(--motion-fast) ease;
 }
 
 .social-tile:hover,
 .social-tile:focus-visible,
 .social-tile:focus-within {
-    border-color: #55ff99;
-    outline: 1px dotted #55ff99;
-    outline-offset: 2px;
-    box-shadow: 0 0 10px rgba(85, 255, 153, 0.22);
+    border-color: var(--signal-active);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 0 10px rgba(192, 132, 252, 0.22);
     transform: translateY(-1px);
 }
 
@@ -102,7 +108,7 @@
 .social-tile:hover .badge-label,
 .social-tile:focus-visible .badge-label,
 .social-tile:focus-within .badge-label {
-    color: #55ff99;
+    color: var(--signal-active);
 }
 
 /* ── Icon frame — normalized, square, image contained ─── */
@@ -113,7 +119,7 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background: #100721;
+    background: var(--surface-2);
     position: relative;
 }
 
@@ -135,7 +141,7 @@
 
 /* Fallback text when image fails to load */
 .icon-fallback {
-    color: #cdb0ff;
+    color: var(--ink-70);
     font-size: 1.25rem;
     font-weight: 700;
 }
@@ -146,10 +152,55 @@
     min-height: 24px;
     padding: 3px 4px 2px;
     background: transparent;
-    color: #cdb0ff;
-    font-size: 0.64rem;
+    color: var(--ink-70);
+    font-size: var(--text-2xs);
+    letter-spacing: 0.02em;
     line-height: 0.95;
     text-align: center;
     overflow-wrap: anywhere;
-    transition: color 120ms;
+    transition: color var(--motion-fast);
+}
+
+/* ── Empty state ──────────────────────────────────────── */
+/* No shimmer, no spinner: a dead channel. Used when the active
+   category has no entries, and by future data-backed panes. */
+.link-exchange-grid[data-state="empty"]::after {
+    content: 'NO SIGNAL — NO LINKS IN THIS CATEGORY';
+    grid-column: 1 / -1;
+    padding: 28px 12px;
+    border: 1px dashed var(--line);
+    background: var(--surface-2);
+    color: var(--ink-50);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: var(--track-ui);
+    text-align: center;
+    text-transform: uppercase;
+}
+
+/* ── No-JS fallback list ──────────────────────────────── */
+/* Rendered only inside <noscript> when the tile grid cannot run. */
+.link-plain {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px 14px;
+    margin: 0;
+    padding: 4px 2px;
+    list-style: none;
+}
+
+.link-plain a {
+    display: block;
+    padding: 6px 9px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--ink-70) !important;
+    font-size: var(--text-xs);
+    text-decoration: none;
+}
+
+.link-plain a:hover,
+.link-plain a:focus-visible {
+    border-color: var(--signal-active);
+    color: var(--signal-active) !important;
 }

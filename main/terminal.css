@@ -79,7 +79,7 @@
 
 .terminal-prompt {
     display: inline-block;
-    color: #c084fc;
+    color: var(--signal-active);
     font: inherit;
     font-weight: 600;
     white-space: pre;
@@ -94,7 +94,7 @@
 }
 
 .terminal-muted {
-    color: #8b72b8;
+    color: var(--ink-50);
 }
 
 .terminal-input {
@@ -106,7 +106,7 @@
     color: #f2eaff;
     font: inherit;
     line-height: inherit;
-    caret-color: #ff4fd8;
+    caret-color: var(--signal-hot);
 }
 
 .terminal ::selection,
@@ -161,7 +161,7 @@
 .neofetch-logo {
     margin: 0;
     white-space: pre;
-    color: #c084fc;
+    color: var(--signal-active);
     font: inherit;
     line-height: 1.02;
 }
@@ -173,13 +173,13 @@
 
 .neofetch-title {
     margin-bottom: 4px;
-    color: #ff4fd8;
+    color: var(--signal-hot);
     font-weight: 700;
 }
 
 .neofetch-divider {
     margin-bottom: 6px;
-    color: #6f3a93;
+    color: var(--line-hi);
 }
 
 .neofetch-row {
@@ -191,7 +191,7 @@
 
 .neofetch-label {
     flex: 0 0 92px;
-    color: #c084fc;
+    color: var(--signal-active);
 }
 
 .neofetch-value {
@@ -223,7 +223,18 @@
     border-bottom:1px solid rgba(255,255,255,0.03);
     background: rgba(0,0,0,0.12);
 }
-.webpage-toolbar button { background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--dr-text); padding:6px 8px; border-radius:4px; cursor:pointer }
+.webpage-toolbar button {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--dr-text);
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.webpage-toolbar button:hover {
+    border-color: var(--signal-active);
+    color: var(--signal-active);
+}
 .webpage-pane { display:flex; flex-direction:column; position:relative; width:100%; box-sizing:border-box; padding:0; margin:0; height:auto; min-height:0; }
 .webpage-toolbar { position:relative; height:48px; flex:0 0 48px; display:flex; align-items:center; z-index:2; }
 .webpage-container { position:relative; flex:0 0 auto; height:auto; min-height:0; }
@@ -253,8 +264,8 @@
     height: 52px;
     border-radius: 50%;
     border: 4px solid rgba(192, 132, 252, 0.18);
-    border-top-color: #c084fc;
-    border-right-color: #ff4fd8;
+    border-top-color: var(--signal-active);
+    border-right-color: var(--signal-hot);
     animation: webpageSpin 0.8s linear infinite;
     box-shadow: 0 0 22px rgba(192, 132, 252, 0.28);
 }

@@ -28,6 +28,11 @@
   function setWidth(width, persist) {
     const value = clampWidth(width);
     layout.style.setProperty('--sidebar-width', `${value}px`);
+    /* Focusable separators are window splitters: expose the value. */
+    const bounds = getBounds();
+    splitter.setAttribute('aria-valuenow', String(Math.round(value)));
+    splitter.setAttribute('aria-valuemin', String(Math.round(bounds.minimum)));
+    splitter.setAttribute('aria-valuemax', String(Math.round(bounds.maximum)));
     if (persist) {
       try {
         localStorage.setItem(storageKey, String(Math.round(value)));

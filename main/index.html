@@ -22,6 +22,17 @@
     <link rel="stylesheet" href="./mobile.css" media="(max-width:760px)">
     <link rel="preload" as="image" href="./socials/github.webp">
     <link rel="prefetch" as="fetch" href="./playlist/playlist.json" crossorigin>
+    <noscript>
+        <style>
+            /* JS-only surfaces: never show controls that cannot work. */
+            .link-exchange-categories,
+            .sidebar-nav,
+            .panel-splitter,
+            .status-rail,
+            .music-toggle,
+            .music-link { display: none !important; }
+        </style>
+    </noscript>
 </head>
 <body>
 <div class="geocities-container">
@@ -31,6 +42,14 @@
             <span class="marquee-copy" aria-hidden="false">Which of the favours of your Lord will you deny? — None of Your favours do we deny, our Lord! All praise is due to You. — By time, indeed, mankind is in loss. — For you is your religion, and for me is my religion.</span><!--
          --><span class="marquee-copy" aria-hidden="true">Which of the favours of your Lord will you deny? — None of Your favours do we deny, our Lord! All praise is due to You. — By time, indeed, mankind is in loss. — For you is your religion, and for me is my religion.</span>
         </div>
+    </div>
+
+    <!-- ======= STATUS RAIL (real values only, set by chrome.js) ======= -->
+    <div class="status-rail" aria-hidden="true">
+        <span class="rail-pane">r3d1bruh://link-exchange</span>
+        <span class="status-rail__spacer"></span>
+        <span class="rail-track">--</span>
+        <span class="rail-clock">--:--</span>
     </div>
 
     <!-- ======= MAIN LAYOUT ======= -->
@@ -44,7 +63,7 @@
                 <div class="profile-name" style="font-weight:bold">r3d1bruh</div>
             </div>
             <div class="stats-box">
-                <div class="sidebar-nav" aria-label="page navigation">
+                <div class="sidebar-nav" role="navigation" aria-label="page navigation">
                     <button id="nav-link-exchange" class="active" aria-controls="link-exchange">
                         <span class="nav-prompt" aria-hidden="true">&gt;</span>Link Exchange
                     </button>
@@ -52,16 +71,16 @@
                         <span class="nav-prompt" aria-hidden="true">&gt;</span>Neofetch
                     </button>
                 </div>
-                <div class="sidebar-nav" aria-label="webpage navigation" id="webpages-list">
+                <div class="sidebar-nav" role="navigation" aria-label="webpage navigation" id="webpages-list">
                     <!-- dynamically added webpage buttons appear here -->
                 </div>
             </div>
         </div>
 
-        <div class="panel-splitter" role="separator" aria-label="Resize sidebar" aria-orientation="vertical" tabindex="0"></div>
+        <div class="panel-splitter" role="separator" aria-label="Resize sidebar" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="800" aria-valuenow="220" tabindex="0"></div>
 
         <!-- ======= CONTENT AREA ======= -->
-        <div class="content-area">
+        <main class="content-area">
             <h2 class="section-title" id="main-section-title">LINK EXCHANGE</h2>
 
             <!-- ── LINK EXCHANGE PANE ── -->
@@ -73,6 +92,23 @@
                     <button class="link-exchange-category"        type="button" role="tab" aria-selected="false" data-link-category="ai-tech">AI / TECH</button>
                 </div>
                 <div class="link-exchange-grid" role="tabpanel" aria-live="polite" aria-label="All links"></div>
+                <noscript>
+                    <ul class="link-plain" aria-label="Links">
+                        <li><a href="https://github.com/r3d1bruh">github.com/r3d1bruh</a></li>
+                        <li><a href="https://reddit.com/user/r3d1bruh">reddit.com/user/r3d1bruh</a></li>
+                        <li><a href="https://instagram.com/r3d1bruh">instagram.com/r3d1bruh</a></li>
+                        <li><a href="https://snapchat.com/add/r3d1bruh">snapchat.com/add/r3d1bruh</a></li>
+                        <li><a href="https://tiktok.com/@r3d1bruh">tiktok.com/@r3d1bruh</a></li>
+                        <li><a href="https://twitter.com/r3d1bruh">twitter.com/r3d1bruh</a></li>
+                        <li><a href="https://linkedin.com/in/r3d1bruh">linkedin.com/in/r3d1bruh</a></li>
+                        <li><a href="https://steamcommunity.com/id/r3d1bruh">steamcommunity.com/id/r3d1bruh</a></li>
+                        <li><a href="https://telegram.org">telegram.org</a></li>
+                        <li><a href="https://www.whatsapp.com">whatsapp.com</a></li>
+                        <li><a href="https://www.facebook.com">facebook.com</a></li>
+                        <li><a href="https://itch.io">itch.io</a></li>
+                        <li><a href="https://huggingface.co">huggingface.co</a></li>
+                    </ul>
+                </noscript>
             </div>
 
             <!-- ── NEOFETCH / TERMINAL PANE ── -->
@@ -82,7 +118,7 @@
                         <div id="terminal-output" class="terminal-output"></div>
                         <div class="terminal-line">
                             <span id="terminal-prompt" class="terminal-prompt"></span>
-                            <input id="terminal-input" class="terminal-input" type="text" autocomplete="off" spellcheck="false" />
+                            <input id="terminal-input" class="terminal-input" type="text" autocomplete="off" spellcheck="false" aria-label="Terminal command" />
                         </div>
                     </div>
                 </div>
@@ -108,19 +144,22 @@
                     <iframe id="webpage-iframe" class="webpage-iframe" sandbox="allow-same-origin allow-scripts allow-forms" src="about:blank"></iframe>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <!-- ======= FOOTER ======= -->
     <div class="footer">
-        VISITOR COUNT: <span class="hit-counter" title="Retro decorative counter">001337</span>
+        VISITS FROM THIS MACHINE: <span class="hit-counter" title="Stored locally in this browser">001337</span>
 
         <!-- ── MUSIC WIDGET ── -->
-        <div class="music-panel" aria-label="Background music">
-            <span class="music-label">♪ LOCAL AUDIO</span>
+        <div class="music-panel" role="group" aria-label="Background music">
+            <span class="music-led" aria-hidden="true"></span>
+            <span class="music-label">r3d1bruh.fm</span>
+            <button class="music-link" type="button">
+                <span class="music-now-playing" aria-live="polite">NOW PLAYING: ready</span>
+                <span class="visually-hidden"> — open music player</span>
+            </button>
             <button class="music-toggle" type="button" aria-pressed="false">OFF</button>
-            <button class="music-link" type="button" aria-label="Open music player">OPEN PLAYER</button>
-            <span class="music-now-playing" aria-live="polite">NOW PLAYING: ready</span>
         </div>
 
         <p>&copy; 1998-2024 r3d1bruh &nbsp;·&nbsp; ALL RIGHTS RESERVED &nbsp;·&nbsp; STAY RAD</p>
@@ -135,6 +174,7 @@
 <script src="./draggable.js" defer></script>
 <script src="./music.js" defer></script>
 <script src="./terminal.js" defer></script>
+<script src="./chrome.js" defer></script>
 
 <!-- ── Marquee: measure actual copy width → set CSS var ── -->
 <script>

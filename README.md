@@ -23,6 +23,7 @@ main/               → the retro homepage
     splitter.js     → draggable sidebar divider
     music.js        → music widget + player
     terminal.js     → fake terminal + windows/webpage in-page browsing
+    chrome.js       → status rail, local visit counter, focused-window state
     assets/         → cursor GIFs
     playlist/       → music tracks + playlist.json (manifest)
     socials/        → profile/social icons (.webp static, .gif animated)
@@ -83,6 +84,17 @@ Tiles are defined in `main/data/links.json` — edit it to add or change a link
 (the inline fallback in `link-exchange.js` keeps the page working offline).
 Icons are static `.webp`; animated `.gif` versions are only fetched and played
 while a tile is hovered or focused.
+
+## Interface details
+
+- The status rail above the desktop shows only real state: current pane, actual
+  playback state (`--` / `PAUSED` when idle) and the local time.
+- The visitor counter is local to your browser (`retroVisits` in
+  `localStorage`), not a global statistic.
+- `main/chrome.js` owns both, plus the focused-window border state. It hides
+  the rail on phones and does nothing if its markup is missing.
+- Without JavaScript the page still lists the links and hides controls that
+  cannot work.
 
 ## Development
 

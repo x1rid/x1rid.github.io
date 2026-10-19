@@ -27,6 +27,11 @@
     .link-exchange-category { transition: none; }
     .sidebar-nav button { transition: none; }
     .pane.is-entering { animation: none; }
+    .geocities-container[data-focus] .sidebar,
+    .geocities-container[data-focus] .content-area { transition: none; }
+    .music-panel,
+    .music-toggle,
+    .music-link { transition: none; }
     *, *::before, *::after { scroll-behavior: auto !important; }
 }
 

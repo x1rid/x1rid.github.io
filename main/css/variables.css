@@ -1,3 +1,4 @@
+
 /* ============================================================
  *  CSS CUSTOM PROPERTIES
  * ============================================================ */
@@ -20,4 +21,53 @@
     --dr-muted:  #8b72b8;
 
     --marquee-width: 0px; /* set by JS */
+
+    /* ============================================================
+     *  DESIGN TOKENS
+     *  Everything below is the single source of truth for the
+     *  visual system. Feature CSS must reference these instead of
+     *  hardcoding literals.
+     * ============================================================ */
+
+    /* ---- Type scale ---------------------------------------------
+       Two voices only:
+         UI voice      = uppercase, --track-ui, --text-2xs..--text-sm
+         content voice = sentence case, no artificial tracking, --text-md/--text-lg */
+    --text-2xs: 0.62rem;
+    --text-xs:  0.72rem;
+    --text-sm:  0.82rem;
+    --text-md:  0.95rem;
+    --text-lg:  1.2rem;
+    --track-ui: 0.14em;
+
+    /* ---- Surfaces (elevation ladder) ---------------------------- */
+    --surface-0: #0b061d; /* page                    */
+    --surface-1: #130927; /* sidebar, content area   */
+    --surface-2: #100721; /* tiles, footer panel     */
+    --surface-3: #07020a; /* terminal + player screen */
+    --line:      #4d286b; /* default border          */
+    --line-hi:   #6f3a93; /* emphasised border       */
+
+    /* ---- Ink ---------------------------------------------------- */
+    --ink-90: #f2eaff;
+    --ink-70: #cda6ff;
+    --ink-50: #8b72b8;
+    --ink-30: #5d4783;
+
+    /* ---- Signals (the ONLY colours allowed to glow) -------------
+       ok     = terminal + online/local
+       active = navigation, links, focus
+       hot    = now playing + attention */
+    --signal-ok:     #55ff99;
+    --signal-active: #c084fc;
+    --signal-hot:    #ff4fd8;
+
+    /* ---- Interaction ------------------------------------------- */
+    --focus-ring: var(--signal-active);
+
+    /* ---- Motion budget (see CODEBASE.md) ------------------------
+       Only: pane switch 200ms, tile lift 140ms, caret blink,
+       playing-state LED/visualizer, marquee. */
+    --motion-fast: 140ms;
+    --motion-pane: 200ms;
 }

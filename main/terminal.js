@@ -1554,6 +1554,23 @@ document.addEventListener('DOMContentLoaded', () => {
         setPrompt();
         setTerminalGap(0);
 
+        /* One honest session line, printed immediately — no intro delay,
+           no animation, and it never blocks the prompt. */
+        (() => {
+            const now = new Date();
+            const date = [
+                now.getFullYear(),
+                String(now.getMonth() + 1).padStart(2, '0'),
+                String(now.getDate()).padStart(2, '0'),
+            ].join('-');
+            const time = now.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+            });
+            appendTextLine(`[session ${date} ${time}] local · type help`, 'terminal-muted');
+        })();
+
         // Mobile / touch-friendly behaviors: keep input visible when virtual keyboard appears
         if (terminalInput) {
             terminalInput.addEventListener('focus', () => {

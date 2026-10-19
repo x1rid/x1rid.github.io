@@ -310,3 +310,10 @@ body.mobile-header-collapsed .sidebar {
   visibility: visible !important;
   pointer-events: auto;
 }
+
+/* The status rail is a desktop affordance; phones keep their vertical space. */
+.status-rail { display: none !important; }
+
+/* The mobile header reuses .section-title for its own label, so the
+   desktop-only metadata must not appear next to it. */
+#mobile-link-exchange-title::after { content: none !important; }

@@ -41,12 +41,21 @@
 
 .panel-splitter::after {
     top: 50%;
-    width: 8px;
-    height: 34px;
-    border: 1px solid #55ff99;
-    background: #130927;
-    box-shadow: 0 0 6px rgba(85, 255, 153, 0.35);
+    width: 6px;
+    height: 30px;
+    border: 0;
+    background: repeating-linear-gradient(
+        to bottom,
+        var(--signal-active) 0 2px,
+        transparent 2px 8px
+    );
+    opacity: 0.7;
+    box-shadow: none;
 }
+
+/* Keyboard users get the shared focus ring; it is the only affordance
+   the splitter can show without a pointer. */
+.panel-splitter:hover::after { opacity: 1; }
 
 body.is-splitting,
 body.is-splitting * {
@@ -55,13 +64,55 @@ body.is-splitting * {
 }
 
 /* ============================================================
+ *  SHARED PANEL RECIPE + SIGNATURE CORNER
+ *  One material for every window: surface + 1px line + a hairline
+ *  highlight on top and a hairline shadow below. That is the whole
+ *  depth system; glows are reserved for state (see CODEBASE.md).
+ *  The 7px corner bracket is the site's one repeated detail.
+ * ============================================================ */
+.sidebar,
+.content-area {
+    position: relative;
+    box-sizing: border-box;
+    background: var(--surface-1) !important;
+    border: 1px solid var(--line) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.sidebar::before,
+.content-area::before,
+.sidebar::after,
+.content-area::after {
+    content: '';
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    pointer-events: none;
+    opacity: 0.55;
+}
+
+.sidebar::before,
+.content-area::before {
+    top: 4px;
+    left: 4px;
+    border-top: 1px solid var(--signal-active);
+    border-left: 1px solid var(--signal-active);
+}
+
+.sidebar::after,
+.content-area::after {
+    right: 4px;
+    bottom: 4px;
+    border-right: 1px solid var(--signal-active);
+    border-bottom: 1px solid var(--signal-active);
+}
+
+/* ============================================================
  *  SIDEBAR
  * ============================================================ */
 .sidebar {
-    box-sizing: border-box;
-    background: var(--dr-panel, var(--panel-bg)) !important;
-    border: 1px solid var(--border-light) !important;
-    box-shadow: inset 0 0 14px rgba(138, 0, 255, 0.07);
     padding: 14px;
 }
 
@@ -122,61 +173,79 @@ body.is-splitting * {
     min-height: 32px;
     box-sizing: border-box;
     padding: 6px 9px 6px 24px;
-    border: 1px solid var(--border-dark) !important;
+    border: 1px solid var(--line) !important;
     border-radius: 0;
     background: transparent;
-    color: #bba4d9 !important;
-    font: 700 0.82rem 'Courier New', monospace;
+    color: var(--ink-70) !important;
+    font: 700 var(--text-sm) 'Courier New', monospace;
     text-align: left;
     cursor: pointer;
     width: max-content;
     min-width: 176px;
-    transition: color 120ms, border-color 120ms, box-shadow 120ms;
+    transition: color var(--motion-fast), border-color var(--motion-fast),
+                background-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 
 .nav-prompt {
     position: absolute;
     left: 10px;
-    color: #55ff99;
+    color: var(--signal-active);
     opacity: 0;
 }
 
 .sidebar-nav button.active .nav-prompt { opacity: 1; }
 
+/* Navigation owns lavender. Green is reserved for the terminal and
+   true "online" state, so the two never mean the same thing. */
 .sidebar-nav button:hover,
-.sidebar-nav button:focus-visible,
-.sidebar-nav button.active {
-    color: #55ff99 !important;
-    border-color: #55ff99 !important;
-    outline: 1px dotted #55ff99;
-    outline-offset: 2px;
+.sidebar-nav button:focus-visible {
+    color: var(--signal-active) !important;
+    border-color: var(--signal-active) !important;
+    background: rgba(192, 132, 252, 0.07);
 }
 
 .sidebar-nav button.active {
-    box-shadow: 0 0 7px rgba(85, 255, 153, 0.24) !important;
+    color: var(--signal-active) !important;
+    border-color: var(--signal-active) !important;
+    background: rgba(192, 132, 252, 0.09);
+    box-shadow:
+        inset 2px 0 0 var(--signal-active),
+        0 0 7px rgba(192, 132, 252, 0.24) !important;
 }
 
 /* ============================================================
  *  CONTENT AREA
  * ============================================================ */
 .content-area {
-    box-sizing: border-box;
     min-width: 0;
-    background: var(--dr-panel, var(--panel-bg)) !important;
-    border: 1px solid var(--border-light) !important;
-    box-shadow: inset 0 0 14px rgba(138, 0, 255, 0.07);
     padding: 14px 16px 16px;
 }
 
+/* Header reads like a directory listing: title left, live state right. */
 .section-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
     margin: 0;
     padding: 0 0 7px;
-    color: #ff1493 !important;
-    border-bottom: 1px solid #a020f0;
-    font-size: 1.2rem;
+    color: var(--signal-active) !important;
+    border-bottom: 1px solid var(--line-hi);
+    font-size: var(--text-lg);
     letter-spacing: 0.08em;
-    text-shadow: 0 0 7px rgba(255, 20, 147, 0.28);
-    text-align: center;
+    text-shadow: 0 0 7px rgba(192, 132, 252, 0.22);
+    text-align: left;
+}
+
+.section-title::after {
+    content: attr(data-meta);
+    flex: 0 0 auto;
+    color: var(--ink-50);
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    text-shadow: none;
 }
 
 /* ── Panes ────────────────────────────────────────────── */

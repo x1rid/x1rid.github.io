@@ -40,7 +40,11 @@ Panes:
 
 - `#link-exchange` — link tiles grid + category tabs
 - `#pc-specs` — terminal wrapper (`#terminal`) and webpage pane (`#webpage-pane`)
-- `#main-section-title` — big heading, only shown for the Link Exchange pane
+- `#main-section-title` — big heading, only shown for the Link Exchange pane;
+  its `::after` renders `data-meta` (entry count + active filter) set by
+  `link-exchange.js`
+- `.content-area` is a `<main>` element; the status rail (`.status-rail`) sits
+  between the marquee and `.layout-grid` and is filled by `chrome.js`
 
 Grid: `.layout-grid` is `sidebar | 10px splitter | content`, sized by the
 `--sidebar-width` custom property (defaults to the compact 220px).
@@ -58,6 +62,7 @@ External stylesheets: the `css/` modules above, then `terminal.css`,
 | `splitter.js` | draggable + keyboard-resizable sidebar; dblclick resets; persists width in `localStorage['retroSidebarWidth']`; default/compact width = 220px |
 | `music.js` | music widget + player (see Music below) |
 | `terminal.js` | the terminal, neofetch, fake VFS (`data/vfs.json`), in-page browsing |
+| `chrome.js` | status rail (pane / playback / clock), local visit counter, `data-focus` window state |
 | `custom-cursor.js` | custom GIF cursor + particle trail |
 
 ## Terminal (`main/terminal.js`)
@@ -142,6 +147,32 @@ External stylesheets: the `css/` modules above, then `terminal.css`,
 - Static first: every page should work on a plain static host, and data-backed
   features must keep working when their JSON is missing or slow.
 - Run `python verify.py` before committing.
+
+## Visual system
+
+Design tokens live in `main/css/variables.css`; feature stylesheets reference
+them instead of hardcoding literals.
+
+- **Accents mean exactly one thing each.** `--signal-ok` (green) = terminal +
+  online/local state; `--signal-active` (lavender) = navigation, links, focus;
+  `--signal-hot` (magenta) = now playing + attention. Green is no longer a
+  generic hover colour, so it keeps its terminal meaning.
+- **Glow budget.** At rest only the active nav marker and the music LED may
+  glow. Everything else may glow only in `:hover`, `:focus-visible` or
+  `.is-playing`.
+- **Motion budget.** Allowed: marquee (pauses on hover/focus), ~200ms pane
+  switch, 1–2px tile lift, caret blink, LED/visualizer while actually playing,
+  cursor trail. Add nothing else, and gate new motion behind
+  `prefers-reduced-motion` (see `responsive.css`).
+- **One signature detail.** 7px corner brackets on `.sidebar` and
+  `.content-area`. Don't add a second decorative motif.
+- **Focus law.** `base.css` defines one
+  `:where(a, button, input, …):focus-visible` ring. Feature CSS may add an
+  inset ring (e.g. the scrolling track list) but must never set
+  `outline: none` on a focus state.
+- **Honest values only.** The status rail, visit counter and music labels show
+  real state or `--` / `PAUSED`. Never invent a clock, a control, or a
+  playback state.
 
 ## Known quirks
 

@@ -12,28 +12,60 @@ html {
 body {
     margin: 0;
     padding: 12px;
-    background: var(--dr-bg, var(--bg-dark)) !important;
+    background: var(--surface-0, var(--bg-dark)) !important;
     color: var(--dr-text, var(--text-color)) !important;
     font-family: 'Courier New', 'Cascadia Mono', monospace;
     min-width: 0;
-    scrollbar-color: #6f3a93 #0b061d;
+    scrollbar-color: var(--line-hi) var(--surface-0);
     scrollbar-width: thin;
 }
 
 body::-webkit-scrollbar { width: 10px; }
-body::-webkit-scrollbar-track { background: #0b061d; }
+body::-webkit-scrollbar-track { background: var(--surface-0); }
 body::-webkit-scrollbar-thumb {
-    background: #6f3a93;
+    background: var(--line-hi);
     border-radius: 8px;
-    border: 2px solid #0b061d;
+    border: 2px solid var(--surface-0);
 }
 
 a { color: var(--dr-link, var(--link-color)) !important; }
+
+/* Selecting text anywhere should feel designed, not default. */
+::selection { background: var(--line-hi); color: var(--ink-90); }
+
+/* ============================================================
+ *  ACCESSIBILITY UTILITIES
+ * ============================================================ */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ============================================================
+ *  FOCUS LAW
+ *  One ring for every focusable control. Components may add to
+ *  it (colour, glow) but must never remove it. `:where()` keeps
+ *  specificity at 0 so feature CSS can still theme the ring.
+ * ============================================================ */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus-ring, #c084fc);
+    outline-offset: 2px;
+}
 
 /* ============================================================
  *  OUTER CONTAINER
  * ============================================================ */
 .geocities-container {
+    position: relative;
+    z-index: 1;
     width: min(1180px, calc(100% - 24px));
     max-width: 1180px;
     margin: 0 auto;
@@ -41,4 +73,24 @@ a { color: var(--dr-link, var(--link-color)) !important; }
     background: var(--dr-bg, var(--bg-dark)) !important;
     border: 1px solid var(--border-light) !important;
     box-shadow: 0 0 18px rgba(138, 0, 255, 0.14) !important;
+}
+
+/* ============================================================
+ *  PAGE TEXTURE
+ *  A static 24px grid that fades toward the bottom. Nearly
+ *  invisible at normal viewing distance — no animation, no
+ *  images. Sits under .geocities-container (z-index 1).
+ * ============================================================ */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(rgba(160, 32, 240, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(160, 32, 240, 0.05) 1px, transparent 1px);
+    background-size: 24px 24px;
+    -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 35%, transparent 92%);
+    mask-image: radial-gradient(ellipse at 50% 0%, #000 35%, transparent 92%);
 }

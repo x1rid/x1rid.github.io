@@ -18,8 +18,9 @@ There is **no React, no bundler, no build step** and none should be introduced.
   `responsive` last). Feature sheets: `terminal.css` (terminal/neofetch/webpage
   pane), `music.css` (music widget/player), `mobile.css` (≤760px).
 - `main/*.js` — `draggable.js` (shared window/dock drag physics), `mobile.js`,
-  `link-exchange.js`, `splitter.js`, `music.js`, `terminal.js`,
-  `custom-cursor.js` (all defer, plain classic scripts).
+  `link-exchange.js`, `splitter.js`, `music.js`, `terminal.js`, `chrome.js`
+  (status rail / visit counter / focus state), `custom-cursor.js`
+  (all defer, plain classic scripts).
 - `main/data/` — `links.json` (link tiles) and `vfs.json` (terminal filesystem).
 - `main/assets/` — cursor gifs. `main/socials/` — profile/social icons.
 - `main/playlist/` — music tracks + `playlist.json` (committed manifest).
@@ -39,11 +40,24 @@ There is **no React, no bundler, no build step** and none should be introduced.
    `node --check`s every script. It must print `VERIFY OK`.
 6. After behavioural changes, verify with `serve.py` + a browser (no console
    errors, no 4xx on load).
+7. **Visual grammar** (see `CODEBASE.md` → Visual system): green = terminal /
+   online, lavender = navigation / links / focus, magenta = now playing. Keep
+   to the glow and motion budgets, use tokens from `variables.css` instead of
+   literals, and never display invented state.
 
 ## Project-specific gotchas
 
 - `main/css/` must be loaded in order and `responsive.css` must stay last, or
   the media-query overrides stop winning.
+- `.content-area` is a `<main>` element (one landmark, no second one). Its
+  heading `#main-section-title` renders `data-meta` through `::after`
+  (entry count + active filter, written by `link-exchange.js`). `mobile.js`
+  replaces that heading's innerHTML for the dropdown header and `mobile.css`
+  suppresses the meta on phones — keep both behaviours in sync.
+- `.status-rail` sits between the marquee and the layout; `chrome.js` fills it
+  with real values only and it is hidden at ≤760px. `.music-panel` reports
+  `is-on` / `is-playing` so its LED and the rail cannot disagree with the
+  player.
 - `main/data/links.json` and `main/data/vfs.json` are optional data files:
   `link-exchange.js` and `terminal.js` keep inline fallbacks so the pages still
   work from `file://` and offline. Never make the fallback path depend on the
@@ -77,7 +91,8 @@ There is **no React, no bundler, no build step** and none should be introduced.
   (no card/padding) so it lines up with the other commands.
 - localStorage keys: `terminal_history`, `terminal_webpages_v1`,
   `retroSidebarWidth`, `retroMusicEnabled`, `retroMusicWindowPosition`,
-  `retroMusicDockPosition`, `retroMusicVolume`.
+  `retroMusicDockPosition`, `retroMusicVolume`, `retroVisits`.
+  (`retroVisitSession` is the per-tab session guard for `retroVisits`.)
 
 ## Terminal command set
 

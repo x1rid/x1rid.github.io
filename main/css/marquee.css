@@ -29,6 +29,12 @@
     animation: retro-marquee 42s linear infinite;
 }
 
+/* Let people actually read it: the loop waits while it is hovered or focused. */
+.marquee-top:hover .marquee-track,
+.marquee-top:focus-within .marquee-track {
+    animation-play-state: paused;
+}
+
 .marquee-copy {
     display: inline-block;
     padding-right: 48px;   /* gap between the two copies */

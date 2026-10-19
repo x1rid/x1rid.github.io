@@ -30,25 +30,106 @@
 }
 
 /* ============================================================
+ *  STATUS RAIL
+ *  Only ever shows real values: current pane, music state and a
+ *  real clock. Unknown values render as `--`. Supplementary, so
+ *  it is hidden from assistive tech (the real controls announce
+ *  themselves) and collapses on narrow screens.
+ * ============================================================ */
+.status-rail {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 12px;
+    padding: 4px 9px;
+    border: 1px solid var(--line);
+    background: var(--surface-1);
+    color: var(--ink-50);
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.status-rail__spacer { flex: 1 1 auto; }
+
+.rail-pane {
+    color: var(--ink-70);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.status-rail > .rail-track,
+.status-rail > .rail-clock {
+    padding-left: 10px;
+    border-left: 1px solid var(--line);
+}
+
+.rail-track {
+    color: var(--ink-50);
+    max-width: 46ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rail-track.is-playing { color: var(--signal-hot); }
+
+.rail-clock {
+    color: var(--ink-50);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+ *  FOCUSED WINDOW
+ *  The column you are actually working in keeps the bright edge;
+ *  its peer goes quiet — like an inactive window on a desktop.
+ *  Set by main/chrome.js only after real interaction, so touch,
+ *  no-JS and first-load users see no change at all.
+ * ============================================================ */
+.geocities-container[data-focus] .sidebar,
+.geocities-container[data-focus] .content-area {
+    border-color: var(--line) !important;
+    transition: border-color var(--motion-fast), background-color var(--motion-fast);
+}
+
+.geocities-container[data-focus="sidebar"] .sidebar,
+.geocities-container[data-focus="content"] .content-area {
+    border-color: var(--line-hi) !important;
+}
+
+/* While the floating player is the active window, the desktop
+   underneath steps back instead of competing with it. */
+.geocities-container[data-focus="music"] .sidebar,
+.geocities-container[data-focus="music"] .content-area {
+    background: color-mix(in srgb, var(--surface-1) 86%, var(--surface-0)) !important;
+}
+
+/* ============================================================
  *  FOOTER
  * ============================================================ */
 .footer {
     margin-top: 14px;
     padding-top: 9px;
-    border-top: 1px solid var(--border-dark) !important;
+    border-top: 1px solid var(--line) !important;
     text-align: center;
-    font-size: 0.7rem;
-    color: #bba4d9 !important;
+    font-size: var(--text-xs);
+    color: var(--ink-50) !important;
 }
 
 .hit-counter {
-    color: #55ff99;
-    border-color: #347a54;
+    display: inline-block;
+    min-width: 6.5ch;
+    color: var(--signal-ok);
     background: transparent;
     padding: 2px 6px;
-    border: 1px solid rgba(85,255,153,0.25);
+    border: 1px solid rgba(85, 255, 153, 0.25);
     font-family: 'Courier New', monospace;
     font-size: 1.1rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.12em;
+    text-align: center;
 }
 
 .blink { animation: blinker 1s linear infinite; }

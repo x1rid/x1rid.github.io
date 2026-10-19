@@ -62,6 +62,15 @@
   /* ------------------------------------------------------------------
    * renderCategory — replaces grid children with matching links
    * ------------------------------------------------------------------ */
+  function hostOf(url) {
+    if (!/^https?:\/\//i.test(String(url || ''))) return '';
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch (_) {
+      return '';
+    }
+  }
+
   function renderCategory(category) {
     activeCategory = category;
     const links = category === 'all'
@@ -74,8 +83,9 @@
       const tile = document.createElement('a');
       tile.className = 'social-tile';
       tile.href = url;
-      tile.title = name;
-      tile.setAttribute('aria-label', `Open ${name}`);
+      const domain = hostOf(url);
+      tile.title = domain ? `${name} — ${domain}` : name;
+      tile.setAttribute('aria-label', `Open ${name}${domain ? ` (${domain})` : ''}`);
       tile.style.setProperty('--tile-index', String(index));
       if (url.startsWith('http')) {
         tile.target = '_blank';
@@ -142,6 +152,15 @@
 
     grid.replaceChildren(fragment);
     grid.setAttribute('aria-label', LABELS[category] || LABELS.social);
+    grid.dataset.state = links.length ? 'ready' : 'empty';
+
+    /* Header metadata mirrors the active filter — real state only. */
+    const sectionTitle = document.getElementById('main-section-title');
+    if (sectionTitle) {
+      const activeButton = buttons.find((btn) => btn.dataset.linkCategory === category);
+      const filterLabel = activeButton ? activeButton.textContent.trim() : category.toUpperCase();
+      sectionTitle.dataset.meta = `${links.length} ${links.length === 1 ? 'entry' : 'entries'} · filter: ${filterLabel}`;
+    }
 
     buttons.forEach((btn) => {
       const active = btn.dataset.linkCategory === category;
