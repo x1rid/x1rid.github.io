@@ -304,14 +304,11 @@
     }
 }
 
-/* Mobile optimizations */
+/* Mobile optimizations.
+   The terminal *box* (height, minimum height, overflow containment and the
+   16px input font) is owned by phone.css at this width, so it is deliberately
+   absent here: one owner, no cascade of escalating `!important`. */
 @media (max-width: 600px) {
-    .terminal {
-        padding: 8px;
-        font-size: 12px;
-        height: calc(100vh - 56px);
-    }
-
     .terminal-output {
         gap: 6px;
         margin-bottom: 6px;

@@ -1,97 +1,438 @@
-(function() {
-  if (!window.matchMedia) return;
-  const mq = window.matchMedia('(max-width:760px)');
-  if (!mq.matches) return;
+/* ---------------------------------------------------------------------------
+ *  mobile.js — the phone shell controller  (`max-width: 600px`)
+ *
+ *  One owner for phone state. It builds nothing and moves nothing: the header,
+ *  tab bar, key strip and pages view already exist in the markup, and the
+ *  panes, terminal and music player are the same elements the desktop uses.
+ *
+ *  The state contract (brief §11.2):
+ *    - terminal.js's showPane() stays the only owner of which real pane is
+ *      open. It emits `site:panechange`; this controller only projects it.
+ *    - the projection is two attributes:
+ *        body[data-layout="phone"]
+ *        body[data-view="link" | "pc" | "web" | "page"]
+ *    - "page" is synthetic (the saved-pages list) and does not change the real
+ *      pane underneath; leaving it returns through showPane('link').
+ *
+ *  Lifecycle (brief §11.3): init() runs once, on()/off() can run any number of
+ *  times. Every listener and observer created by on() is removed or
+ *  disconnected by off(), so crossing 600px repeatedly leaks nothing.
+ *
+ *  Keyboard geometry (brief §11.4): this file writes exactly one value,
+ *  `--pt-keyboard-offset`, from visualViewport, and only while the terminal
+ *  input is focused. phone.css subtracts it once, next to `--pt-fixed-stack`.
+ *
+ *  The media query string below, the stylesheet link in index.html and the
+ *  marquee script in index.html must all stay `max-width: 600px`.
+ * ------------------------------------------------------------------------- */
+(() => {
+    'use strict';
 
-  const webpagesList = document.getElementById('webpages-list');
-  if (!webpagesList) return;
+    if (!window.matchMedia || !document.body) return;
 
-  const contentTitle = document.querySelector('.content-area > .section-title');
-  if (contentTitle && !document.getElementById('mobile-link-exchange-title')) {
-    contentTitle.id = 'mobile-link-exchange-title';
-    const sidebar = document.querySelector('.sidebar');
-    const sidebarBrand = sidebar ? sidebar.querySelector('.sidebar-brand') : null;
+    const PHONE = window.matchMedia('(max-width: 600px)');
 
-    contentTitle.innerHTML = '<span class="dropdown-triangle dropdown-triangle-left">▸</span><span class="dropdown-label">LINK EXCHANGE</span><span class="dropdown-triangle dropdown-triangle-right">▸</span>';
+    const VIEW_LABEL = { link: 'LINKS', pc: 'TERMINAL', web: 'PAGE', page: 'PAGES' };
+    const VIEW_TAB = { link: 'link', pc: 'pc', web: 'page', page: 'page' };
 
-    if (sidebarBrand && sidebarBrand.parentNode) sidebarBrand.parentNode.insertBefore(contentTitle, sidebarBrand.nextSibling);
-  }
+    /* Static elements — looked up once, after the DOM is ready. */
+    let tabsBar = null;
+    let tabs = [];
+    let pagesTab = null;
+    let statusEl = null;
+    let viewMeta = null;
+    let pagesView = null;
+    let pagesList = null;
+    let pagesEmpty = null;
+    let pagesMeta = null;
+    let keysStrip = null;
+    let webpagesList = null;
+    let sectionTitle = null;
 
-  const title = document.getElementById('mobile-link-exchange-title');
-  const originalNav = document.querySelector('.sidebar > .stats-box > .sidebar-nav:first-of-type');
+    /* Mode-scoped bookkeeping. */
+    let active = false;
+    let currentView = 'link';
+    let abort = null;
+    const listeners = [];
+    const observers = [];
+    let pagesQueued = false;
 
-  function setLinkExchangeTitleLabel(label) {
-    if (!title) return;
-    const labelNode = title.querySelector('.dropdown-label');
-    if (labelNode) {
-      labelNode.textContent = label;
+    /* ------------------------------------------------------------------
+     * Small helpers
+     * ------------------------------------------------------------------ */
+    const railText = (selector) => {
+        const element = document.querySelector(selector);
+        return element ? String(element.textContent || '').trim() : '';
+    };
+
+    const paneView = (pane) => (pane === 'pc' ? 'pc' : pane === 'webpage' ? 'web' : 'link');
+
+    function paneViewFromDom() {
+        const webpage = document.getElementById('webpage-pane');
+        const pc = document.getElementById('pc-specs');
+        if (webpage && webpage.style.display !== 'none') return 'web';
+        if (pc && pc.style.display !== 'none') return 'pc';
+        return 'link';
     }
-  }
 
-  function setMobileHeaderCollapsed(collapsed) {
-    document.body.classList.toggle('mobile-header-collapsed', collapsed);
-  }
+    /* ----- mode-scoped listener / observer registration --------------- */
+    function listen(target, type, handler, options) {
+        if (!target || !target.addEventListener) return;
+        const capture = typeof options === 'boolean' ? options : Boolean(options && options.capture);
 
-  if (title && originalNav && !document.getElementById('mobile-nav-dropdown')) {
-    originalNav.style.display = 'none';
-    setMobileHeaderCollapsed(false);
-
-    const dropdown = document.createElement('div');
-    dropdown.id = 'mobile-nav-dropdown';
-
-    const navClone = originalNav.cloneNode(true);
-    navClone.style.display = 'flex';
-
-    const navButtons = navClone.querySelectorAll('button');
-    navButtons.forEach((button) => {
-      if (button.id) {
-        button.dataset.paneTarget = button.id;
-        button.id = `mobile-${button.id}`;
-      }
-    });
-
-    function setMobileNavActive(paneTarget) {
-      const mobileBtns = document.querySelectorAll('#mobile-nav-dropdown .sidebar-nav button');
-      mobileBtns.forEach((b) => {
-        if (b.dataset.paneTarget === paneTarget) b.classList.add('active');
-        else b.classList.remove('active');
-      });
-    }
-
-    function closeMobileDropdown() {
-      title.classList.remove('open');
-      dropdown.classList.remove('open');
-    }
-
-    navButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        if (typeof window.showPane !== 'function') return;
-
-        if (button.dataset.paneTarget === 'nav-link-exchange') {
-          window.showPane('link');
-          setLinkExchangeTitleLabel('LINK EXCHANGE');
-          setMobileHeaderCollapsed(false);
-        } else if (button.dataset.paneTarget === 'nav-pc-specs') {
-          window.showPane('pc');
-          setMobileHeaderCollapsed(true);
-          if (typeof window.runNeofetchIfNeeded === 'function') {
-            window.runNeofetchIfNeeded();
-          }
-          setLinkExchangeTitleLabel('NEOFETCH');
+        if (abort) {
+            const extra = options && typeof options === 'object' ? options : {};
+            target.addEventListener(type, handler, Object.assign({}, extra, { capture, signal: abort.signal }));
+            return;
         }
 
-        setMobileNavActive(button.dataset.paneTarget);
-        closeMobileDropdown();
-      });
-    });
+        target.addEventListener(type, handler, options);
+        listeners.push({ target, type, handler, options: capture });
+    }
 
-    dropdown.appendChild(navClone);
-    title.parentNode.insertBefore(dropdown, title.nextSibling);
+    function watch(target, handler, config) {
+        if (!target || !('MutationObserver' in window)) return;
+        const observer = new MutationObserver(handler);
+        observer.observe(target, config);
+        observers.push(observer);
+    }
 
-    title.addEventListener('click', () => {
-      const isOpen = title.classList.toggle('open');
-      dropdown.classList.toggle('open', isOpen);
-    });
-  }
+    function release() {
+        if (abort) {
+            abort.abort();
+            abort = null;
+        }
+        listeners.splice(0).forEach(({ target, type, handler, options }) => {
+            target.removeEventListener(type, handler, options);
+        });
+        observers.splice(0).forEach((observer) => observer.disconnect());
+    }
 
+    /* ------------------------------------------------------------------
+     * View projection
+     * ------------------------------------------------------------------ */
+    function setView(view) {
+        currentView = view;
+
+        /* The keyboard geometry belongs to the terminal view: leaving it must
+           never leave the shell sized for a keyboard that is no longer there. */
+        if (view !== 'pc') setTyping(false);
+
+        if (PHONE.matches) document.body.dataset.view = view;
+        else document.body.removeAttribute('data-view');
+
+        const wanted = VIEW_TAB[view] || 'link';
+        tabs.forEach((tab) => {
+            tab.setAttribute('aria-current', tab.dataset.view === wanted ? 'true' : 'false');
+        });
+
+        syncStatus();
+    }
+
+    function applyView(view) {
+        if (view === 'page') {
+            /* Synthetic view: the real pane is intentionally left alone. */
+            setView('page');
+            return;
+        }
+
+        const showPane = window.showPane;
+        if (typeof showPane !== 'function') {
+            setView(paneViewFromDom());
+            return;
+        }
+
+        showPane(view === 'pc' ? 'pc' : 'link'); /* emits site:panechange */
+        if (view === 'pc' && typeof window.runNeofetchIfNeeded === 'function') {
+            window.runNeofetchIfNeeded();
+        }
+    }
+
+    function onPaneChange(event) {
+        const pane = event && event.detail ? event.detail.pane : '';
+        setView(paneView(pane));
+    }
+
+    /* ------------------------------------------------------------------
+     * Status line — a read-only projection of real state.
+     * The pane half mirrors the phone's own view (which mirrors showPane),
+     * the track half mirrors chrome.js's rail. Neither is a new source of
+     * truth, and no important state exists only here.
+     * ------------------------------------------------------------------ */
+    function syncStatus() {
+        if (!statusEl) return;
+        const track = railText('.rail-track') || '--';
+        statusEl.textContent = `${VIEW_LABEL[currentView] || 'LINKS'} · ${track}`;
+    }
+
+    function syncMeta() {
+        if (!viewMeta || !sectionTitle) return;
+        viewMeta.textContent = sectionTitle.dataset.meta || '';
+    }
+
+    /* ------------------------------------------------------------------
+     * Saved pages — mirrors, never moved.
+     * terminal.js owns #webpages-list and serialises its children straight
+     * to localStorage, so the phone list is a clone whose click delegates
+     * back to the original button (listeners and storage stay untouched).
+     * ------------------------------------------------------------------ */
+    function syncPages() {
+        const count = webpagesList ? webpagesList.children.length : 0;
+
+        if (pagesTab) pagesTab.hidden = count === 0;
+        if (pagesMeta) pagesMeta.textContent = count ? `${count} saved` : '';
+        if (pagesEmpty) pagesEmpty.hidden = count > 0;
+
+        if (!count && currentView === 'page') applyView('link');
+    }
+
+    function renderPages() {
+        if (!pagesList || !webpagesList) return;
+        pagesList.replaceChildren();
+
+        Array.from(webpagesList.children).forEach((source) => {
+            const row = source.cloneNode(true);
+            row.removeAttribute('id');
+            row.addEventListener('click', () => source.click());
+            pagesList.appendChild(row);
+        });
+
+        syncPages();
+    }
+
+    function queuePages() {
+        if (pagesQueued) return;
+        pagesQueued = true;
+        window.requestAnimationFrame(() => {
+            pagesQueued = false;
+            renderPages();
+        });
+    }
+
+    /* ------------------------------------------------------------------
+     * Key strip — soft keyboards have no Tab, arrows or Ctrl.
+     * The buttons dispatch the exact keydown events terminal.js already
+     * handles, and preventDefault on pointerdown keeps the input focused.
+     * ------------------------------------------------------------------ */
+    function fireKey(name) {
+        const input = document.getElementById('terminal-input');
+        if (!input || !name) return;
+
+        const init = { key: name, code: name, bubbles: true, cancelable: true };
+        if (name === 'ctrl+c') {
+            init.key = 'c';
+            init.code = 'KeyC';
+            init.ctrlKey = true;
+        }
+        input.dispatchEvent(new KeyboardEvent('keydown', init));
+    }
+
+    function onKeysPointerDown(event) {
+        const button = event.target && event.target.closest ? event.target.closest('button') : null;
+        if (!button) return;
+
+        /* The whole strip exists to feed the terminal input: never steal focus. */
+        event.preventDefault();
+
+        if (button.dataset.command) {
+            if (typeof window.runCommand === 'function') window.runCommand(button.dataset.command);
+            return;
+        }
+        fireKey(button.dataset.key);
+    }
+
+    /* ------------------------------------------------------------------
+     * Virtual keyboard. dvh already shrinks on Android
+     * (interactive-widget=resizes-content); on overlay-style viewports the
+     * measured inset is subtracted exactly once by phone.css.
+     * ------------------------------------------------------------------ */
+    function syncKeyboardOffset() {
+        let offset = 0;
+        if (document.body.classList.contains('is-typing') && window.visualViewport) {
+            const viewport = window.visualViewport;
+            offset = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
+        }
+        document.documentElement.style.setProperty('--pt-keyboard-offset', `${offset}px`);
+    }
+
+    function setTyping(typing) {
+        const on = Boolean(typing) && PHONE.matches;
+        document.body.classList.toggle('is-typing', on);
+
+        if (on) {
+            /* The keyboard animates in; measure it once it has settled. */
+            window.setTimeout(syncKeyboardOffset, 260);
+            window.setTimeout(syncKeyboardOffset, 640);
+        } else {
+            syncKeyboardOffset();
+        }
+    }
+
+    function onFocusChange(event) {
+        const input = document.getElementById('terminal-input');
+        if (!input || event.target !== input) return;
+        setTyping(event.type === 'focusin');
+    }
+
+    function onKeyDown(event) {
+        if (event.key !== 'Escape' || currentView === 'link') return;
+
+        /* If the player sheet is open, its own Escape handler owns the key. */
+        const player = document.getElementById('retro-music-window');
+        if (player && !player.hidden) return;
+
+        applyView('link');
+    }
+
+    /* ------------------------------------------------------------------
+     * Fullscreen honesty — iOS has no Element Fullscreen at all (brief §4.6).
+     * ------------------------------------------------------------------ */
+    function addFullscreenFallback() {
+        const fullscreenBtn = document.getElementById('webpage-fullscreen');
+        if (!fullscreenBtn || document.fullscreenEnabled) return;
+        if (document.getElementById('phone-webpage-external')) return;
+
+        fullscreenBtn.hidden = true;
+
+        const external = document.createElement('button');
+        external.type = 'button';
+        external.id = 'phone-webpage-external';
+        external.className = 'phone-webpage-external';
+        external.textContent = 'OPEN ↗';
+        external.title = 'Open this page in your browser';
+        external.addEventListener('click', () => {
+            const frame = document.getElementById('webpage-iframe');
+            const src = frame ? frame.getAttribute('src') : '';
+            if (src && src !== 'about:blank') window.open(src, '_blank', 'noopener');
+        });
+
+        const host = fullscreenBtn.parentElement || fullscreenBtn.closest('.webpage-toolbar');
+        if (host) host.appendChild(external);
+    }
+
+    function removeFullscreenFallback() {
+        const external = document.getElementById('phone-webpage-external');
+        if (external && external.parentElement) external.parentElement.removeChild(external);
+
+        const fullscreenBtn = document.getElementById('webpage-fullscreen');
+        if (fullscreenBtn) fullscreenBtn.hidden = false;
+    }
+
+    /* ------------------------------------------------------------------
+     * Enter / leave phone mode
+     * ------------------------------------------------------------------ */
+    function on() {
+        if (active) return;
+        active = true;
+
+        document.body.dataset.layout = 'phone';
+        abort = typeof AbortController === 'function' ? new AbortController() : null;
+
+        listen(document, 'site:panechange', onPaneChange);
+        listen(document, 'focusin', onFocusChange, true);
+        listen(document, 'focusout', onFocusChange, true);
+        listen(document, 'keydown', onKeyDown);
+        listen(window, 'resize', syncKeyboardOffset, { passive: true });
+
+        if (window.visualViewport) {
+            listen(window.visualViewport, 'resize', syncKeyboardOffset, { passive: true });
+            listen(window.visualViewport, 'scroll', syncKeyboardOffset, { passive: true });
+        }
+
+        watch(webpagesList, queuePages, { childList: true, subtree: true, characterData: true });
+        watch(document.querySelector('.rail-pane'), syncStatus, { childList: true, characterData: true, subtree: true });
+        watch(document.querySelector('.rail-track'), syncStatus, { childList: true, characterData: true, subtree: true });
+        watch(sectionTitle, syncMeta, { attributes: true, attributeFilter: ['data-meta'] });
+
+        addFullscreenFallback();
+        renderPages();
+        syncMeta();
+        syncKeyboardOffset();
+        setView(paneViewFromDom());
+    }
+
+    function off() {
+        if (!active) return;
+        active = false;
+
+        release();
+
+        setTyping(false);
+        removeFullscreenFallback();
+        document.body.removeAttribute('data-layout');
+        document.body.removeAttribute('data-view');
+        document.documentElement.style.removeProperty('--pt-keyboard-offset');
+
+        if (pagesList) pagesList.replaceChildren();
+        syncPages();
+
+        /* The real pane is left exactly as showPane() last set it. */
+        currentView = paneViewFromDom();
+    }
+
+    /* ------------------------------------------------------------------
+     * Init — static wiring happens once, regardless of viewport.
+     * ------------------------------------------------------------------ */
+    function init() {
+        tabsBar = document.getElementById('phone-tabs');
+        tabs = tabsBar ? Array.from(tabsBar.querySelectorAll('.phone-tab')) : [];
+        pagesTab = tabsBar ? tabsBar.querySelector('.phone-tab[data-view="page"]') : null;
+        statusEl = document.getElementById('phone-state');
+        viewMeta = document.getElementById('phone-view-meta');
+        pagesView = document.getElementById('phone-pages');
+        pagesList = document.getElementById('phone-pages-list');
+        pagesEmpty = document.getElementById('phone-pages-empty');
+        pagesMeta = document.getElementById('phone-pages-meta');
+        keysStrip = document.getElementById('phone-keys');
+        webpagesList = document.getElementById('webpages-list');
+        sectionTitle = document.getElementById('main-section-title');
+
+        /* Static controls: inert above 600px (phone.css hides them), so they
+           are wired once and never re-registered. */
+        tabs.forEach((tab) => {
+            tab.addEventListener('click', (event) => {
+                applyView(tab.dataset.view);
+                /* Keyboard activation moves focus to the view it opened;
+                   a tap already put focus where the user wants it. */
+                if (event.detail === 0) focusViewHeading(tab.dataset.view);
+            });
+        });
+
+        if (keysStrip) keysStrip.addEventListener('pointerdown', onKeysPointerDown);
+
+        syncStatus();
+        syncMeta();
+        syncPages();
+
+        if (PHONE.matches) on();
+    }
+
+    function focusViewHeading(view) {
+        const host = view === 'page'
+            ? pagesView
+            : view === 'pc'
+                ? document.getElementById('pc-specs')
+                : document.getElementById('link-exchange');
+        if (!host) return;
+
+        const heading = host.querySelector('.phone-view-title');
+        if (!heading) return;
+
+        heading.setAttribute('tabindex', '-1');
+        heading.focus({ preventScroll: true });
+    }
+
+    const onPhoneChange = (event) => {
+        if (event.matches) on();
+        else off();
+    };
+
+    if (typeof PHONE.addEventListener === 'function') PHONE.addEventListener('change', onPhoneChange);
+    else if (typeof PHONE.addListener === 'function') PHONE.addListener(onPhoneChange);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 })();

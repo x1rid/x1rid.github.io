@@ -18,6 +18,12 @@
  *   ignoreButtons      true to never start a drag from a <button> (chrome)
  *   dragClass          class toggled on the element while dragging
  *   dblclickReset      true to snap back to the default spot on double-click
+ *   allow              () => boolean, checked on every pointer-down and by
+ *                      restore/clamp/reset. When it returns false the element
+ *                      stops being draggable AND any inline position is
+ *                      cleared, so a stylesheet can take over the placement
+ *                      (the phone pins the dock and turns the player into a
+ *                      bottom sheet). Lives per breakpoint, not per load.
  *   onDragStateChange  (dragging) => void, called when a real drag starts/stops
  *
  * returns { wasDragged, isDragging, restore, save, reset, clamp, apply, default }
@@ -51,12 +57,27 @@
         var dblclickReset = opts.dblclickReset === true;
         var onDragStateChange = typeof opts.onDragStateChange === 'function' ? opts.onDragStateChange : null;
         var fallbackSize = opts.fallbackSize || { width: 0, height: 0 };
+        var allow = typeof opts.allow === 'function' ? opts.allow : null;
 
         var drag = null;
         var dragging = false;
         var moved = false;
         var moveRaf = 0;
         var pending = null;
+
+        /* Capability gate: re-evaluated every time it matters, so crossing a
+           breakpoint changes the behaviour without recreating the controller. */
+        function permitted() {
+            return !allow || allow();
+        }
+
+        /* Hand the element back to its stylesheet (the phone pins it). */
+        function clearPosition() {
+            element.style.left = '';
+            element.style.top = '';
+            element.style.right = '';
+            element.style.bottom = '';
+        }
 
         function size() {
             return {
@@ -114,6 +135,10 @@
         }
 
         function restore() {
+            if (!permitted()) {
+                clearPosition();
+                return;
+            }
             var saved = null;
             if (storageKey) {
                 try {
@@ -132,6 +157,10 @@
         }
 
         function reset() {
+            if (!permitted()) {
+                clearPosition();
+                return;
+            }
             if (storageKey) {
                 try {
                     localStorage.removeItem(storageKey);
@@ -144,6 +173,10 @@
         }
 
         function clampNow() {
+            if (!permitted()) {
+                clearPosition();
+                return;
+            }
             if (element.hidden) return;
             var left = parseFloat(element.style.left);
             var top = parseFloat(element.style.top);
@@ -195,6 +228,7 @@
             pending = null;
             drag = null;
             if (event.button !== 0) return;
+            if (!permitted()) return;
             if (ignoreButtons && event.target && event.target.closest && event.target.closest('button')) return;
 
             var rect = element.getBoundingClientRect();

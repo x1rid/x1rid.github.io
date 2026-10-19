@@ -122,8 +122,16 @@
       });
 
       /* Animated GIFs only play while the tile is hovered/focused. The GIF
-         is fetched on first hover, so idle tiles cost nothing. */
+         is fetched on first hover, so idle tiles cost nothing.
+         Touch devices keep the static tile: a tap navigates away, and
+         fetching an animation for a navigation that is about to happen is
+         wasted work. Keyboard focus still swaps it, so the affordance is
+         never mouse-only. */
       if (gif) {
+        const canHover = window.matchMedia
+          ? window.matchMedia('(hover: hover) and (pointer: fine)')
+          : { matches: true };
+
         const showGif = () => {
           if (img.dataset.state === 'gif') return;
           img.dataset.state = 'gif';
@@ -134,8 +142,10 @@
           img.dataset.state = 'static';
           img.src = icon;
         };
-        tile.addEventListener('pointerenter', showGif);
-        tile.addEventListener('pointerleave', showStatic);
+        if (canHover.matches) {
+          tile.addEventListener('pointerenter', showGif);
+          tile.addEventListener('pointerleave', showStatic);
+        }
         tile.addEventListener('focusin', showGif);
         tile.addEventListener('focusout', showStatic);
       }

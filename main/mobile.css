@@ -1,319 +1,96 @@
-/* Social icons stay in their native asset colors. */
+/* ============================================================
+ *  mobile.css — compact layout (<=760px)
+ *
+ *  The 601-760px bucket (small tablets, split-screen windows) and the
+ *  shared compaction rules this file has always owned. The phone build
+ *  itself lives in phone.css (<=600px), which is loaded after this file.
+ *
+ *  What is gone from here: the runtime title transplant and the cloned
+ *  navigation dropdown. The phone has a real tab bar now, and 601-760px
+ *  simply keeps the desktop nav in a full-width sidebar.
+ * ============================================================ */
 
-/* Active nav button themed on mobile */
-#mobile-nav-dropdown .sidebar-nav button.active, .sidebar-nav button.active { background: transparent !important; color: var(--dr-accent) !important; border-color: var(--dr-accent) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.12) !important }
-
-/* mobile.css — loads only when viewport <= 760px */
-
-/* Mobile-first overrides that only apply when the file is loaded via media query */
-
-.layout-grid {
-  grid-template-columns: 1fr !important;
-  gap: 12px !important;
+/* One column: the sidebar becomes a full-width block above the content. */
+.layout-grid,
+.layout-grid.terminal-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
 }
 
-/* Sidebar becomes a vertical column and full-width */
 .sidebar {
-  width: 100% !important;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 6px !important;
+    width: 100% !important;
+    box-sizing: border-box;
+    padding: 10px !important;
 }
 
-.sidebar-brand {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  overflow: hidden;
-  transition: max-height 220ms ease, margin 220ms ease, padding 220ms ease, opacity 220ms ease, transform 220ms ease;
+.panel-splitter {
+    display: none !important;
 }
 
-/* Avatar prominent and centered */
-.avatar-frame {
-  width: 140px !important;
-  height: 140px !important;
-  margin: 0 auto 10px auto !important;
-  border-radius: 12px !important;
-  overflow: hidden;
-  transition: transform 220ms ease, opacity 220ms ease, max-height 220ms ease, margin 220ms ease, padding 220ms ease, width 220ms ease, height 220ms ease;
-  box-shadow: 0 0 8px color-mix(in srgb, var(--dr-accent) 60%, transparent);
+/* Navigation is the only way in at this width (no tab bar yet), so the
+   buttons get thumb-sized rows and stay centred. */
+.sidebar-nav button {
+    min-height: 40px;
 }
 
-.avatar-frame img {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover;
-  transform-origin: center center;
-  transition: transform 220ms ease, opacity 220ms ease, filter 220ms ease;
-}
-
-.marquee-top,
-.sidebar-brand,
-.avatar-frame,
-.profile-name {
-  transition: transform 220ms ease, opacity 220ms ease, max-height 220ms ease, margin 220ms ease, padding 220ms ease, width 220ms ease, height 220ms ease;
-  will-change: transform, opacity, max-height, margin, padding, width, height;
-}
-
-/* Profile name centered below avatar */
-.profile-name {
-  text-align: center !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  margin: 6px auto 4px auto !important;
-  font-size: 1.05rem !important;
-}
-
-/* Ensure the stats-box stretches and footer nav can be pinned */
-.stats-box {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 10px;
-  min-height: 88px;
-}
-
-/* Keep top navigation (page navigation) visible at top */
-.sidebar > .stats-box > .sidebar-nav:first-of-type {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-
-/* Mobile dropdown header for link exchange + navigation */
-#mobile-link-exchange-title {
-  width: calc(100% - 8px);
-  margin: 0 auto 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 1px;
-  text-align: center;
-  color: var(--dr-accent, #bd93f9);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  user-select: none;
-}
-
-#mobile-link-exchange-title .dropdown-triangle {
-  display: inline-block;
-  transition: transform 160ms ease;
-  font-size: 0.9em;
-  line-height: 1;
-}
-
-/* left chevron points right by default (▸), right chevron is reversed visually */
-#mobile-link-exchange-title .dropdown-triangle-left {
-  transform: none;
-}
-#mobile-link-exchange-title .dropdown-triangle-right {
-  transform: rotateY(180deg);
-}
-
-/* when open, rotate left chevron down and right chevron down the opposite way */
-#mobile-link-exchange-title.open .dropdown-triangle-left {
-  transform: rotate(90deg);
-}
-#mobile-link-exchange-title.open .dropdown-triangle-right {
-  transform: rotate(-90deg) rotateY(180deg);
-}
-
-#mobile-nav-dropdown {
-  width: calc(100% - 8px);
-  margin: 0 auto 0 auto;
-  display: block;
-  overflow: hidden;
-  max-height: 0;
-  opacity: 0;
-  transform: translateY(-8px);
-  pointer-events: none;
-  transition: max-height 260ms ease, opacity 220ms ease, transform 260ms ease, margin 220ms ease;
-}
-
-#mobile-nav-dropdown.open {
-  max-height: 260px;
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-#mobile-nav-dropdown .sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px; /* reduced to 2px per request */
-  margin-top: 0;
-  align-items: center; /* center options */
-}
-
-/* Keep mobile navigation compact and centered like the desktop navigation. */
-#mobile-nav-dropdown .sidebar-nav button {
-  width: max-content;
-  min-width: 176px;
-  text-align: left;
-  box-sizing: border-box;
-  display: block;
-  padding: 8px 14px 8px 24px;
-  min-height: 36px;
-  margin: 2px 0; /* reduced to 2px */
-  background: transparent;
-  border-radius: 0;
-  border: 1px solid rgba(189,147,249,0.08);
-  font-weight: 700;
-  color: inherit;
-}
-
-/* The area where we will move the social tiles becomes flexible (website nav keeps separate) */
 #webpages-list {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
 }
 
-/* Keep webpages-list in normal flow on mobile; do not fix or add page padding */
-#webpages-list { position: relative; }
-
-/* Keep the same Link Exchange grid on mobile, with narrower tracks. */
-.link-exchange-grid { display: grid !important; }
-
-/* Hide the desktop heading on mobile; JS will move it under the profile block */
-.content-area > .section-title {
-  display: none !important;
-}
-
-/* Hide the original navigation strip on mobile; a cloned dropdown is shown under the title */
-.sidebar > .stats-box > .sidebar-nav:first-of-type {
-  display: none !important;
-}
-
-/* Keep the profile name centered */
-.profile-name { text-align: center !important; }
-
-/* Ensure avatar-frame is centered */
-.avatar-frame { margin-left: auto !important; margin-right: auto !important; }
-
-/* Neofetch terminal stays available on mobile via the dropdown navigation. */
-
-/* Slight spacing improvements for content area */
 .content-area {
-  padding: 10px !important;
+    padding: 10px !important;
 }
 
 .content-area.terminal-mode {
-  padding-top: 0 !important;
+    padding-top: 0 !important;
 }
 
 .content-area.terminal-mode #pc-specs {
-  margin-top: -4px !important;
+    margin-top: -4px !important;
 }
 
-/* Terminal area lowered height for mobile */
-.terminal {
-  height: 84vh !important;
-  min-height: 560px !important;
+/* The terminal box is sized by phone.css at this width (single owner):
+   this compact layer only adjusts density around it. */
+
+.link-exchange-categories {
+    margin-bottom: 10px;
 }
 
-/* When terminal-layout is active (PC config open), collapse the sidebar below the dropdown title
-   to reduce empty space and better prioritize the terminal pane on mobile */
-.layout-grid.terminal-layout .sidebar {
-  align-self: start;
-  height: auto !important;
-  padding: 0 6px 0 !important;
+/* The desktop's five-column tile grid needs ~600px of content width; at this
+   width four columns keep it on one screen instead of a sideways scroll.
+   (The phone shell overrides this with its own three/four column grid.) */
+.link-exchange-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 10px !important;
 }
 
-.layout-grid.terminal-layout #mobile-link-exchange-title {
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-.layout-grid.terminal-layout .sidebar .stats-box {
-  display: none !important;
-}
-
-.layout-grid.terminal-layout .sidebar .stats-box {
-  min-height: 0 !important;
-  margin-top: 0 !important;
-  padding-top: 0 !important;
-}
-
-body.mobile-header-collapsed .marquee-top {
-  max-height: 0;
-  margin: 0 !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-  opacity: 0;
-  transform: translateY(-16px);
-  overflow: hidden;
-}
-
-body.mobile-header-collapsed .sidebar .avatar-frame {
-  width: 0 !important;
-  height: 0 !important;
-  min-width: 0 !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border-width: 0 !important;
-  opacity: 0;
-  transform: translateY(-16px) scale(0.92);
-  overflow: hidden;
-}
-
-body.mobile-header-collapsed .sidebar .avatar-frame img {
-  opacity: 0;
-  transform: scale(0.35);
-  filter: blur(1px);
-}
-
-body.mobile-header-collapsed .sidebar .sidebar-brand {
-  max-height: 0;
-  margin: 0 !important;
-  padding: 0 !important;
-  opacity: 0;
-  transform: translateY(-14px);
-}
-
-body.mobile-header-collapsed .sidebar .profile-name {
-  max-height: 0;
-  width: 0 !important;
-  min-width: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  font-size: 0 !important;
-  line-height: 0 !important;
-  opacity: 0;
-  transform: translateY(-12px);
-  overflow: hidden;
-}
-
-body.mobile-header-collapsed .sidebar {
-  gap: 0;
-  align-self: start;
-  height: auto !important;
-  padding-top: 2px !important;
-}
-
-/* Reduce marquee and footer sizes for small screens */
-.marquee-top { font-size: 0.8rem !important; padding: 6px !important; }
-.footer { font-size: 0.7rem !important; padding-top: 8px !important; }
-
-/* Keep the old-web banner visible, but compact, on mobile viewports. */
+/* Compaction owned here (responsive.css keeps the frame). */
 .marquee-top {
-  display: block !important;
-  visibility: visible !important;
-  pointer-events: auto;
+    height: auto;
+    padding: 6px !important;
+    font-size: 0.8rem !important;
 }
 
-/* The status rail is a desktop affordance; phones keep their vertical space. */
-.status-rail { display: none !important; }
+.footer {
+    padding-top: 8px !important;
+    font-size: 0.7rem !important;
+}
 
-/* The mobile header reuses .section-title for its own label, so the
-   desktop-only metadata must not appear next to it. */
-#mobile-link-exchange-title::after { content: none !important; }
+/* The status rail is a desktop affordance. The phone header carries the
+   same honest values (pane + real playback state) instead. */
+.status-rail {
+    display: none !important;
+}
+
+/* Touch: stop paying the double-tap zoom delay on the controls that matter. */
+.link-exchange-category,
+.social-tile,
+.sidebar-nav button,
+.webpage-btn {
+    touch-action: manipulation;
+}

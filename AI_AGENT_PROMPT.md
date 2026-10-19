@@ -16,11 +16,13 @@ There is **no React, no bundler, no build step** and none should be introduced.
 - `main/css/*.css` — page theme/layout modules in cascade order: `variables`,
   `base`, `marquee`, `layout`, `links`, `components`, `responsive` (keep
   `responsive` last). Feature sheets: `terminal.css` (terminal/neofetch/webpage
-  pane), `music.css` (music widget/player), `mobile.css` (≤760px).
-- `main/*.js` — `draggable.js` (shared window/dock drag physics), `mobile.js`,
-  `link-exchange.js`, `splitter.js`, `music.js`, `terminal.js`, `chrome.js`
-  (status rail / visit counter / focus state), `custom-cursor.js`
-  (all defer, plain classic scripts).
+  pane), `music.css` (music widget/player), `mobile.css` (≤760px
+  compact/tablet), `phone.css` (≤600px phone shell, linked with
+  `media="(max-width:600px)"` so it is not fetched above that width).
+- `main/*.js` — `draggable.js` (shared window/dock drag physics), `mobile.js`
+  (the phone shell controller), `link-exchange.js`, `splitter.js`, `music.js`,
+  `terminal.js`, `chrome.js` (status rail / visit counter / focus state),
+  `custom-cursor.js` (all defer, plain classic scripts).
 - `main/data/` — `links.json` (link tiles) and `vfs.json` (terminal filesystem).
 - `main/assets/` — cursor gifs. `main/socials/` — profile/social icons.
 - `main/playlist/` — music tracks + `playlist.json` (committed manifest).
@@ -49,11 +51,25 @@ There is **no React, no bundler, no build step** and none should be introduced.
 
 - `main/css/` must be loaded in order and `responsive.css` must stay last, or
   the media-query overrides stop winning.
+- There are **two** deliberate width boundaries: `760px` is compact/tablet
+  layout (`responsive.css` + `mobile.css`) and `600px` is the phone shell
+  (`phone.css` + `mobile.js`). The `max-width: 600px` string appears in exactly
+  three places — the `phone.css` link, `mobile.js`'s `matchMedia`, and the
+  marquee script in `index.html` — and they must stay identical.
 - `.content-area` is a `<main>` element (one landmark, no second one). Its
   heading `#main-section-title` renders `data-meta` through `::after`
-  (entry count + active filter, written by `link-exchange.js`). `mobile.js`
-  replaces that heading's innerHTML for the dropdown header and `mobile.css`
-  suppresses the meta on phones — keep both behaviours in sync.
+  (entry count + active filter, written by `link-exchange.js`). The phone shell
+  hides that heading (`phone.css`) and mirrors `data-meta` into
+  `.phone-view-meta` (read-only) — never let the two sources disagree.
+- Panes are owned by `terminal.js` alone. `showPane()` emits one
+  `site:panechange` event; `mobile.js` only projects it into
+  `body[data-layout="phone"]` / `body[data-view]`. Never wrap, replace or
+  re-register `showPane`, and never reparent desktop nodes in the phone shell
+  (mirror with clones instead — `terminal.js` serialises `#webpages-list`
+  straight to `localStorage`).
+- Anything added to the phone shell must be reachable through the single
+  `on()`/`off()` lifecycle in `mobile.js`: subscribe with `listen()`/`watch()`
+  so it is removed on exit, or it will leak on every rotation.
 - `.status-rail` sits between the marquee and the layout; `chrome.js` fills it
   with real values only and it is hidden at ≤760px. `.music-panel` reports
   `is-on` / `is-playing` so its LED and the rail cannot disagree with the
@@ -63,7 +79,8 @@ There is **no React, no bundler, no build step** and none should be introduced.
   work from `file://` and offline. Never make the fallback path depend on the
   fetch.
 - `main/socials/*.gif` are animated only on tile hover (`link-exchange.js`
-  swaps `src` webp⇄gif); the GIF is fetched on first hover — keep it that way.
+  swaps `src` webp⇄gif) and only for hover-capable fine pointers, so touch
+  devices stay static; the GIF is fetched on first hover — keep it that way.
 - The custom cursor should never hide the native cursor unless its own GIF
   loaded (`custom-cursor.js` guards this) and never runs for touch input or
   reduced-motion users. Cursor GIFs are `main/assets/cursor{,-reversed}.gif`.

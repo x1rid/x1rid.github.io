@@ -16,7 +16,8 @@ main/               → the retro homepage
     data/           → links.json (link tiles) + vfs.json (terminal filesystem)
     terminal.css    → terminal / neofetch / webpage-pane styles
     music.css       → music widget + player styles
-    mobile.css      → <=760px layout
+    mobile.css      → <=760px compact/tablet layout
+    phone.css       → <=600px phone shell (linked with media="(max-width:600px)")
     draggable.js    → shared drag physics for the player window + dock
     custom-cursor.js→ animated GIF cursor + particle trail
     link-exchange.js→ link tiles (animated on hover only)
@@ -24,6 +25,8 @@ main/               → the retro homepage
     music.js        → music widget + player
     terminal.js     → fake terminal + windows/webpage in-page browsing
     chrome.js       → status rail, local visit counter, focused-window state
+    mobile.js       → phone shell controller (<=600px): tab bar, pages mirror,
+                      terminal key strip, virtual-keyboard geometry
     assets/         → cursor GIFs
     playlist/       → music tracks + playlist.json (manifest)
     socials/        → profile/social icons (.webp static, .gif animated)
@@ -83,7 +86,8 @@ hidden if the GIF fails to load.
 Tiles are defined in `main/data/links.json` — edit it to add or change a link
 (the inline fallback in `link-exchange.js` keeps the page working offline).
 Icons are static `.webp`; animated `.gif` versions are only fetched and played
-while a tile is hovered or focused.
+while a tile is hovered or focused. Touch devices keep the static tile (a tap
+navigates away), so scrolling never downloads an animation.
 
 ## Interface details
 
@@ -95,6 +99,34 @@ while a tile is hovered or focused.
   the rail on phones and does nothing if its markup is missing.
 - Without JavaScript the page still lists the links and hides controls that
   cannot work.
+
+## Phones
+
+`main/phone.css` + `main/mobile.js` are a separate shell for `<=600px` tracks,
+not a squeezed desktop. Two deliberate boundaries exist: **`760px`** is the
+compact/tablet layout (`responsive.css` + `mobile.css`, still the desktop's own
+controls in one column) and **`600px`** is the phone shell.
+
+- **Header** carries the document's one `<h1>` and a status line that mirrors
+  real state (`LINKS · ♫ track`, `TERMINAL · PAUSED`, …). Unknown is `--`.
+- **Tab bar** replaces the sidebar: `LINKS`, `TERMINAL`, and `PAGES` (which
+  appears only once a page has been opened with `open <url>`).
+- **Music** is a pinned bar above the tab bar; the player is a bottom sheet.
+  Neither is draggable on a phone (the desktop keeps dragging its floating
+  windows).
+- **Terminal** gets a key strip (↑ ↓ TAB ^C CLS HELP) because soft keyboards
+  have no arrows, Tab or Ctrl, an input that never triggers Safari's zoom, and
+  a height that accounts for the on-screen keyboard (`--pt-keyboard-offset`)
+  and the fixed chrome (`--pt-fixed-stack`) exactly once each.
+- `Escape` returns from Terminal or Pages to Links.
+- The marquee is not rendered at this width, and `main/mobile.js` stops
+  measuring it so a hidden banner costs nothing.
+
+Panes stay owned by `terminal.js`: `showPane()` emits one `site:panechange`
+event and the phone controller only projects it into
+`body[data-layout="phone"]` / `body[data-view]`. Crossing the boundary
+repeatedly is safe — every listener and observer the controller creates is
+removed when phone mode exits.
 
 ## Development
 

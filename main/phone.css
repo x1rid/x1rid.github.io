@@ -1,0 +1,752 @@
+/* ============================================================
+ *  phone.css — the phone shell
+ *
+ *  Loaded only at `max-width: 600px` (see the media attribute in
+ *  index.html and the matchMedia in mobile.js — keep the three
+ *  identical). Above that width this file is not even fetched: the
+ *  compact layer (mobile.css, <=760px) and the desktop stay as they are.
+ *
+ *  The phone is not a narrowed desktop. The layout is one column with
+ *  three fixed surfaces (header / view / bottom stack), hover is replaced
+ *  by press states, floating windows become a pinned station bar and a
+ *  bottom sheet, and the shell spends its pixels on content instead of a
+ *  workstation frame.
+ *
+ *  Two geometry rules are deliberate and must not be merged:
+ *    --pt-fixed-stack     fixed chrome that sits under the view
+ *    --pt-keyboard-offset visual-viewport keyboard inset (JS, typing only)
+ *  Subtracting both exactly once is what keeps the terminal honest.
+ *
+ *  Colours come from variables.css; this file adds sizes and placement.
+ * ============================================================ */
+
+:root {
+    --pt-header-h: 44px;
+    --pt-view-head-h: 42px;
+    --pt-tabbar-h: 52px;
+    --pt-mini-h: 38px;
+    --pt-keys-h: 52px;
+    --pt-gutter: 12px;
+    --pt-tap: 44px;
+
+    --pt-safe-t: env(safe-area-inset-top, 0px);
+    --pt-safe-b: env(safe-area-inset-bottom, 0px);
+    --pt-safe-l: env(safe-area-inset-left, 0px);
+    --pt-safe-r: env(safe-area-inset-right, 0px);
+
+    --pt-pad-l: calc(var(--pt-gutter) + var(--pt-safe-l));
+    --pt-pad-r: calc(var(--pt-gutter) + var(--pt-safe-r));
+
+    /* Fixed chrome below the view: pinned station bar + tab bar. */
+    --pt-fixed-stack: calc(var(--pt-mini-h) + var(--pt-tabbar-h) + var(--pt-safe-b));
+
+    /* Written by mobile.js from visualViewport, only while typing. */
+    --pt-keyboard-offset: 0px;
+}
+
+/* While the terminal input owns the keyboard, the key strip replaces the
+   bottom stack rather than sitting on top of it. */
+body.is-typing {
+    --pt-fixed-stack: var(--pt-keys-h);
+}
+
+/* ============================================================
+ *  SHELL — the phone is the device, the frame is the screen
+ * ============================================================ */
+body {
+    padding: 0;
+    -webkit-tap-highlight-color: rgba(192, 132, 252, 0.14);
+}
+
+.geocities-container {
+    width: 100%;
+    max-width: none;
+    padding: 0 0 calc(var(--pt-fixed-stack) + 8px);
+    border: 0 !important;
+    box-shadow: none !important;
+    background: var(--surface-0) !important;
+}
+
+.layout-grid,
+.layout-grid.terminal-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+}
+
+/* The phone build has no sidebar and no splitter: navigation is a tab bar,
+   not a column of buttons. */
+.sidebar,
+.panel-splitter {
+    display: none !important;
+}
+
+.content-area,
+.content-area.terminal-mode {
+    min-height: calc(100dvh - var(--pt-header-h));
+    padding: var(--pt-gutter) var(--pt-pad-r) 0 var(--pt-pad-l) !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+.content-area::before,
+.content-area::after {
+    display: none; /* corner brackets are a window motif; phones have no windows */
+}
+
+/* ============================================================
+ *  PHONE HEADER — identity + honest state
+ * ============================================================ */
+.phone-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-sizing: border-box;
+    width: auto;
+    height: calc(var(--pt-header-h) + var(--pt-safe-t));
+    margin: 0;
+    padding: var(--pt-safe-t) var(--pt-pad-r) 0 var(--pt-pad-l);
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.phone-avatar {
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    background: var(--surface-2);
+    border: 1px solid var(--line-hi);
+}
+
+/* The document's one real heading. */
+.phone-name {
+    margin: 0;
+    color: var(--signal-active);
+    font-size: var(--text-md);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-shadow: 0 0 8px rgba(192, 132, 252, 0.28);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Values only: pane + real playback state. Unknown is `--`, never a guess. */
+.phone-header .phone-state {
+    display: inline;
+    margin-left: auto;
+    max-width: 56%;
+    color: var(--ink-50);
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ============================================================
+ *  MARQUEE — not rendered on the phone. The pixel budget under a
+ *  44px header is worth more than a second scrolling banner, and the
+ *  inline script stops measuring it at this width.
+ * ============================================================ */
+.marquee-top {
+    display: none !important;
+}
+
+/* ============================================================
+ *  VIEW HEAD — the desktop section title, in-view
+ * ============================================================ */
+.phone-view-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    box-sizing: border-box;
+    height: 34px;
+    margin: 0 0 8px;
+    padding: 0 0 6px;
+    border-bottom: 1px solid var(--line-hi);
+}
+
+.phone-view-title {
+    color: var(--signal-active);
+    font-size: var(--text-md);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+}
+
+.phone-view-meta {
+    max-width: 56%;
+    color: var(--ink-50);
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.content-area > .section-title {
+    display: none !important; /* replaced by .phone-view-head */
+}
+
+/* ============================================================
+ *  VIEW SWITCHING — the projection written by mobile.js
+ * ============================================================ */
+body[data-view="page"] #link-exchange,
+body[data-view="page"] #pc-specs,
+body[data-view="page"] #webpage-pane {
+    display: none !important;
+}
+
+body[data-view="pc"] .footer,
+body[data-view="page"] .footer,
+body[data-view="web"] .footer {
+    display: none !important;
+}
+
+/* ============================================================
+ *  LINKS VIEW
+ * ============================================================ */
+#link-exchange,
+#pc-specs {
+    margin-top: 0 !important;
+}
+
+/* Category chips become a full-bleed snap strip: one row, thumb-width. */
+.link-exchange-categories {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin: 0 calc(-1 * var(--pt-pad-l)) 10px calc(-1 * var(--pt-pad-l));
+    padding: 2px var(--pt-pad-l);
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.link-exchange-categories::-webkit-scrollbar {
+    display: none;
+}
+
+.link-exchange-category {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 84px;
+    min-height: var(--pt-tap);
+    padding: 0 14px;
+    font-size: var(--text-xs);
+    scroll-snap-align: start;
+    touch-action: manipulation;
+}
+
+.link-exchange-category:active {
+    border-color: var(--signal-active);
+    color: var(--signal-active);
+    background: rgba(192, 132, 252, 0.14);
+}
+
+/* Three columns at 360px, four once there is room. No sideways scroll. */
+.link-exchange-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    overflow-x: visible;
+    overscroll-behavior-inline: auto;
+}
+
+.social-tile {
+    padding: 8px 6px 4px;
+    touch-action: manipulation;
+}
+
+/* Press, not hover. */
+.social-tile:active {
+    border-color: var(--signal-active);
+    background: rgba(192, 132, 252, 0.12);
+    transform: translateY(1px);
+}
+
+.icon-frame {
+    width: 100%;
+    max-width: 92px;
+}
+
+.icon-frame img {
+    width: 64px;
+    height: 64px;
+}
+
+.icon-frame .icon--small { width: 52px; height: 52px; }
+.icon-frame .icon--large { width: 70px; height: 70px; }
+.icon-frame .icon--wide  { width: 72px; height: 52px; }
+
+.social-tile .badge-label {
+    min-height: 0;
+    font-size: 0.58rem;
+    letter-spacing: 0.01em;
+    line-height: 1.15;
+}
+
+.link-exchange-grid[data-state="empty"]::after {
+    padding: 20px 10px;
+}
+
+@media (min-width: 480px) {
+    .link-exchange-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+}
+
+/* ============================================================
+ *  TERMINAL VIEW — ONE owner for height, minimum height, overflow
+ *  containment and the input font (11.5), and the keyboard offset is
+ *  subtracted exactly once, next to the fixed stack (11.4).
+ * ============================================================ */
+.terminal {
+    height: calc(100vh - var(--pt-header-h) - var(--pt-view-head-h) - var(--pt-fixed-stack) - var(--pt-keyboard-offset) - 20px);
+    height: calc(100dvh - var(--pt-header-h) - var(--pt-view-head-h) - var(--pt-fixed-stack) - var(--pt-keyboard-offset) - 20px);
+    max-height: none;
+    min-height: 0;
+    margin-top: 0;
+    padding: 8px;
+    font-size: 13px;
+    border-radius: 0;
+    overscroll-behavior-y: contain; /* the view scrolls, not the page behind it */
+}
+
+/* Safari zooms the page when a focused field is under 16px. The output
+   keeps its 13px rhythm; only the input gets the readable size. */
+.terminal-input {
+    font-size: 16px;
+}
+
+.terminal-command-line,
+.terminal-input-line {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 4px;
+}
+
+.terminal-prompt {
+    max-width: 14ch;
+}
+
+/* Key strip. Soft keyboards have no Tab, arrows or Ctrl, so the strip
+   dispatches the exact key events the terminal already listens for. */
+.phone-keys {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--pt-keyboard-offset);
+    z-index: 62;
+    gap: 6px;
+    box-sizing: border-box;
+    padding: 6px var(--pt-pad-r) 6px var(--pt-pad-l);
+    background: var(--surface-1);
+    border-top: 1px solid var(--line-hi);
+    box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.4);
+}
+
+body.is-typing .phone-keys {
+    display: flex;
+}
+
+/* The keyboard owns the bottom of the screen; the bar and the player would
+   only be in the way of the thing the user is doing. */
+body.is-typing .phone-tabs,
+body.is-typing .rp-mini,
+body.is-typing .retro-player {
+    display: none !important;
+}
+
+body.is-typing .geocities-container {
+    padding-bottom: calc(var(--pt-fixed-stack) + 8px);
+}
+
+.phone-keys button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 2px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--ink-70);
+    font: 700 var(--text-xs) 'Courier New', monospace;
+    letter-spacing: 0.02em;
+    touch-action: manipulation;
+    cursor: pointer;
+}
+
+.phone-keys button:active {
+    border-color: var(--signal-active);
+    color: var(--signal-active);
+    background: rgba(192, 132, 252, 0.14);
+}
+
+/* ============================================================
+ *  WEBPAGE VIEW
+ * ============================================================ */
+body[data-view="web"] .content-area {
+    padding: 0 !important;
+}
+
+.webpage-toolbar {
+    height: 48px !important;
+    padding: 2px 6px !important;
+    gap: 6px !important;
+    background: var(--surface-1) !important;
+    border-bottom: 1px solid var(--line) !important;
+}
+
+.webpage-toolbar button {
+    min-width: var(--pt-tap);
+    min-height: var(--pt-tap);
+    padding: 0 8px;
+    font-size: 0.82rem;
+    touch-action: manipulation;
+}
+
+#webpage-title {
+    display: block;
+    max-width: 100%;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.webpage-iframe {
+    min-height: 0;
+    height: calc(100vh - var(--pt-header-h) - 48px - var(--pt-fixed-stack));
+    height: calc(100dvh - var(--pt-header-h) - 48px - var(--pt-fixed-stack) - var(--pt-safe-t));
+}
+
+/* Honest fallback for platforms without Element Fullscreen (iOS Safari):
+   mobile.js replaces the control with a real "open in browser" action. */
+.phone-webpage-external {
+    white-space: nowrap;
+}
+
+/* ============================================================
+ *  PAGES VIEW — a projection of the saved `open <url>` list
+ * ============================================================ */
+.phone-pages {
+    display: none;
+}
+
+body[data-view="page"] .phone-pages {
+    display: block;
+}
+
+#phone-pages-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#phone-pages-list button {
+    position: relative;
+    width: 100%;
+    min-height: var(--pt-tap);
+    padding: 10px 12px 10px 28px;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    background: var(--surface-2);
+    color: var(--ink-70);
+    font: 700 var(--text-sm) 'Courier New', monospace;
+    text-align: left;
+    touch-action: manipulation;
+    cursor: pointer;
+}
+
+#phone-pages-list button::before {
+    content: '▸';
+    position: absolute;
+    left: 10px;
+    color: var(--signal-active);
+}
+
+#phone-pages-list button:active {
+    border-color: var(--signal-active);
+    color: var(--signal-active);
+    background: rgba(192, 132, 252, 0.12);
+}
+
+.phone-pages-empty {
+    margin: 0;
+    padding: 28px 12px;
+    border: 1px dashed var(--line);
+    color: var(--ink-50);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: var(--track-ui);
+    text-align: center;
+    text-transform: uppercase;
+}
+
+/* ============================================================
+ *  MUSIC — pinned station bar + bottom sheet (11.6)
+ *  Dragging is disabled in phone mode by music.js; the `!important`
+ *  coordinates below are only the defensive second layer that neutralises
+ *  stale inline drag coordinates during the transition.
+ * ============================================================ */
+.rp-mini {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: calc(var(--pt-tabbar-h) + var(--pt-safe-b)) !important;
+    width: auto !important;
+    max-width: none !important;
+    height: var(--pt-mini-h);
+    border: 0;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.35);
+    cursor: default;
+    touch-action: auto;
+}
+
+.rp-mini-main {
+    flex: 1 1 auto;
+    padding: 4px 10px;
+}
+
+.rp-mini-text {
+    flex: 1 1 auto;
+    width: auto;
+    max-width: none;
+}
+
+.rp-mini-btn {
+    width: var(--pt-tap);
+    font-size: 12px;
+    touch-action: manipulation;
+}
+
+.rp-mini-main:active {
+    background: rgba(192, 132, 252, 0.12);
+}
+
+/* The player window becomes a sheet: full width, anchored to the bottom. */
+.retro-player {
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 60px);
+    border-width: 1px 0 0;
+    border-radius: 12px 12px 0 0;
+    box-shadow:
+        inset 1px 1px 0 rgba(255, 255, 255, 0.08),
+        0 -10px 40px rgba(0, 0, 0, 0.75),
+        0 0 24px rgba(160, 32, 240, 0.18);
+    padding-bottom: var(--pt-safe-b);
+}
+
+.rp-body {
+    max-height: calc(100dvh - 110px - var(--pt-safe-b));
+}
+
+.rp-window-btn {
+    width: 40px;
+    height: 36px;
+    font-size: 13px;
+}
+
+.rp-controls {
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.rp-btn {
+    flex: 1 1 0;
+    height: var(--pt-tap);
+    touch-action: manipulation;
+}
+
+.rp-secondary {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.rp-small {
+    min-width: 44px;
+    min-height: 40px;
+    padding: 0 10px;
+    touch-action: manipulation;
+}
+
+.rp-volume-wrap {
+    flex: 1 1 100%;
+    min-height: 36px;
+}
+
+.rp-volume,
+.rp-progress {
+    height: 28px;
+}
+
+.rp-list {
+    max-height: 30dvh;
+}
+
+.rp-track-item {
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 12px;
+    touch-action: manipulation;
+}
+
+.rp-foot {
+    display: none; /* "drag the title bar" stops being true on a phone */
+}
+
+/* ============================================================
+ *  ABOUT — the footer, quiet, at the end of the Links view
+ * ============================================================ */
+.footer {
+    margin: 16px 0 0;
+    padding: 10px 0 0;
+    border-top: 1px solid var(--line) !important;
+    font-size: 0.68rem !important;
+}
+
+.footer p {
+    margin: 8px 0 0;
+}
+
+.footer .music-panel {
+    display: none !important; /* the pinned station bar is the phone music UI */
+}
+
+.hit-counter {
+    font-size: 0.95rem;
+}
+
+/* ============================================================
+ *  TAB BAR
+ * ============================================================ */
+.phone-tabs {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    box-sizing: border-box;
+    height: calc(var(--pt-tabbar-h) + var(--pt-safe-b));
+    padding: 0 calc(6px + var(--pt-safe-r)) var(--pt-safe-b) calc(6px + var(--pt-safe-l));
+    background: var(--surface-1);
+    border-top: 1px solid var(--line-hi);
+    box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5);
+}
+
+.phone-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 0;
+    position: relative;
+    min-height: var(--pt-tap);
+    margin: 4px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink-50);
+    font: 700 var(--text-2xs) 'Courier New', monospace;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.phone-tab[aria-current="true"] {
+    color: var(--signal-active);
+    border-color: var(--line-hi);
+    background: rgba(192, 132, 252, 0.08);
+    text-shadow: 0 0 7px rgba(192, 132, 252, 0.3);
+}
+
+/* The site's one signature detail, at phone scale: a single corner bracket. */
+.phone-tab[aria-current="true"]::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    bottom: 3px;
+    width: 7px;
+    height: 7px;
+    border-left: 1px solid var(--signal-active);
+    border-bottom: 1px solid var(--signal-active);
+    opacity: 0.75;
+    pointer-events: none;
+}
+
+.phone-tab:active {
+    background: rgba(192, 132, 252, 0.14);
+}
+
+.phone-tab[hidden] {
+    display: none;
+}
+
+.phone-tab:disabled {
+    opacity: 0.4;
+}
+
+/* ============================================================
+ *  LANDSCAPE PHONES — a 320px tall viewport must never overflow
+ * ============================================================ */
+@media (max-height: 430px) and (orientation: landscape) {
+    :root {
+        --pt-header-h: 36px;
+        --pt-view-head-h: 34px;
+        --pt-tabbar-h: 46px;
+        --pt-mini-h: 34px;
+        --pt-keys-h: 46px;
+    }
+
+    .phone-avatar {
+        flex-basis: 22px;
+        width: 22px;
+        height: 22px;
+    }
+}
+
+/* ============================================================
+ *  REDUCED MOTION — the phone adds no motion of its own, but the
+ *  shared sheet/bar rules still need the opt-out.
+ * ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+    .phone-tab,
+    .phone-keys button,
+    .social-tile,
+    .link-exchange-category,
+    #phone-pages-list button {
+        transition: none;
+        animation: none;
+    }
+
+    .retro-player {
+        animation: none;
+    }
+}

@@ -687,6 +687,14 @@
     let winDrag = null;
     let miniDrag = null;
 
+    /* Phone layout (<=600px, the same boundary as phone.css / mobile.js):
+       the dock and the player are pinned by CSS there, so pointer dragging
+       must not fight the stylesheet. The media query is re-read on every
+       check, so rotating in and out of phone mode is handled live. */
+    function isPhoneLayout() {
+        return Boolean(window.matchMedia && window.matchMedia('(max-width: 600px)').matches);
+    }
+
     function createDragControllers() {
         const api = window.RetroDrag;
         if (!api) return;
@@ -697,7 +705,8 @@
                 offset: 16,
                 threshold: 0,           /* title bar: drag starts on pointer-down */
                 ignoreButtons: true,    /* the min/max buttons keep their clicks */
-                fallbackSize: { width: 326, height: 260 }
+                fallbackSize: { width: 326, height: 260 },
+                allow: () => !isPhoneLayout()
             });
         }
 
@@ -708,7 +717,8 @@
                 threshold: 6,           /* a small movement stays a tap */
                 cornerPinned: true,     /* docked with right/bottom by default */
                 fallbackSize: { width: 250, height: 38 },
-                dblclickReset: true     /* double-click snaps it back home */
+                dblclickReset: true,    /* double-click snaps it back home */
+                allow: () => !isPhoneLayout()
             });
         }
     }
@@ -881,9 +891,27 @@
             if (event.key === 'Escape') setWindowVisible(false);
         });
 
+        let wasPhoneLayout = isPhoneLayout();
+
         window.addEventListener('resize', () => {
-            if (winDrag) winDrag.clamp();
-            if (miniDrag) miniDrag.clamp();
+            /* Phone mode hands placement to the stylesheet (clamp() clears the
+               inline coordinates when dragging is not allowed). Returning to
+               the desktop re-applies the saved spot; a plain desktop resize
+               keeps the old clamp-only behaviour. */
+            const phone = isPhoneLayout();
+
+            if (phone) {
+                if (winDrag) winDrag.clamp();
+                if (miniDrag) miniDrag.clamp();
+            } else if (wasPhoneLayout) {
+                if (winDrag) winDrag.restore();
+                if (miniDrag) miniDrag.restore();
+            } else {
+                if (winDrag) winDrag.clamp();
+                if (miniDrag) miniDrag.clamp();
+            }
+
+            wasPhoneLayout = phone;
         }, { passive: true });
 
         /* Always boot minimized: the dock in the lower-right corner is the

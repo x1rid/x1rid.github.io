@@ -135,6 +135,38 @@
 .blink { animation: blinker 1s linear infinite; }
 @keyframes blinker { 50% { opacity: 0; } }
 
+/* ============================================================
+ *  PHONE CHROME — base state
+ *  The phone header, tab bar, key strip and pages view exist in
+ *  the markup (no second interface is built by script) but only
+ *  phone.css (<=600px) gives them a layout. Everywhere else they
+ *  are inert.
+ * ============================================================ */
+.phone-tabs,
+.phone-keys,
+.phone-pages,
+.phone-view-head { display: none; }
+
+/* The one exception: the header holds the document's real <h1>, so above
+   600px it is clipped rather than removed — visually invisible, still a
+   heading for assistive technology. phone.css turns the same element into
+   the visible header at phone width. */
+.phone-header {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    border: 0;
+    white-space: nowrap;
+}
+
+/* Live state is repeated in the phone header only; the desktop already has
+   the status rail and the sidebar identity, so it stays out of that output. */
+.phone-header .phone-state { display: none; }
+
 /* Music widget + player styles live in music.css.
    Webpage pane + terminal styles live in terminal.css. */
 

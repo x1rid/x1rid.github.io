@@ -1066,10 +1066,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const mainTitle = document.getElementById('main-section-title');
             const wpPane = document.getElementById('webpage-pane');
 
-            if (document.body) {
-                document.body.classList.toggle('mobile-header-collapsed', pane !== 'link');
-            }
-
             // Hide every pane first so no residual layout space remains.
             [paneLink, panePC, wpPane].forEach((element) => {
                 if (element) element.style.display = 'none';
@@ -1080,12 +1076,25 @@ document.addEventListener('DOMContentLoaded', () => {
             if (layout) layout.classList.toggle('terminal-layout', isTerminalPane);
             if (terminalWrapper) terminalWrapper.style.display = pane === 'webpage' ? 'none' : '';
 
+            /* showPane stays the only owner of which pane is really open. It
+               emits one event after the visibility changes, so the phone shell
+               (mobile.js) can project the state instead of wrapping or
+               replacing this function. */
+            function emitPaneChange() {
+                try {
+                    document.dispatchEvent(new CustomEvent('site:panechange', { detail: { pane } }));
+                } catch (e) {
+                    /* CustomEvent unavailable: the phone projection stays put. */
+                }
+            }
+
             if (pane === 'webpage') {
                 if (panePC) panePC.style.display = 'block';
                 if (wpPane) wpPane.style.display = 'block';
                 if (mainTitle) mainTitle.style.display = 'none';
                 setActive(null);
                 animatePane(wpPane);
+                emitPaneChange();
                 return;
             }
 
@@ -1094,6 +1103,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (mainTitle) mainTitle.style.display = 'none';
                 setActive(navPC);
                 animatePane(panePC);
+                emitPaneChange();
                 return;
             }
 
@@ -1104,6 +1114,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             setActive(navLink);
             animatePane(paneLink);
+            emitPaneChange();
         }
 
         if (navLink) {

@@ -50,15 +50,17 @@ Grid: `.layout-grid` is `sidebar | 10px splitter | content`, sized by the
 `--sidebar-width` custom property (defaults to the compact 220px).
 
 External stylesheets: the `css/` modules above, then `terminal.css`,
-`music.css`, `mobile.css (<=760px)`.
+`music.css`, `mobile.css (<=760px, compact/tablet)` and
+`phone.css (<=600px, phone shell — linked with a media attribute, so it is not
+even fetched above that width)`.
 
 ## JavaScript (plain scripts, deferred)
 
 | File | Responsibility |
 |------|----------------|
 | `draggable.js` | shared pointer-drag physics (`window.RetroDrag.makeDraggable`) for the music window + dock: pointer capture, clamping, persisted `{left, top}`, tap-vs-drag threshold, double-click reset |
-| `mobile.js` | mobile header behaviour / chevrons |
-| `link-exchange.js` | renders tiles from `data/links.json` (inline fallback array); category filtering; animated GIF swap on `pointerenter`/`focusin`, back to `.webp` on leave/blur; error fallback shows initials |
+| `mobile.js` | the phone shell controller (`<=600px`): projects `site:panechange` into `body[data-layout]`/`body[data-view]`, mirrors the status rail and the saved-pages list, runs the terminal key strip, tracks the virtual keyboard (`--pt-keyboard-offset`), and hands fullscreen over to an "open in browser" action where Element Fullscreen is missing. One `on()`/`off()` lifecycle — every listener and observer it creates is removed on exit |
+| `link-exchange.js` | renders tiles from `data/links.json` (inline fallback array); category filtering; animated GIF swap on `pointerenter`/`focusin`, back to `.webp` on leave/blur (hover swap only for hover-capable fine pointers, so touch gets static tiles); error fallback shows initials |
 | `splitter.js` | draggable + keyboard-resizable sidebar; dblclick resets; persists width in `localStorage['retroSidebarWidth']`; default/compact width = 220px |
 | `music.js` | music widget + player (see Music below) |
 | `terminal.js` | the terminal, neofetch, fake VFS (`data/vfs.json`), in-page browsing |
