@@ -144,8 +144,7 @@
  * ============================================================ */
 .phone-tabs,
 .phone-keys,
-.phone-pages,
-.phone-view-head { display: none; }
+.phone-pages { display: none; }
 
 /* The one exception: the header holds the document's real <h1>, so above
    600px it is clipped rather than removed — visually invisible, still a
@@ -162,10 +161,6 @@
     border: 0;
     white-space: nowrap;
 }
-
-/* Live state is repeated in the phone header only; the desktop already has
-   the status rail and the sidebar identity, so it stays out of that output. */
-.phone-header .phone-state { display: none; }
 
 /* Music widget + player styles live in music.css.
    Webpage pane + terminal styles live in terminal.css. */

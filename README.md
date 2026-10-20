@@ -3,12 +3,13 @@
 A purple/black retro personal homepage. Fully static — no build step, no
 dependencies, no framework.
 
-**Live:** https://x1rid.github.io (the root `index.html` redirects to `/main/index.html`)
+**Live:** https://x1rid.github.io (the root page embeds the `/main/` site without
+an initial navigation redirect)
 
 ## Structure
 
 ```
-index.html          → redirect to ./main/index.html
+index.html          → full-viewport entry wrapper for ./main/index.html
 main/               → the retro homepage
     index.html      → page shell (markup + tags only)
     css/            → theme/layout modules (variables, base, marquee, layout,
@@ -24,7 +25,7 @@ main/               → the retro homepage
     splitter.js     → draggable sidebar divider
     music.js        → music widget + player
     terminal.js     → fake terminal + windows/webpage in-page browsing
-    chrome.js       → status rail, local visit counter, focused-window state
+    chrome.js       → status rail, public page-view counter, focused-window state
     mobile.js       → phone shell controller (<=600px): tab bar, pages mirror,
                       terminal key strip, virtual-keyboard geometry
     assets/         → cursor GIFs
@@ -93,8 +94,10 @@ navigates away), so scrolling never downloads an animation.
 
 - The status rail above the desktop shows only real state: current pane, actual
   playback state (`--` / `PAUSED` when idle) and the local time.
-- The visitor counter is local to your browser (`retroVisits` in
-  `localStorage`), not a global statistic.
+- The footer shows approximate total page views from the public Abacus counter
+  API. It counts page loads, not unique people, may be inflated, and displays
+  `------` when the service is unavailable. The per-tab guard avoids repeated
+  hits on reloads, but is not a visitor-deduplication system.
 - `main/chrome.js` owns both, plus the focused-window border state. It hides
   the rail on phones and does nothing if its markup is missing.
 - Without JavaScript the page still lists the links and hides controls that
@@ -107,8 +110,9 @@ not a squeezed desktop. Two deliberate boundaries exist: **`760px`** is the
 compact/tablet layout (`responsive.css` + `mobile.css`, still the desktop's own
 controls in one column) and **`600px`** is the phone shell.
 
-- **Header** carries the document's one `<h1>` and a status line that mirrors
-  real state (`LINKS · ♫ track`, `TERMINAL · PAUSED`, …). Unknown is `--`.
+- **Header** shows a `r3d1bruh://links`-style path for the current view plus
+  its meta (entry count/filter, `local`, saved-page count). The music track is
+  not mirrored here; it stays in the pinned bar.
 - **Tab bar** replaces the sidebar: `LINKS`, `TERMINAL`, and `PAGES` (which
   appears only once a page has been opened with `open <url>`).
 - **Music** is a pinned bar above the tab bar; the player is a bottom sheet.

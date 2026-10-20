@@ -3,7 +3,7 @@
  *
  *  Everything here reflects real state:
  *    - status rail: current pane, actual playback state, real local clock
- *    - visit counter: this browser's local visit count (never a fake number)
+ *    - page counter: an approximate third-party page-view count
  *    - focused-window state: which column/window was last used
  *
  *  Every part degrades silently when its markup is missing.
@@ -111,29 +111,44 @@
     window.setInterval(syncClock, 30000);
 
     /* ------------------------------------------------------------------
-     * Visit counter — local to this browser, incremented once per session.
-     * Starts at the old joke value on a first visit.
+     * Page counter — approximate global page views from a public counter API.
+     * It is intentionally labelled as page views, not unique visitors.
      * ------------------------------------------------------------------ */
     const counter = document.querySelector('.hit-counter');
     if (counter) {
-        try {
-            const VISITS_KEY = 'retroVisits';
-            const SESSION_KEY = 'retroVisitSession';
-
-            const raw = localStorage.getItem(VISITS_KEY);
-            let visits = raw === null ? 1336 : Number(raw);
-            if (!Number.isFinite(visits) || visits < 0) visits = 1336;
-
-            if (!sessionStorage.getItem(SESSION_KEY)) {
-                visits += 1;
-                localStorage.setItem(VISITS_KEY, String(visits));
-                sessionStorage.setItem(SESSION_KEY, '1');
+        const COUNTER_BASE = 'https://abacus.jasoncameron.dev';
+        const COUNTER_KEY = 'x1rid.github.io/visits';
+        const SESSION_KEY = 'retroGlobalPageView';
+        const counted = (() => {
+            try {
+                return sessionStorage.getItem(SESSION_KEY) === '1';
+            } catch (_) {
+                return false;
             }
+        })();
+        const endpoint = `${COUNTER_BASE}/${counted ? 'get' : 'hit'}/${COUNTER_KEY}`;
 
-            counter.textContent = String(visits).padStart(6, '0');
-        } catch (_) {
-            /* Storage disabled: keep the static fallback number. */
-        }
+        fetch(endpoint, { cache: 'no-store' })
+            .then((response) => {
+                if (!response.ok) throw new Error(`counter request failed: ${response.status}`);
+                return response.json();
+            })
+            .then((data) => {
+                const value = Number(data && data.value);
+                if (!Number.isFinite(value) || value < 0) {
+                    throw new Error('counter response did not contain a valid value');
+                }
+                counter.textContent = String(Math.floor(value)).padStart(6, '0');
+                try {
+                    sessionStorage.setItem(SESSION_KEY, '1');
+                } catch (_) {
+                    /* A blocked session store only affects hit deduplication. */
+                }
+            })
+            .catch((error) => {
+                console.warn('page counter unavailable:', error);
+                counter.textContent = '------';
+            });
     }
 
     /* ------------------------------------------------------------------

@@ -11,7 +11,8 @@ and no build step.
 - `main/` — the main retro homepage (what visitors see first)
 - `dora/` — standalone side-project site (own PWA/manifest/sw)
 - `l/`    — standalone link-tree page
-- `index.html` (root) — meta-redirect to `./main/index.html`
+- `index.html` (root) — full-viewport same-origin embed of `./main/index.html`;
+  avoids an initial navigation redirect while keeping the main site self-contained
 - `serve.py` — optional local dev server; adds automatic directory listing for
   `/playlist` and `/main/playlist` so the music player can rescan tracks
 - `verify.py` — zero-dependency static checks. Run `python verify.py` before
@@ -59,12 +60,12 @@ even fetched above that width)`.
 | File | Responsibility |
 |------|----------------|
 | `draggable.js` | shared pointer-drag physics (`window.RetroDrag.makeDraggable`) for the music window + dock: pointer capture, clamping, persisted `{left, top}`, tap-vs-drag threshold, double-click reset |
-| `mobile.js` | the phone shell controller (`<=600px`): projects `site:panechange` into `body[data-layout]`/`body[data-view]`, mirrors the status rail and the saved-pages list, runs the terminal key strip, tracks the virtual keyboard (`--pt-keyboard-offset`), and hands fullscreen over to an "open in browser" action where Element Fullscreen is missing. One `on()`/`off()` lifecycle — every listener and observer it creates is removed on exit |
+| `mobile.js` | the phone shell controller (`<=600px`): projects `site:panechange` into `body[data-layout]`/`body[data-view]`, mirrors the current view path/meta and the saved-pages list into the single header, runs the terminal key strip, tracks the virtual keyboard (`--pt-keyboard-offset`), and hands fullscreen over to an "open in browser" action where Element Fullscreen is missing. One `on()`/`off()` lifecycle — every listener and observer it creates is removed on exit |
 | `link-exchange.js` | renders tiles from `data/links.json` (inline fallback array); category filtering; animated GIF swap on `pointerenter`/`focusin`, back to `.webp` on leave/blur (hover swap only for hover-capable fine pointers, so touch gets static tiles); error fallback shows initials |
 | `splitter.js` | draggable + keyboard-resizable sidebar; dblclick resets; persists width in `localStorage['retroSidebarWidth']`; default/compact width = 220px |
 | `music.js` | music widget + player (see Music below) |
 | `terminal.js` | the terminal, neofetch, fake VFS (`data/vfs.json`), in-page browsing |
-| `chrome.js` | status rail (pane / playback / clock), local visit counter, `data-focus` window state |
+| `chrome.js` | status rail (pane / playback / clock), public page-view counter, `data-focus` window state |
 | `custom-cursor.js` | custom GIF cursor + particle trail |
 
 ## Terminal (`main/terminal.js`)
@@ -172,13 +173,14 @@ them instead of hardcoding literals.
   `:where(a, button, input, …):focus-visible` ring. Feature CSS may add an
   inset ring (e.g. the scrolling track list) but must never set
   `outline: none` on a focus state.
-- **Honest values only.** The status rail, visit counter and music labels show
+- **Honest values only.** The status rail, page counter and music labels show
   real state or `--` / `PAUSED`. Never invent a clock, a control, or a
   playback state.
 
 ## Known quirks
 
-- Root `index.html` is only a redirect wrapper; all styling lives under `main/`.
+- Root `index.html` is only an entry wrapper; all site styling and behavior live
+  under `main/`.
 - `public/main/index.html`-style historical copies were removed with the old
   Windows-XP app; don't reintroduce mirrored copies of `main/`.
 - `dora/` ships two deliberately divergent attendance apps: `index.html`

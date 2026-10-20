@@ -32,19 +32,17 @@
 
     const PHONE = window.matchMedia('(max-width: 600px)');
 
-    const VIEW_LABEL = { link: 'LINKS', pc: 'TERMINAL', web: 'PAGE', page: 'PAGES' };
     const VIEW_TAB = { link: 'link', pc: 'pc', web: 'page', page: 'page' };
+    const VIEW_PATH = { link: 'links', pc: 'terminal', web: 'web', page: 'pages' };
 
     /* Static elements — looked up once, after the DOM is ready. */
     let tabsBar = null;
     let tabs = [];
     let pagesTab = null;
-    let statusEl = null;
+    let viewPath = null;
     let viewMeta = null;
-    let pagesView = null;
     let pagesList = null;
     let pagesEmpty = null;
-    let pagesMeta = null;
     let keysStrip = null;
     let webpagesList = null;
     let sectionTitle = null;
@@ -60,11 +58,6 @@
     /* ------------------------------------------------------------------
      * Small helpers
      * ------------------------------------------------------------------ */
-    const railText = (selector) => {
-        const element = document.querySelector(selector);
-        return element ? String(element.textContent || '').trim() : '';
-    };
-
     const paneView = (pane) => (pane === 'pc' ? 'pc' : pane === 'webpage' ? 'web' : 'link');
 
     function paneViewFromDom() {
@@ -126,7 +119,7 @@
             tab.setAttribute('aria-current', tab.dataset.view === wanted ? 'true' : 'false');
         });
 
-        syncStatus();
+        syncHeader();
     }
 
     function applyView(view) {
@@ -154,20 +147,40 @@
     }
 
     /* ------------------------------------------------------------------
-     * Status line — a read-only projection of real state.
-     * The pane half mirrors the phone's own view (which mirrors showPane),
-     * the track half mirrors chrome.js's rail. Neither is a new source of
-     * truth, and no important state exists only here.
+     * Header — the site path plus the current view's read-only meta.
+     * The path is the view context; the bottom tab repeats it as the
+     * control. The meta mirrors the desktop title (or the saved-pages
+     * count) and is never a new source of truth.
      * ------------------------------------------------------------------ */
-    function syncStatus() {
-        if (!statusEl) return;
-        const track = railText('.rail-track') || '--';
-        statusEl.textContent = `${VIEW_LABEL[currentView] || 'LINKS'} · ${track}`;
+    function syncHeader() {
+        if (viewPath) viewPath.textContent = '://' + (VIEW_PATH[currentView] || 'links');
+        syncMeta();
     }
 
     function syncMeta() {
-        if (!viewMeta || !sectionTitle) return;
-        viewMeta.textContent = sectionTitle.dataset.meta || '';
+        if (!viewMeta) return;
+
+        if (currentView === 'pc') {
+            viewMeta.textContent = 'local';
+            return;
+        }
+
+        if (currentView === 'page') {
+            const pages = webpagesList ? webpagesList.children.length : 0;
+            viewMeta.textContent = pages ? `${pages} saved` : '';
+            return;
+        }
+
+        if (currentView === 'web') {
+            viewMeta.textContent = '';
+            return;
+        }
+
+        /* Keep the phone meta short: "20 entries · filter: All" becomes
+           "20 · All" so it fits beside the path. */
+        const meta = sectionTitle ? sectionTitle.dataset.meta || '' : '';
+        const compact = meta.match(/^(\d+)\s+entr(?:y|ies)\s*·\s*filter:\s*(.+)$/i);
+        viewMeta.textContent = compact ? `${compact[1]} · ${compact[2]}` : meta;
     }
 
     /* ------------------------------------------------------------------
@@ -180,10 +193,14 @@
         const count = webpagesList ? webpagesList.children.length : 0;
 
         if (pagesTab) pagesTab.hidden = count === 0;
-        if (pagesMeta) pagesMeta.textContent = count ? `${count} saved` : '';
         if (pagesEmpty) pagesEmpty.hidden = count > 0;
 
-        if (!count && currentView === 'page') applyView('link');
+        if (!count && currentView === 'page') {
+            applyView('link');
+            return;
+        }
+
+        syncMeta();
     }
 
     function renderPages() {
@@ -340,13 +357,10 @@
         }
 
         watch(webpagesList, queuePages, { childList: true, subtree: true, characterData: true });
-        watch(document.querySelector('.rail-pane'), syncStatus, { childList: true, characterData: true, subtree: true });
-        watch(document.querySelector('.rail-track'), syncStatus, { childList: true, characterData: true, subtree: true });
         watch(sectionTitle, syncMeta, { attributes: true, attributeFilter: ['data-meta'] });
 
         addFullscreenFallback();
         renderPages();
-        syncMeta();
         syncKeyboardOffset();
         setView(paneViewFromDom());
     }
@@ -377,12 +391,10 @@
         tabsBar = document.getElementById('phone-tabs');
         tabs = tabsBar ? Array.from(tabsBar.querySelectorAll('.phone-tab')) : [];
         pagesTab = tabsBar ? tabsBar.querySelector('.phone-tab[data-view="page"]') : null;
-        statusEl = document.getElementById('phone-state');
+        viewPath = document.getElementById('phone-view-path');
         viewMeta = document.getElementById('phone-view-meta');
-        pagesView = document.getElementById('phone-pages');
         pagesList = document.getElementById('phone-pages-list');
         pagesEmpty = document.getElementById('phone-pages-empty');
-        pagesMeta = document.getElementById('phone-pages-meta');
         keysStrip = document.getElementById('phone-keys');
         webpagesList = document.getElementById('webpages-list');
         sectionTitle = document.getElementById('main-section-title');
@@ -390,36 +402,17 @@
         /* Static controls: inert above 600px (phone.css hides them), so they
            are wired once and never re-registered. */
         tabs.forEach((tab) => {
-            tab.addEventListener('click', (event) => {
+            tab.addEventListener('click', () => {
                 applyView(tab.dataset.view);
-                /* Keyboard activation moves focus to the view it opened;
-                   a tap already put focus where the user wants it. */
-                if (event.detail === 0) focusViewHeading(tab.dataset.view);
             });
         });
 
         if (keysStrip) keysStrip.addEventListener('pointerdown', onKeysPointerDown);
 
-        syncStatus();
-        syncMeta();
+        syncHeader();
         syncPages();
 
         if (PHONE.matches) on();
-    }
-
-    function focusViewHeading(view) {
-        const host = view === 'page'
-            ? pagesView
-            : view === 'pc'
-                ? document.getElementById('pc-specs')
-                : document.getElementById('link-exchange');
-        if (!host) return;
-
-        const heading = host.querySelector('.phone-view-title');
-        if (!heading) return;
-
-        heading.setAttribute('tabindex', '-1');
-        heading.focus({ preventScroll: true });
     }
 
     const onPhoneChange = (event) => {

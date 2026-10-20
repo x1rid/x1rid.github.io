@@ -344,9 +344,10 @@ driven by `audio.timeupdate` → `--rp-progress`:
   to the key profiles, and a `<noscript><style>` that hides JS-only controls
   (`.music-toggle`, `.music-link`, category tabs). The site then degrades to a readable
   1998 page instead of a broken 2026 one — the most on-brand possible fallback.
-- **Honest hit counter.** Wire `VISITS FROM THIS MACHINE` to a `localStorage` counter
-  incremented once per session, zero-padded to 6 digits. Same visual, real meaning.
-  Keep the `001337` styling for first visits if you like the joke.
+- **Honest page counter.** Wire `TOTAL PAGE VIEWS` to the public Abacus counter
+  API, incrementing once per browser tab session and zero-padding to 6 digits.
+  This is an approximate page-view count, not a unique-visitor statistic. Use
+  `------` when the service is unavailable instead of showing a stale fallback.
 - **Docs.** Add two short conventions to `CODEBASE.md`: the glow budget (§2) and the
   motion budget (§8). Future agents are the main audience.
 

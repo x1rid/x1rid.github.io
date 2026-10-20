@@ -37,8 +37,7 @@
             .phone-header,
             .phone-tabs,
             .phone-keys,
-            .phone-pages,
-            .phone-view-head { display: none !important; }
+            .phone-pages { display: none !important; }
         </style>
     </noscript>
 </head>
@@ -49,8 +48,8 @@
         <img class="phone-avatar" src="./socials/pfp.webp" alt="" width="28" height="28">
         <!-- The one real document heading. Hidden with the rest of the phone
              chrome above 600px; the desktop pane titles remain pane headings. -->
-        <h1 class="phone-name">r3d1bruh</h1>
-        <span class="phone-state" id="phone-state">LINKS · --</span>
+        <h1 class="phone-name">r3d1bruh<span class="phone-name-path" id="phone-view-path">://links</span></h1>
+        <span class="phone-view-meta" id="phone-view-meta"></span>
     </div>
 
     <!-- ======= MARQUEE ======= -->
@@ -102,10 +101,6 @@
 
             <!-- ── LINK EXCHANGE PANE ── -->
             <div id="link-exchange" class="pane">
-                <div class="phone-view-head">
-                    <span class="phone-view-title">LINK EXCHANGE</span>
-                    <span class="phone-view-meta" id="phone-view-meta"></span>
-                </div>
                 <div class="link-exchange-categories" role="tablist" aria-label="Link categories">
                     <button class="link-exchange-category active" type="button" role="tab" aria-selected="true"  data-link-category="all">ALL</button>
                     <button class="link-exchange-category"        type="button" role="tab" aria-selected="false" data-link-category="social">SOCIAL</button>
@@ -135,10 +130,6 @@
             <!-- ── NEOFETCH / TERMINAL PANE ── -->
             <div id="pc-specs" class="pane" style="display:none;">
                 <div class="terminal-wrapper" id="terminal-wrapper">
-                    <div class="phone-view-head">
-                        <span class="phone-view-title">TERMINAL</span>
-                        <span class="phone-view-meta">local</span>
-                    </div>
                     <div class="terminal" id="terminal">
                         <div id="terminal-output" class="terminal-output"></div>
                         <div class="terminal-line">
@@ -181,10 +172,6 @@
 
             <!-- ── PHONE PAGES VIEW (<=600px) ── -->
             <div id="phone-pages" class="phone-pages" aria-label="Opened pages">
-                <div class="phone-view-head">
-                    <span class="phone-view-title">PAGES</span>
-                    <span class="phone-view-meta" id="phone-pages-meta"></span>
-                </div>
                 <div class="phone-pages-list" id="phone-pages-list"></div>
                 <p class="phone-pages-empty" id="phone-pages-empty">NO SAVED PAGES — OPEN ONE FROM THE TERMINAL</p>
             </div>
@@ -193,7 +180,7 @@
 
     <!-- ======= FOOTER ======= -->
     <div class="footer">
-        VISITS FROM THIS MACHINE: <span class="hit-counter" title="Stored locally in this browser">001337</span>
+        TOTAL PAGE VIEWS: <span class="hit-counter" title="Approximate count from a public counter service">------</span>
 
         <!-- ── MUSIC WIDGET ── -->
         <div class="music-panel" role="group" aria-label="Background music">

@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const layout = document.querySelector('.layout-grid');
         const webpagesList = document.getElementById('webpages-list');
 
-        const defaultPromptPrefix = 'C:\\Users\\Krane';
+        const defaultPromptPrefix = 'r3d1bruh@desktop';
         const historyStorageKey = 'terminal_history';
         const maxHistoryEntries = 200;
         const builtInCommands = ['cls', 'dir', 'ls', 'cd', 'start', 'open', 'echo', 'man', 'rm', 'rmdir', 'cp', 'save', 'load', 'saved-files', 'neofetch', 'layout', 'promptgap', 'help'];
@@ -168,8 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function getPromptText() {
-            const suffix = cwd === '/' ? '' : cwd.replace(/\//g, '\\');
-            return `${defaultPromptPrefix}${suffix}>`;
+            const suffix = cwd === '/' ? '~' : `~${cwd}`;
+            return `${defaultPromptPrefix}:${suffix}$`;
         }
 
         function syncPromptWidth(target) {
@@ -283,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const title = document.createElement('div');
             title.className = 'neofetch-title';
-            title.textContent = 'Krane@DESKTOP-I83AHIP';
+            title.textContent = 'r3d1bruh@desktop';
 
             const divider = document.createElement('div');
             divider.className = 'neofetch-divider';
@@ -294,8 +294,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ['Build:', '25H2 (26200)'],
                 ['Uptime:', '2 days, 23 hours, 5 minutes'],
                 ['Resolution:', '1920x1080 @60Hz'],
-                ['Terminal:', 'Administrator: Command Prompt - neofetch'],
-                ['Shell:', 'cmd.exe'],
+                ['Terminal:', 'Windows Terminal'],
+                ['Shell:', 'zsh'],
                 ['Theme:', 'purple-black'],
                 ['CPU:', 'Intel(R) Core(TM) i7-10610U CPU @ 1.80GHz'],
                 ['GPU:', 'Intel(R) UHD Graphics'],

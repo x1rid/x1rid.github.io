@@ -22,7 +22,6 @@
 
 :root {
     --pt-header-h: 44px;
-    --pt-view-head-h: 42px;
     --pt-tabbar-h: 52px;
     --pt-mini-h: 38px;
     --pt-keys-h: 52px;
@@ -95,12 +94,13 @@ body {
 }
 
 /* ============================================================
- *  PHONE HEADER — identity + honest state
+ *  PHONE HEADER — path + current view meta in one bar
  * ============================================================ */
 .phone-header {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
     position: sticky;
     top: 0;
     z-index: 50;
@@ -126,8 +126,10 @@ body {
     border: 1px solid var(--line-hi);
 }
 
-/* The document's one real heading. */
+/* The document's one real heading, written as the site's own path. */
 .phone-name {
+    flex: 0 1 auto;
+    min-width: 0;
     margin: 0;
     color: var(--signal-active);
     font-size: var(--text-md);
@@ -139,11 +141,19 @@ body {
     text-overflow: ellipsis;
 }
 
-/* Values only: pane + real playback state. Unknown is `--`, never a guess. */
-.phone-header .phone-state {
-    display: inline;
+.phone-name-path {
+    color: var(--ink-70);
+    font-weight: 700;
+    letter-spacing: 0;
+    text-shadow: none;
+}
+
+/* The view title is the bottom tab; the header only carries its meta. */
+.phone-view-meta {
+    flex: 0 1 auto;
+    min-width: 0;
     margin-left: auto;
-    max-width: 56%;
+    max-width: 58%;
     color: var(--ink-50);
     font-size: var(--text-2xs);
     font-weight: 700;
@@ -165,44 +175,9 @@ body {
     display: none !important;
 }
 
-/* ============================================================
- *  VIEW HEAD — the desktop section title, in-view
- * ============================================================ */
-.phone-view-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 10px;
-    box-sizing: border-box;
-    height: 34px;
-    margin: 0 0 8px;
-    padding: 0 0 6px;
-    border-bottom: 1px solid var(--line-hi);
-}
-
-.phone-view-title {
-    color: var(--signal-active);
-    font-size: var(--text-md);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    white-space: nowrap;
-}
-
-.phone-view-meta {
-    max-width: 56%;
-    color: var(--ink-50);
-    font-size: var(--text-2xs);
-    font-weight: 700;
-    letter-spacing: var(--track-ui);
-    text-transform: uppercase;
-    text-align: right;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
+/* The desktop pane title is replaced by the bottom tab. */
 .content-area > .section-title {
-    display: none !important; /* replaced by .phone-view-head */
+    display: none !important;
 }
 
 /* ============================================================
@@ -321,8 +296,8 @@ body[data-view="web"] .footer {
  *  subtracted exactly once, next to the fixed stack (11.4).
  * ============================================================ */
 .terminal {
-    height: calc(100vh - var(--pt-header-h) - var(--pt-view-head-h) - var(--pt-fixed-stack) - var(--pt-keyboard-offset) - 20px);
-    height: calc(100dvh - var(--pt-header-h) - var(--pt-view-head-h) - var(--pt-fixed-stack) - var(--pt-keyboard-offset) - 20px);
+    height: calc(100vh - var(--pt-header-h) - var(--pt-fixed-stack) - var(--pt-keyboard-offset) - 20px);
+    height: calc(100dvh - var(--pt-header-h) - var(--pt-fixed-stack) - var(--pt-keyboard-offset) - 20px);
     max-height: none;
     min-height: 0;
     margin-top: 0;
@@ -342,10 +317,6 @@ body[data-view="web"] .footer {
 .terminal-input-line {
     grid-template-columns: auto minmax(0, 1fr);
     gap: 4px;
-}
-
-.terminal-prompt {
-    max-width: 14ch;
 }
 
 /* Key strip. Soft keyboards have no Tab, arrows or Ctrl, so the strip
@@ -719,7 +690,6 @@ body[data-view="page"] .phone-pages {
 @media (max-height: 430px) and (orientation: landscape) {
     :root {
         --pt-header-h: 36px;
-        --pt-view-head-h: 34px;
         --pt-tabbar-h: 46px;
         --pt-mini-h: 34px;
         --pt-keys-h: 46px;

@@ -6,7 +6,8 @@ Purpose: what to keep in mind when an AI agent works on this repository.
 
 A **static, dependency-free retro personal homepage** (purple/black Geocities
 vibe), plus two standalone sub-sites (`dora/`, `l/`). Deployed to GitHub Pages
-from the repository root (`/` redirects to `/main/index.html`).
+from the repository root (`/` embeds the self-contained `/main/` site without
+navigating away from the root URL).
 
 There is **no React, no bundler, no build step** and none should be introduced.
 
@@ -21,7 +22,7 @@ There is **no React, no bundler, no build step** and none should be introduced.
   `media="(max-width:600px)"` so it is not fetched above that width).
 - `main/*.js` — `draggable.js` (shared window/dock drag physics), `mobile.js`
   (the phone shell controller), `link-exchange.js`, `splitter.js`, `music.js`,
-  `terminal.js`, `chrome.js` (status rail / visit counter / focus state),
+  `terminal.js`, `chrome.js` (status rail / page counter / focus state),
   `custom-cursor.js` (all defer, plain classic scripts).
 - `main/data/` — `links.json` (link tiles) and `vfs.json` (terminal filesystem).
 - `main/assets/` — cursor gifs. `main/socials/` — profile/social icons.
@@ -59,8 +60,9 @@ There is **no React, no bundler, no build step** and none should be introduced.
 - `.content-area` is a `<main>` element (one landmark, no second one). Its
   heading `#main-section-title` renders `data-meta` through `::after`
   (entry count + active filter, written by `link-exchange.js`). The phone shell
-  hides that heading (`phone.css`) and mirrors `data-meta` into
-  `.phone-view-meta` (read-only) — never let the two sources disagree.
+  hides that heading (`phone.css`) and mirrors `data-meta` into the header's
+  `.phone-view-meta` and the current view into `#phone-view-path` (both
+  read-only) — never let the sources disagree.
 - Panes are owned by `terminal.js` alone. `showPane()` emits one
   `site:panechange` event; `mobile.js` only projects it into
   `body[data-layout="phone"]` / `body[data-view]`. Never wrap, replace or
@@ -103,13 +105,19 @@ There is **no React, no bundler, no build step** and none should be introduced.
 - Music: GitHub Pages cannot list directories — keep
   `main/playlist/playlist.json` in sync with the track files. The player also
   falls back to a baked-in list when discovery fails.
+- The footer counter is an approximate public page-view count from Abacus
+  (`x1rid.github.io/visits`), not a unique-visitor metric. `main/chrome.js` uses
+  `sessionStorage` only to avoid repeated hits in one tab, validates the numeric
+  response, and shows `------` on failure. Never restore a local or joke-number
+  fallback without changing the `TOTAL PAGE VIEWS` label and documentation.
 - Terminal neofetch reuses a cached `DocumentFragment` (`cloneNode(true)`) —
   don't rebuild the DOM from scratch on every call, and keep it plain
   (no card/padding) so it lines up with the other commands.
 - localStorage keys: `terminal_history`, `terminal_webpages_v1`,
   `retroSidebarWidth`, `retroMusicEnabled`, `retroMusicWindowPosition`,
-  `retroMusicDockPosition`, `retroMusicVolume`, `retroVisits`.
-  (`retroVisitSession` is the per-tab session guard for `retroVisits`.)
+  `retroMusicDockPosition`, `retroMusicVolume`.
+  The page counter uses the per-tab `sessionStorage` key
+  `retroGlobalPageView`; it is not a local counter.
 
 ## Terminal command set
 
