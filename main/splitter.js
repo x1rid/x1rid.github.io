@@ -3,6 +3,7 @@
   const splitter = document.querySelector('.panel-splitter');
   const sidebar = document.querySelector('.sidebar');
   const content = document.querySelector('.content-area');
+  const railContext = document.querySelector('.rail-context');
   const storageKey = 'retroSidebarWidth';
   const mobileQuery = window.matchMedia('(max-width: 760px)');
   const dividerWidth = 10;
@@ -40,6 +41,18 @@
     }
   }
 
+  /* While the divider is held, the rail reports the live width. The
+     value is written only when it actually changes. */
+  function reportWidth() {
+    if (!railContext) return;
+    const text = `SIDEBAR: ${splitter.getAttribute('aria-valuenow')}PX`;
+    if (railContext.textContent !== text) railContext.textContent = text;
+  }
+
+  function clearWidth() {
+    if (railContext) railContext.textContent = '';
+  }
+
   function restoreWidth() {
     if (mobileQuery.matches) return;
     let savedWidth = null;
@@ -59,6 +72,7 @@
     pointerId = event.pointerId;
     splitter.setPointerCapture(pointerId);
     document.body.classList.add('is-splitting');
+    reportWidth();
     event.preventDefault();
   });
 
@@ -66,12 +80,14 @@
     if (pointerId === null || event.pointerId !== pointerId) return;
     const layoutRect = layout.getBoundingClientRect();
     setWidth(event.clientX - layoutRect.left, true);
+    reportWidth();
   });
 
   function stopDragging(event) {
     if (pointerId === null || (event && event.pointerId !== pointerId)) return;
     pointerId = null;
     document.body.classList.remove('is-splitting');
+    clearWidth();
   }
 
   splitter.addEventListener('pointerup', stopDragging);
@@ -83,9 +99,12 @@
     const current = sidebar.getBoundingClientRect().width;
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       setWidth(current + (event.key === 'ArrowRight' ? 16 : -16), true);
+      reportWidth();
       event.preventDefault();
     }
   });
+
+  splitter.addEventListener('blur', clearWidth);
 
   splitter.addEventListener('dblclick', () => {
     setWidth(defaultSidebar, true);

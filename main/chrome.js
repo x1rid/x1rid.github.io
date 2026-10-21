@@ -17,6 +17,7 @@
     const railPane = document.querySelector('.rail-pane');
     const railTrack = document.querySelector('.rail-track');
     const railClock = document.querySelector('.rail-clock');
+    const railPointer = document.querySelector('.rail-pointer');
     const contentArea = document.querySelector('.content-area');
 
     const PANES = [
@@ -76,6 +77,51 @@
         });
     }
 
+    /* ------------------------------------------------------------------
+     * Cursor readout — only in the `rail` scheme. The custom cursor owns
+     * pointer state otherwise; this is the native-cursor alternative.
+     * Coordinates are viewport pixels, zero-padded so the rail does not
+     * jitter, and the state vocabulary is the same one the cursor uses.
+     * ------------------------------------------------------------------ */
+    const POINTER_LABELS = {
+        default: '—',
+        link: 'LINK',
+        text: 'TEXT',
+        drag: 'DRAG',
+        frame: 'FRAME',
+        splitter: 'RESIZE',
+        disabled: 'N/A',
+    };
+
+    function setPointerRail(active) {
+        if (!railPointer) return;
+        railPointer.hidden = !active;
+        if (!active) railPointer.textContent = 'PTR ----,---- · —';
+    }
+
+    function onCursorChange(event) {
+        const detail = event && event.detail ? event.detail : {};
+        setPointerRail(detail.effective === 'rail');
+    }
+
+    function onPointerState(event) {
+        if (!railPointer || railPointer.hidden) return;
+        const detail = event && event.detail ? event.detail : {};
+
+        if (detail.active === false) {
+            railPointer.textContent = 'PTR ----,---- · —';
+            return;
+        }
+
+        const x = String(Math.max(0, Math.round(Number(detail.x) || 0))).padStart(4, '0');
+        const y = String(Math.max(0, Math.round(Number(detail.y) || 0))).padStart(4, '0');
+        const label = POINTER_LABELS[detail.state] || '—';
+        railPointer.textContent = `PTR ${x},${y} · ${label}`;
+    }
+
+    document.addEventListener('site:cursorchange', onCursorChange);
+    document.addEventListener('site:pointerstate', onPointerState);
+
     if ('MutationObserver' in window) {
         if (contentArea) {
             new MutationObserver(syncPane).observe(contentArea, {
@@ -109,6 +155,12 @@
     syncTrack();
     syncClock();
     window.setInterval(syncClock, 30000);
+
+    /* The cursor module applies its stored scheme before this file runs, so
+       read the current effective scheme once instead of waiting for an event. */
+    if (window.SiteCursor && typeof window.SiteCursor.getEffectiveScheme === 'function') {
+        setPointerRail(window.SiteCursor.getEffectiveScheme() === 'rail');
+    }
 
     /* ------------------------------------------------------------------
      * Page counter — approximate global page views from a public counter API.

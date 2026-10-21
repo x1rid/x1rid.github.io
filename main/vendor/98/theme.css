@@ -1,0 +1,138 @@
+/* ===========================================================================
+ *  Purple/black theme for the vendored 98.js programs.
+ *
+ *  The upstream programs are copied from https://github.com/1j01/98 (MIT).
+ *  They all paint themselves from the Windows 98 system-colour variables in
+ *  lib/os-gui/windows-98.css, so this sheet re-points those variables at the
+ *  site palette instead of shipping a second grey desktop.
+ * =========================================================================== */
+
+:root {
+    color-scheme: dark;
+
+    /* Windows system colours -> site surface / ink ladder */
+    --ActiveBorder: #6f3a93;
+    --ActiveTitle: #2a1545;
+    --AppWorkspace: #07020a;
+    --Background: #0b061d;
+    --ButtonAlternateFace: #100721;
+    --ButtonDkShadow: #07020a;
+    --ButtonFace: #130927;
+    --ButtonHilight: #6f3a93;
+    --ButtonLight: #4d286b;
+    --ButtonShadow: #2a1545;
+    --ButtonText: #f2eaff;
+    --GradientActiveTitle: #3b1f5c;
+    --GradientInactiveTitle: #1a0c2e;
+    --GrayText: #8b72b8;
+    --Hilight: #3b1f5c;
+    --HilightText: #f2eaff;
+    --HotTrackingColor: #c084fc;
+    --InactiveBorder: #4d286b;
+    --InactiveTitle: #1a0c2e;
+    --InactiveTitleText: #8b72b8;
+    --InfoText: #f2eaff;
+    --InfoWindow: #0e061e;
+    --Menu: #130927;
+    --MenuText: #f2eaff;
+    --Scrollbar: #130927;
+    --TitleText: #f2eaff;
+    --Window: #0e061e;
+    --WindowFrame: #6f3a93;
+    --WindowText: #f2eaff;
+
+    /* Replace the baked grey bevel sprites with the live palette. */
+    --button-normal-border-image: none;
+    --button-active-border-image: none;
+    --button-default-border-image: none;
+    --button-default-active-border-image: none;
+    --inset-deep-border-image: none;
+    --checker: none;
+}
+
+html,
+body {
+    background: var(--ButtonFace);
+    color: var(--ButtonText);
+    font-family: 'Cascadia Mono', 'Courier New', monospace;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+    font-family: 'Cascadia Mono', 'Courier New', monospace;
+}
+
+* {
+    scrollbar-color: var(--ButtonShadow) var(--ButtonFace);
+}
+
+/* Menus --------------------------------------------------------------- */
+.menu-popup {
+    border: 1px solid var(--WindowFrame);
+    background: var(--Menu);
+    color: var(--MenuText);
+    box-shadow: 4px 4px 0 #07020a;
+}
+
+.menu-item:hover,
+.menu-item.highlight {
+    background: var(--Hilight);
+    color: var(--HilightText);
+}
+
+.menu-button.highlight > span {
+    box-shadow: 1px 1px 0 var(--ButtonHilight) inset, -1px -1px 0 var(--ButtonShadow) inset;
+}
+
+/* Fields -------------------------------------------------------------- */
+input,
+textarea,
+select {
+    border: 1px solid var(--ButtonShadow);
+    background: var(--Window);
+    color: var(--WindowText);
+    caret-color: var(--HotTrackingColor);
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible {
+    outline: 1px solid var(--HotTrackingColor);
+    outline-offset: -2px;
+}
+
+/* The Win98 sprite-based controls keep their own glyphs, but a slight
+   hue shift pulls the blue/green bits toward the site's violet. */
+.sound-recorder .controls .icon,
+.sound-recorder .ui-slider-handle {
+    filter: hue-rotate(248deg) saturate(1.25);
+}
+
+/* Keep the 3D screensavers on the site's black rather than pure #000. */
+body > canvas,
+#gl-canvas {
+    background-color: #07020a;
+}
+
+/* Firefox/Chrome native scrollbars inside the app frames. */
+::-webkit-scrollbar {
+    width: 13px;
+    height: 13px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--ButtonFace);
+}
+
+::-webkit-scrollbar-thumb {
+    border: 2px solid var(--ButtonFace);
+    background: var(--ButtonShadow);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--ButtonHilight);
+}

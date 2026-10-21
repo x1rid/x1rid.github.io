@@ -18,3 +18,6 @@ __pycache__/
 
 # Dependency folders (kept for safety if node/npm is ever used locally)
 node_modules/
+
+# Local imported repository clones for reference / porting
+imported_repos/

@@ -46,7 +46,7 @@ def walk(exts):
 def is_remote(url):
     return url.startswith((
         'http://', 'https://', '//', '#', 'data:', 'mailto:', 'tel:', 'javascript:', 'blob:',
-        'about:',
+        'about:', 'tg:',
     ))
 
 

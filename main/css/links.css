@@ -6,46 +6,54 @@
     width: 100%;
     box-sizing: border-box;
     padding-top: 0;
+    background-image: radial-gradient(circle, rgba(192, 132, 252, 0.08) 1px, transparent 1.3px);
+    background-size: 20px 20px;
+    background-position: 4px 8px;
 }
 
-/* Category filter bar — centered, compact, NOT stretched */
+/* Category filters read as tabs on one hairline, not five more boxes. */
 .link-exchange-categories {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 2px;
     margin: 0 0 14px;
+    border-bottom: 1px solid var(--line);
 }
 
 .link-exchange-category {
-    width: 92px;
-    min-height: 28px;
-    padding: 4px 9px;
-    border: 1px solid var(--line);
+    width: auto;
+    min-height: 0;
+    margin-bottom: -1px;
+    padding: 5px 11px 7px;
+    border: 0;
+    border-bottom: 2px solid transparent;
     border-radius: 0;
-    background: var(--surface-2);
-    color: var(--ink-70);
+    background: transparent;
+    color: var(--ink-50);
     cursor: pointer;
     font: 700 var(--text-xs) 'Courier New', monospace;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     text-align: center;
     transition: color var(--motion-fast), border-color var(--motion-fast),
-                background-color var(--motion-fast), box-shadow var(--motion-fast);
+                background-color var(--motion-fast);
 }
 
 .link-exchange-category:hover,
 .link-exchange-category:focus-visible {
-    border-color: var(--signal-active);
-    color: var(--signal-active);
-    background: rgba(192, 132, 252, 0.08);
+    border-bottom-color: rgba(192, 132, 252, 0.45);
+    color: var(--ink-70);
+    background: transparent;
 }
 
+.link-exchange-category:active { transform: translateY(1px); }
+
 .link-exchange-category.active {
-    border-color: var(--signal-active);
+    border-bottom-color: var(--signal-active);
     color: var(--signal-active);
-    background: rgba(192, 132, 252, 0.1);
-    box-shadow: 0 0 7px rgba(192, 132, 252, 0.24);
+    background: transparent;
+    box-shadow: none;
 }
 
 /* ── Link grid — full available width ─────────────────── */
@@ -54,16 +62,24 @@
     width: 100%;
     box-sizing: border-box;
     grid-template-columns: repeat(5, minmax(112px, 1fr));
-    gap: 10px 12px;
+    gap: 16px 18px;
     align-items: start;
     min-height: 0;
     margin: 0;
-    overflow-x: auto;
+    overflow: visible;
     overscroll-behavior-inline: contain;
 }
 
 /* ── Link tile ────────────────────────────────────────── */
 .social-tile {
+    --move-x: 0px;
+    --move-y: 0px;
+    --rotate-x: 0deg;
+    --rotate-y: 0deg;
+    --pointer-x: 50%;
+    --pointer-y: 50%;
+    --glow: 0;
+
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -71,32 +87,65 @@
     min-height: 0;
     padding: 10px 8px 6px;
     box-sizing: border-box;
-    border: 1px solid var(--line);
+    border: 1px solid transparent;
     border-radius: 0;
-    background: var(--surface-2);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.03),
-        0 1px 0 rgba(0, 0, 0, 0.4);
+    background: transparent;
+    box-shadow: none;
     text-decoration: none;
     overflow: visible;
+    perspective: 700px;
     transition: border-color var(--motion-fast) ease,
+                background-color var(--motion-fast) ease,
                 box-shadow  var(--motion-fast) ease,
                 transform   var(--motion-fast) ease;
 }
 
-.social-tile:hover,
-.social-tile:focus-visible,
-.social-tile:focus-within {
-    border-color: var(--signal-active);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.05),
-        0 0 10px rgba(192, 132, 252, 0.22);
-    transform: translateY(-1px);
+/* Hover is delegated to the icon screen inside the tile: the card frame
+   never changes colour, so there is only ever one lit rectangle. */
+
+/* Press feedback: a short, flat press, matching phone.css behaviour. */
+.social-tile:active { transform: translateY(1px); }
+
+/* Membership cue: hovering a filter tab marks the tiles it would keep. */
+.social-tile.is-related {
+    border-color: var(--line-hi);
 }
 
-/* Staggered entrance when a category is selected */
+/* Placeholder entries are not controls: dashed edge, muted icon, no
+   lift and no press. The absence of feedback is the honest signal. */
+.social-tile.is-pending {
+    border-style: dashed;
+    border-color: var(--ink-30);
+    cursor: default;
+}
+
+.social-tile.is-pending .icon-frame img {
+    opacity: 0.4;
+    filter: grayscale(1);
+}
+
+.social-tile.is-pending .badge-label,
+.social-tile.is-pending:hover .badge-label,
+.social-tile.is-pending:focus-within .badge-label {
+    color: var(--ink-30);
+}
+
+.social-tile.is-pending:hover,
+.social-tile.is-pending:active,
+.social-tile.is-pending:focus-within {
+    transform: none;
+    border-color: var(--ink-30);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Staggered entrance when a category is selected.
+   `backwards` (not `both`): a forwards-filling animation pins the
+   animated property, which would cancel the hover lift and press
+   state for the rest of the tile's life. */
 .social-tile {
-    animation: tile-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: tile-in 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
     animation-delay: calc(var(--tile-index, 0) * 18ms);
 }
 
@@ -105,42 +154,198 @@
     to   { opacity: 1; transform: translateY(0); }
 }
 
-.social-tile:hover .badge-label,
-.social-tile:focus-visible .badge-label,
-.social-tile:focus-within .badge-label {
-    color: var(--signal-active);
-}
+/* The screen lights; the label picks up the same accent so the caption
+   belongs to the lit screen. No box is drawn. */
 
-/* ── Icon frame — normalized, square, image contained ─── */
+/* ── Icon frame — a small CRT screen per link ─────────── */
 .icon-frame {
+    --accent: var(--tile-accent, var(--signal-active));
     width: min(104px, 100%);
     aspect-ratio: 1 / 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
-    background: var(--surface-2);
+    overflow: visible;
     position: relative;
+    isolation: isolate;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    background:
+        radial-gradient(80% 80% at 50% 100%, rgba(82, 155, 255, 0.045), transparent 70%),
+        radial-gradient(120% 85% at 50% 0%, rgba(255, 255, 255, 0.055), transparent 58%),
+        #120b21;
+    box-shadow:
+        inset 0 1px 0 rgba(189, 138, 255, 0.08),
+        inset 0 0 0 1px rgba(57, 38, 79, 0.72),
+        inset 0 0 18px rgba(0, 0, 0, 0.45);
+    transform:
+        translate3d(var(--move-x), var(--move-y), 0)
+        rotateX(var(--rotate-x))
+        rotateY(var(--rotate-y));
+    transform-style: preserve-3d;
+    transition: border-color var(--motion-fast) ease,
+                box-shadow var(--motion-fast) ease,
+                transform 120ms ease-out;
 }
 
-/* Images fill the frame, contained (never distorted/cropped) */
+/* A tiny power LED: the screen's one crisp detail, lit only while active. */
+.icon-frame::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 5px 1px var(--accent);
+    opacity: 0;
+    transition: opacity var(--motion-fast) ease;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.link-exchange-grid .social-tile:not(.is-pending):hover .icon-frame::after,
+.link-exchange-grid .social-tile:not(.is-pending):focus-visible .icon-frame::after {
+    opacity: 1;
+}
+
+/* One continuous glow layer: the inset light inside the screen and the
+   outer spill share a single box-shadow, so the two meet at the bezel
+   instead of stopping on either side of it. */
+.icon-frame::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow:
+        inset 0 0 26px -6px var(--accent),
+        0 0 10px -2px color-mix(in srgb, var(--accent) 75%, transparent),
+        0 0 30px -8px color-mix(in srgb, var(--accent) 32%, transparent);
+    opacity: 0;
+    transition: opacity var(--motion-fast) ease;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.link-exchange-grid .social-tile:not(.is-pending):hover .icon-frame::before,
+.link-exchange-grid .social-tile:not(.is-pending):focus-visible .icon-frame::before {
+    opacity: 1;
+}
+
+/* Icons sit inside the screen; native colours, never filtered at rest. */
 .icon-frame img {
     display: block;
-    width: 78px;
-    height: 78px;
-    max-width: 84%;
-    max-height: 84%;
+    width: 68px;
+    height: 68px;
+    max-width: 78%;
+    max-height: 78%;
     object-fit: contain;
-    /* No color filter — preserve native icon colors */
+    position: relative;
+    z-index: 1;
+    transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+                filter 180ms ease;
 }
 
-/* Per-icon scale modifiers — only affect visual scale, not grid */
-.icon-frame .icon--small { width: 64px; height: 64px; }
-.icon-frame .icon--large { width: 86px; height: 86px; }
-.icon-frame .icon--wide  { width: 88px; height: 64px; }
+/* Hover / keyboard focus: the screen powers up from inside. The combined
+   glow layer handles the light and spill; the frame keeps only its bevel and
+   a top edge highlight. Pending (non-link) tiles are skipped. */
+.link-exchange-grid .social-tile:not(.is-pending):hover .icon-frame,
+.link-exchange-grid .social-tile:not(.is-pending):focus-visible .icon-frame {
+    border-color: transparent;
+    box-shadow:
+        inset 0 1px 0 rgba(189, 138, 255, 0.16),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.3),
+        inset 0 0 18px rgba(0, 0, 0, 0.25);
+}
+
+/* A small, smooth scale — enough to feel alive without the old jitter. */
+.link-exchange-grid .social-tile:not(.is-pending):hover .icon-frame img,
+.link-exchange-grid .social-tile:not(.is-pending):focus-visible .icon-frame img {
+    transform: scale(1.06);
+    filter: none;
+}
+
+/* Pointer-following sheen. It sits above the screen background but below
+   the icon, so the logo keeps its native colours. */
+.frame-sheen {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    overflow: hidden;
+    opacity: calc(var(--glow) * 0.75);
+    transition: opacity var(--motion-fast) ease;
+    pointer-events: none;
+}
+
+.frame-sheen::before {
+    content: '';
+    position: absolute;
+    left: var(--pointer-x, 50%);
+    top: var(--pointer-y, 50%);
+    width: 100px;
+    height: 100px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(
+        circle,
+        color-mix(in srgb, var(--accent) 20%, transparent),
+        color-mix(in srgb, var(--accent) 7%, transparent) 35%,
+        transparent 72%
+    );
+}
+
+.link-exchange-grid .social-tile:not(.is-pending):hover,
+.link-exchange-grid .social-tile:not(.is-pending):focus-visible {
+    --glow: 1;
+}
+
+/* Sparse 4px sparks, created by link-exchange.js on enter/move/click. */
+.pixel-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    border-radius: inherit;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.pixel-spark {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: var(--accent);
+    box-shadow: 0 0 5px color-mix(in srgb, var(--accent) 70%, transparent);
+    pointer-events: none;
+    animation: pixel-pop 420ms steps(4, end) forwards;
+}
+
+@keyframes pixel-pop {
+    /* Visible on the same frame as the input: a tiny square at the pointer,
+       then a stepped jump outward. */
+    0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+    }
+    25% {
+        opacity: 1;
+        transform: translate(var(--pixel-x), var(--pixel-y)) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform:
+            translate(
+                calc(var(--pixel-x) * 1.5),
+                calc(var(--pixel-y) * 1.5)
+            )
+            scale(0.5);
+    }
+}
 
 /* Fallback text when image fails to load */
 .icon-fallback {
+    position: relative;
+    z-index: 1;
     color: var(--ink-70);
     font-size: 1.25rem;
     font-weight: 700;
@@ -158,7 +363,14 @@
     line-height: 0.95;
     text-align: center;
     overflow-wrap: anywhere;
-    transition: color var(--motion-fast);
+    transform: translate3d(var(--move-x), var(--move-y), 0);
+    transition: color var(--motion-fast) ease,
+                transform 120ms ease-out;
+}
+
+.link-exchange-grid .social-tile:not(.is-pending):hover .badge-label,
+.link-exchange-grid .social-tile:not(.is-pending):focus-visible .badge-label {
+    color: var(--tile-accent, var(--signal-active));
 }
 
 /* ── Empty state ──────────────────────────────────────── */
@@ -203,4 +415,14 @@
 .link-plain a:focus-visible {
     border-color: var(--signal-active);
     color: var(--signal-active) !important;
+}
+
+/* Pointer-only motion: touch keeps the press state and pixel flash. */
+@media (hover: none), (pointer: coarse) {
+    .social-tile .icon-frame,
+    .social-tile .badge-label {
+        transform: none;
+    }
+
+    .frame-sheen { display: none; }
 }

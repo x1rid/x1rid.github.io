@@ -94,6 +94,26 @@ body {
 }
 
 /* ============================================================
+ *  CURSOR — the animated GIF belongs to the desktop
+ *  custom-cursor.js refuses to start at this width; these rules also
+ *  cover a desktop window narrowed after the script has initialized.
+ * ============================================================ */
+.custom-cursor-enabled,
+.custom-cursor-enabled * {
+    cursor: auto !important;
+    cursor: revert !important;
+}
+
+.custom-cursor-main,
+.custom-cursor-glow,
+.custom-cursor-ghost,
+.custom-cursor-badge,
+.custom-cursor-pixels,
+#cursor-trail {
+    display: none !important;
+}
+
+/* ============================================================
  *  PHONE HEADER — path + current view meta in one bar
  * ============================================================ */
 .phone-header {
@@ -269,10 +289,6 @@ body[data-view="web"] .footer {
     height: 64px;
 }
 
-.icon-frame .icon--small { width: 52px; height: 52px; }
-.icon-frame .icon--large { width: 70px; height: 70px; }
-.icon-frame .icon--wide  { width: 72px; height: 52px; }
-
 .social-tile .badge-label {
     min-height: 0;
     font-size: 0.58rem;
@@ -434,7 +450,20 @@ body[data-view="page"] .phone-pages {
     gap: 8px;
 }
 
-#phone-pages-list button {
+#phone-pages-list .webpage-tab {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+}
+
+#phone-pages-list .webpage-tab .webpage-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+}
+
+#phone-pages-list .webpage-btn {
     position: relative;
     width: 100%;
     min-height: var(--pt-tap);
@@ -449,17 +478,24 @@ body[data-view="page"] .phone-pages {
     cursor: pointer;
 }
 
-#phone-pages-list button::before {
+#phone-pages-list .webpage-btn::before {
     content: '▸';
     position: absolute;
     left: 10px;
     color: var(--signal-active);
 }
 
-#phone-pages-list button:active {
+#phone-pages-list .webpage-btn:active {
     border-color: var(--signal-active);
     color: var(--signal-active);
     background: rgba(192, 132, 252, 0.12);
+}
+
+#phone-pages-list .webpage-tab-close {
+    flex: 0 0 var(--pt-tap);
+    width: var(--pt-tap);
+    min-width: var(--pt-tap);
+    min-height: var(--pt-tap);
 }
 
 .phone-pages-empty {

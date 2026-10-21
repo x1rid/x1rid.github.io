@@ -10,6 +10,12 @@
     .neofetch-logo { font-size: 13px; }
 }
 
+/* Above the phone/tablet layers: four columns keep the grid on one screen
+   instead of letting the fifth column scroll sideways. */
+@media (max-width: 1100px) {
+    .link-exchange-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
 /* ============================================================
  *  REDUCED MOTION
  * ============================================================ */
@@ -23,7 +29,36 @@
     .geocities-container[data-focus] .content-area { transition: none; }
     .music-panel,
     .music-toggle,
-    .music-link { transition: none; }
+    .music-link,
+    .sfx-panel,
+    .sfx-toggle { transition: none; }
     *, *::before, *::after { scroll-behavior: auto !important; }
+
+    /* Suppress the press-down transforms; state changes (border, colour) still apply. */
+    .social-tile:active,
+    .link-exchange-category:active,
+    .sidebar-nav button:active { transform: none; }
+
+    /* Link tile hover: keep the screen's inner light and soft spill, drop
+       the magnetic movement, tilt, pointer sheen and pixel sparks. */
+    .icon-frame,
+    .icon-frame::before,
+    .icon-frame::after { transition: none; }
+
+    .social-tile .icon-frame,
+    .social-tile .badge-label { transform: none !important; }
+
+    .frame-sheen { display: none !important; }
+
+    .pixel-spark {
+        display: none !important;
+        animation: none !important;
+    }
+
+    .link-exchange-grid .social-tile:not(.is-pending):hover .icon-frame img,
+    .link-exchange-grid .social-tile:not(.is-pending):focus-visible .icon-frame img {
+        transform: none;
+        filter: none;
+    }
 }
 

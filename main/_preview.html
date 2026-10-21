@@ -1,0 +1,292 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+    <title>r3d1bruh</title>
+    <meta name="theme-color" content="#0b061d">
+    <meta name="description" content="r3d1bruh â€” retro purple desktop, links, music and terminal.">
+    <link rel="preconnect" href="https://fonts.cdnfonts.com" crossorigin>
+    <link rel="icon" type="image/webp" href="./socials/pfp.webp">
+    <link href="https://fonts.cdnfonts.com/css/cascadia-mono" rel="stylesheet">
+    <link rel="stylesheet" href="./css/variables.css?v=1792495579">
+    <link rel="stylesheet" href="./css/base.css?v=1792495579">
+    <link rel="stylesheet" href="./css/marquee.css?v=1792495579">
+    <link rel="stylesheet" href="./css/layout.css?v=1792495579">
+    <link rel="stylesheet" href="./css/links.css?v=1792495579">
+    <link rel="stylesheet" href="./css/components.css?v=1792495579">
+    <link rel="stylesheet" href="./css/responsive.css?v=1792495579">
+    <link rel="stylesheet" href="./terminal.css?v=1792495579">
+    <link rel="stylesheet" href="./music.css?v=1792495579">
+    <link rel="stylesheet" href="./mobile.css?v=1792495579" media="(max-width:760px)">
+    <link rel="stylesheet" href="./phone.css?v=1792495579" media="(max-width:600px)">
+    <link rel="prefetch" as="fetch" href="./playlist/playlist.json" crossorigin>
+    <noscript>
+        <style>
+            /* JS-only surfaces: never show controls that cannot work. */
+            .link-exchange-categories,
+            .sidebar-nav,
+            .panel-splitter,
+            .status-rail,
+            .music-toggle,
+            .music-link { display: none !important; }
+            /* Phone build chrome is a controller surface: without JS it would
+               be a set of dead controls, so it goes away with the rest. */
+            .phone-header,
+            .phone-tabs,
+            .phone-keys,
+            .phone-pages { display: none !important; }
+        </style>
+    </noscript>
+</head>
+<body>
+<div class="geocities-container">
+    <!-- ======= PHONE HEADER (<=600px, filled by mobile.js) ======= -->
+    <div class="phone-header">
+        <img class="phone-avatar" src="./socials/pfp.webp" alt="" width="28" height="28">
+        <!-- The one real document heading. Hidden with the rest of the phone
+             chrome above 600px; the desktop pane titles remain pane headings. -->
+        <h1 class="phone-name">r3d1bruh<span class="phone-name-path" id="phone-view-path">://links</span></h1>
+        <span class="phone-view-meta" id="phone-view-meta"></span>
+    </div>
+
+    <!-- ======= MARQUEE ======= -->
+    <div class="marquee-top" role="banner" aria-label="Site message">
+        <div class="marquee-track" id="marquee-track">
+            <span class="marquee-copy" aria-hidden="false">Which of the favours of your Lord will you deny? â€” None of Your favours do we deny, our Lord! All praise is due to You. â€” By time, indeed, mankind is in loss. â€” For you is your religion, and for me is my religion.</span><!--
+         --><span class="marquee-copy" aria-hidden="true">Which of the favours of your Lord will you deny? â€” None of Your favours do we deny, our Lord! All praise is due to You. â€” By time, indeed, mankind is in loss. â€” For you is your religion, and for me is my religion.</span>
+        </div>
+    </div>
+
+    <!-- ======= STATUS RAIL (real values only, set by chrome.js) ======= -->
+    <div class="status-rail" aria-hidden="true">
+        <span class="rail-pane">r3d1bruh://link-exchange</span>
+        <span class="rail-context"></span>
+        <span class="status-rail__spacer"></span>
+        <span class="rail-track">--</span>
+        <span class="rail-clock">--:--</span>
+    </div>
+
+    <!-- ======= MAIN LAYOUT ======= -->
+    <div class="layout-grid">
+        <!-- ======= SIDEBAR ======= -->
+        <div class="sidebar">
+            <div class="sidebar-brand">
+                <div class="avatar-frame profile-pic">
+                    <img src="./socials/pfp.webp" alt="r3d1bruh" style="width:100%;height:100%">
+                </div>
+                <div class="profile-name" style="font-weight:bold">r3d1bruh</div>
+            </div>
+            <div class="stats-box">
+                <div class="sidebar-nav" role="navigation" aria-label="page navigation">
+                    <button id="nav-link-exchange" class="active" aria-controls="link-exchange">
+                        <span class="nav-prompt" aria-hidden="true">&gt;</span>Link Exchange
+                    </button>
+                    <button id="nav-pc-specs" aria-controls="pc-specs">
+                        <span class="nav-prompt" aria-hidden="true">&gt;</span>Neofetch
+                    </button>
+                </div>
+                <div class="sidebar-nav" role="navigation" aria-label="webpage navigation" id="webpages-list">
+                    <!-- dynamically added webpage buttons appear here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-splitter" role="separator" aria-label="Resize sidebar" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="800" aria-valuenow="220" tabindex="0"></div>
+
+        <!-- ======= CONTENT AREA ======= -->
+        <main class="content-area">
+            <h2 class="section-title" id="main-section-title">LINK EXCHANGE</h2>
+
+            <!-- â”€â”€ LINK EXCHANGE PANE â”€â”€ -->
+            <div id="link-exchange" class="pane">
+                <div class="link-exchange-categories" role="group" aria-label="Filter links">
+                    <button class="link-exchange-category active" type="button" aria-pressed="true"  data-link-category="all">ALL</button>
+                    <button class="link-exchange-category"        type="button" aria-pressed="false" data-link-category="social">SOCIAL</button>
+                    <button class="link-exchange-category"        type="button" aria-pressed="false" data-link-category="dev">DEV</button>
+                    <button class="link-exchange-category"        type="button" aria-pressed="false" data-link-category="play">PLAY</button>
+                </div>
+                <div class="link-exchange-grid" aria-label="All links"></div>
+                <p class="visually-hidden" role="status" id="link-status"></p>
+                <noscript>
+                    <!-- Live destinations only. Discord is still a placeholder. -->
+                    <ul class="link-plain" aria-label="Links">
+                        <li><a href="https://github.com/r3d1bruh">github.com/r3d1bruh</a></li>
+                        <li><a href="https://huggingface.co">huggingface.co</a></li>
+                        <li><a href="https://linkedin.com/in/r3d1bruh">linkedin.com/in/r3d1bruh</a></li>
+                        <li><a href="mailto:ridoanulislam0@gmail.com">ridoanulislam0@gmail.com</a></li>
+                        <li><a href="https://reddit.com/user/r3d1bruh">reddit.com/user/r3d1bruh</a></li>
+                        <li><a href="https://instagram.com/r3d1bruh">instagram.com/r3d1bruh</a></li>
+                        <li><a href="https://snapchat.com/add/r3d1bruh">snapchat.com/add/r3d1bruh</a></li>
+                        <li><a href="https://tiktok.com/@r3d1bruh">tiktok.com/@r3d1bruh</a></li>
+                        <li><a href="https://twitter.com/r3d1bruh">twitter.com/r3d1bruh</a></li>
+                        <li><a href="https://telegram.org">telegram.org</a></li>
+                        <li><a href="https://www.whatsapp.com">whatsapp.com</a></li>
+                        <li><a href="https://www.facebook.com">facebook.com</a></li>
+                        <li><a href="https://steamcommunity.com/id/r3d1bruh">steamcommunity.com/id/r3d1bruh</a></li>
+                        <li><a href="https://www.xbox.com">xbox.com</a></li>
+                        <li><a href="https://www.riotgames.com">riotgames.com</a></li>
+                        <li><a href="https://store.epicgames.com">store.epicgames.com</a></li>
+                        <li><a href="https://itch.io">itch.io</a></li>
+                        <li><a href="https://ubisoftconnect.com">ubisoftconnect.com</a></li>
+                        <li><a href="https://www.ea.com">ea.com</a></li>
+                        <li><a href="https://www.gog.com">gog.com</a></li>
+                    </ul>
+                </noscript>
+            </div>
+
+            <!-- â”€â”€ NEOFETCH / TERMINAL PANE â”€â”€ -->
+            <div id="pc-specs" class="pane" style="display:none;">
+                <div class="terminal-wrapper" id="terminal-wrapper">
+                    <div class="terminal" id="terminal">
+                        <div id="terminal-output" class="terminal-output"></div>
+                        <div class="terminal-line">
+                            <span id="terminal-prompt" class="terminal-prompt"></span>
+                            <input id="terminal-input" class="terminal-input" type="text" autocomplete="off" spellcheck="false" enterkeyhint="send" autocapitalize="off" autocorrect="off" aria-label="Terminal command" />
+                        </div>
+                    </div>
+                </div>
+                <!-- Phone key strip: soft keyboards have no Tab/arrows/Ctrl. -->
+                <div class="phone-keys" id="phone-keys" role="toolbar" aria-label="Terminal keys">
+                    <button type="button" data-key="ArrowUp" aria-label="Previous command" title="Previous command">â†‘</button>
+                    <button type="button" data-key="ArrowDown" aria-label="Next command" title="Next command">â†“</button>
+                    <button type="button" data-key="Tab" aria-label="Autocomplete" title="Autocomplete">TAB</button>
+                    <button type="button" data-key="ctrl+c" aria-label="Cancel line" title="Cancel line">^C</button>
+                    <button type="button" data-command="cls" aria-label="Clear the terminal" title="Clear">CLS</button>
+                    <button type="button" data-command="help" aria-label="Show help" title="Help">HELP</button>
+                </div>
+            </div>
+
+            <!-- â”€â”€ WEBPAGE PANE â”€â”€ -->
+            <div id="webpage-pane" class="pane" style="display:none;">
+                <div class="webpage-toolbar" aria-hidden="false">
+                    <button id="webpage-back" title="Close">âœ•</button>
+                    <div style="flex:1;display:flex;gap:8px;align-items:center;justify-content:center">
+                        <span id="webpage-title" style="font-weight:700;color:var(--dr-text)"></span>
+                    </div>
+                    <div>
+                        <button id="webpage-fullscreen" title="Toggle fullscreen">â¤¢</button>
+                    </div>
+                </div>
+                <div class="webpage-container">
+                    <div class="webpage-loader" id="webpage-loader" aria-hidden="true" style="display:none">
+                        <div class="webpage-loader-ring"></div>
+                        <div class="webpage-loader-text">Loading...</div>
+                    </div>
+                    <div class="unlock-overlay" id="unlock-overlay" aria-hidden="true" style="display:none"></div>
+                    <iframe id="webpage-iframe" class="webpage-iframe" sandbox="allow-same-origin allow-scripts allow-forms" src="about:blank"></iframe>
+                </div>
+            </div>
+
+            <!-- â”€â”€ PHONE PAGES VIEW (<=600px) â”€â”€ -->
+            <div id="phone-pages" class="phone-pages" aria-label="Opened pages">
+                <div class="phone-pages-list" id="phone-pages-list"></div>
+                <p class="phone-pages-empty" id="phone-pages-empty">NO SAVED PAGES â€” OPEN ONE FROM THE TERMINAL</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- ======= FOOTER ======= -->
+    <div class="footer">
+        TOTAL PAGE VIEWS: <span class="hit-counter" title="Approximate count from a public counter service">------</span>
+
+        <!-- â”€â”€ MUSIC WIDGET â”€â”€ -->
+        <div class="music-panel" role="group" aria-label="Background music">
+            <span class="music-led" aria-hidden="true"></span>
+            <span class="music-label">r3d1bruh.fm</span>
+            <button class="music-link" type="button">
+                <span class="music-now-playing" aria-live="polite">NOW PLAYING: ready</span>
+                <span class="visually-hidden"> â€” open music player</span>
+            </button>
+            <button class="music-toggle" type="button" aria-pressed="false">OFF</button>
+        </div>
+
+        <p>&copy; 1998-2024 r3d1bruh &nbsp;Â·&nbsp; ALL RIGHTS RESERVED &nbsp;Â·&nbsp; STAY RAD</p>
+    </div>
+
+    <!-- ======= PHONE TAB BAR (<=600px, owned by mobile.js) ======= -->
+    <nav class="phone-tabs" id="phone-tabs" aria-label="Views">
+        <button type="button" class="phone-tab" data-view="link" aria-controls="link-exchange" aria-current="true">LINKS</button>
+        <button type="button" class="phone-tab" data-view="pc" aria-controls="pc-specs" aria-current="false">TERMINAL</button>
+        <button type="button" class="phone-tab" data-view="page" aria-controls="phone-pages" aria-current="false" hidden>PAGES</button>
+    </nav>
+</div>
+
+<!-- ======= SCRIPTS ======= -->
+<script src="./mobile.js?v=1792495579" defer></script>
+<script src="./link-exchange.js?v=1792495579" defer></script>
+<script src="./custom-cursor.js?v=1792495579" defer></script>
+<script src="./splitter.js?v=1792495579" defer></script>
+<script src="./draggable.js?v=1792495579" defer></script>
+<script src="./music.js?v=1792495579" defer></script>
+<script src="./terminal.js?v=1792495579" defer></script>
+<script src="./chrome.js?v=1792495579" defer></script>
+
+<!-- â”€â”€ Marquee: measure actual copy width â†’ set CSS var â”€â”€
+     The phone shell does not render the marquee (phone.css hides it), and a
+     hidden copy measures 0x0, so the observer is only installed in the layout
+     that actually uses it. `max-width: 600px` is the phone boundary â€” keep it
+     identical to the stylesheet link and the matchMedia in mobile.js. -->
+<script>
+(function () {
+    var track = document.getElementById('marquee-track');
+    if (!track) return;
+    var copy = track.querySelector('.marquee-copy');
+    if (!copy) return;
+
+    var phone = window.matchMedia ? window.matchMedia('(max-width: 600px)') : null;
+    var queued = false;
+    var observer = null;
+    var boundResize = false;
+
+    function applyWidth() {
+        queued = false;
+        var width = copy.getBoundingClientRect().width;
+        if (width > 0) {
+            document.documentElement.style.setProperty('--marquee-width', width + 'px');
+        }
+    }
+
+    function queueMeasure() {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(applyWidth);
+    }
+
+    function startMeasuring() {
+        if (observer || boundResize) return;
+        if ('ResizeObserver' in window) {
+            observer = new ResizeObserver(queueMeasure);
+            observer.observe(copy);
+        } else {
+            window.addEventListener('resize', queueMeasure, { passive: true });
+            boundResize = true;
+        }
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(queueMeasure).catch(function () {});
+        }
+        queueMeasure();
+    }
+
+    function stopMeasuring() {
+        if (observer) {
+            observer.disconnect();
+            observer = null;
+        }
+        if (boundResize) {
+            window.removeEventListener('resize', queueMeasure);
+            boundResize = false;
+        }
+    }
+
+    function sync() {
+        if (phone && phone.matches) stopMeasuring();
+        else startMeasuring();
+    }
+
+    if (phone && phone.addEventListener) phone.addEventListener('change', sync);
+    sync();
+})();
+</script>
+</body>
+</html>

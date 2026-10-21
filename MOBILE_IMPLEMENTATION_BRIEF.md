@@ -186,6 +186,11 @@ default. Optional animated previews are deferred until a separate test proves
 they do not compete with scrolling, native long-press behavior, accessibility,
 or network budgets.
 
+**Magnetic hover is desktop-only.** The Link Exchange lean/tilt, pointer sheen
+and enter/move sparks are gated by `(hover: hover) and (pointer: fine)` and
+reduced motion. Touch keeps the explicit press state and the short pixel flash;
+there is no sticky hover movement after a tap.
+
 **3.5 Honest values, phone edition.**
 
 - No clock in the header — the phone's own status bar already shows one. The
@@ -215,7 +220,7 @@ no hue, no glow and no new animation vocabulary.
 │                                         │
 │  LINK EXCHANGE              14 · ALL    │  view header (in-view, scrolls away)
 │                                         │
-│  [SOCIAL] [GAMING] [AI/TECH]  →         │  44px chips, horizontal scroll, snap
+│  [SOCIAL] [DEV] [PLAY]  →               │  44px tabs, horizontal scroll, snap
 │                                         │
 │  ┌────┐ ┌────┐ ┌────┐                   │
 │  │icon│ │icon│ │icon│                   │  3-col grid, 44px+ hit area,
@@ -313,9 +318,9 @@ controller (`link|pc|page`), so the desktop markup survives untouched.
 
 - **Links view.** In-view header row: title left, `data-meta` right (the desktop
   `#main-section-title::after` idea, kept, but as a real element inside the view
-  so `mobile.js` no longer has to suppress it). Category chips: 44px tall,
+  so `mobile.js` no longer has to suppress it). Category tabs: 44px tall,
   horizontal scroll strip with `scroll-snap-type: x proximity`, `ALL / SOCIAL /
-  GAMING / AI-TECH`, full-bleed to the gutter. Grid:
+  DEV / PLAY`, full-bleed to the gutter. Grid:
   `repeat(3, minmax(0, 1fr))` at 360px, `repeat(4, …)` at ≥480px, 10px inner
   gap, tiles ≥96px with the icon centred and the label clamped to 2 lines.
   Static previews and immediate press feedback keep scrolling predictable.
@@ -381,7 +386,7 @@ controller (`link|pc|page`), so the desktop markup survives untouched.
 | Pane switch animation | 200ms fade/slide | 160ms fade (shorter travel) | `animatePane()` |
 | Header collapse | n/a | View-scoped chrome | `body[data-view]` controller state |
 | Link tiles | Hover swaps GIF, 1px lift | Static preview, immediate press feedback, 44px targets | `link-exchange.js`; optional preview is deferred |
-| Category filter | Centred chip row | Snap scroll strip | same buttons, CSS only |
+| Category filter | Underline tab row | Snap scroll strip | same buttons, CSS only |
 | Terminal | 450px fixed window | `dvh` view, key strip, 16px input | `terminal.js` untouched except input attributes |
 | Terminal history/complete | Up/Down, Tab | Key strip buttons dispatch the same events | existing handlers |
 | Webpages | Sidebar buttons | Pages view (cloned mirror rows) | `webpagesList` + `MutationObserver` in controller |
@@ -488,7 +493,7 @@ Rules for the controller:
 remove old DOM transplanting; `body[data-view]` architecture. Run `python verify.py`.
 
 **Phase 2 — Content surfaces & Interaction Ergonomics.**
-In-view headers; snap chip strip; 3-col link grid; immediate press feedback;
+In-view headers; snap tab strip; 3-col link grid; immediate press feedback;
 quiet `about` block. Do not add a global touchstart hack or mandatory long-press.
 
 **Phase 3 — Terminal, Virtual Keyboard & Pages.**

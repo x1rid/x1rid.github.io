@@ -57,6 +57,12 @@
    the splitter can show without a pointer. */
 .panel-splitter:hover::after { opacity: 1; }
 
+/* Drag state: the line and grip both glow — glow is state, not decoration. */
+body.is-splitting .panel-splitter::before {
+    box-shadow: 0 0 18px rgba(192, 132, 252, 0.75);
+}
+body.is-splitting .panel-splitter::after { opacity: 1; }
+
 body.is-splitting,
 body.is-splitting * {
     cursor: col-resize !important;
@@ -68,7 +74,9 @@ body.is-splitting * {
  *  One material for every window: surface + 1px line + a hairline
  *  highlight on top and a hairline shadow below. That is the whole
  *  depth system; glows are reserved for state (see CODEBASE.md).
- *  The 7px corner bracket is the site's one repeated detail.
+ *  The 7px corner bracket is the one repeated detail. The Link Exchange
+ *  deliberately opts out of the panel recipe below: it is a desktop, not
+ *  a window, so its content sits directly on the page.
  * ============================================================ */
 .sidebar,
 .content-area {
@@ -107,6 +115,22 @@ body.is-splitting * {
     bottom: 4px;
     border-right: 1px solid var(--signal-active);
     border-bottom: 1px solid var(--signal-active);
+}
+
+/* The Link Exchange is an open workspace, not a window: the sidebar keeps
+   the frame, the terminal keeps its console box, and the links sit straight
+   on the desktop. This removes the rectangle-inside-a-rectangle stack that
+   competed with the tile screens. */
+.content-area:not(.terminal-mode),
+.geocities-container[data-focus] .content-area:not(.terminal-mode) {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none;
+}
+
+.content-area:not(.terminal-mode)::before,
+.content-area:not(.terminal-mode)::after {
+    display: none;
 }
 
 /* ============================================================
@@ -203,6 +227,8 @@ body.is-splitting * {
     border-color: var(--signal-active) !important;
     background: rgba(192, 132, 252, 0.07);
 }
+
+.sidebar-nav button:active { transform: translateY(1px); }
 
 .sidebar-nav button.active {
     color: var(--signal-active) !important;

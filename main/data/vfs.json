@@ -86,6 +86,15 @@
       "assets": {
         "type": "dir",
         "children": {
+          "cursor-arrow.png": {
+            "type": "file"
+          },
+          "cursor-arrow-link.png": {
+            "type": "file"
+          },
+          "cursor-arrow-press.png": {
+            "type": "file"
+          },
           "cursor.gif": {
             "type": "file"
           },
@@ -95,6 +104,12 @@
         }
       },
       "custom-cursor.js": {
+        "type": "file"
+      },
+      "context-menu.css": {
+        "type": "file"
+      },
+      "context-menu.js": {
         "type": "file"
       },
       "css": {
@@ -137,6 +152,9 @@
       "draggable.js": {
         "type": "file"
       },
+      "iframe-policy.js": {
+        "type": "file"
+      },
       "index.html": {
         "type": "file"
       },
@@ -157,6 +175,12 @@
       },
       "playlist": {
         "type": "dir"
+      },
+      "sfx.css": {
+        "type": "file"
+      },
+      "sfx.js": {
+        "type": "file"
       },
       "socials": {
         "type": "dir"

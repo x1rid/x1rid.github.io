@@ -9,7 +9,7 @@ then implement one plan, not both. Where they disagree, I say so and why.
 
 ## Thesis
 
-The site already has personality (terminal, music dock, GIF cursor, marquee). What it
+The site already has personality (terminal, music dock, cursor schemes, marquee). What it
 lacks is **system** — the thing that separates "personal site with lots of stuff" from
 "interface someone designed". Sophistication here is not more chrome. It is:
 
@@ -361,11 +361,33 @@ Allowed motions after this work — the complete list:
 2. pane switch (200ms, exists),
 3. tile hover lift 1–2px + border brighten (exists),
 4. terminal caret blink, music LED pulse *only* while playing,
-5. custom cursor trail (opt-in by capability, exists).
+5. custom cursor trail (opt-in by capability, exists),
+6. desktop link menu (150ms step boot/close + one 220ms scan sweep),
+7. copy toast (170ms step slide + 2.4s progress bar) and a 460ms source-tile
+   flash after `COPY LINK`.
 
 Nothing else. No pulsing panels, no neon breathing, no hover wobble. Audit
-`responsive.css`'s reduced-motion block against this list and add the two new rules
-(focus transition, dock spine) to it.
+`responsive.css` and `context-menu.css` reduced-motion blocks against this list;
+keep new motion short, interaction-triggered, and disabled under
+`prefers-reduced-motion`.
+
+---
+
+## 9. Sound budget
+
+Sound is the same kind of budget: a small, opt-in layer, not an atmosphere.
+
+- Off by default; one footer `SFX` control and one `sound on|off|toggle|test`
+  command.
+- Confirm actions only: click/right-click, terminal key/result, pane switch,
+  music-window open/close, and one power-on chime when enabled.
+- No hover ticks, no wheel ratchet, no continuous drag noise.
+- Each event family gets a distinct register/timbre; `sound test` auditions the
+  full set so differences are obvious.
+- Synthesized locally through one master gain; no samples, no autoplay before a
+  user gesture.
+- Separate from the music player's own `retroMusicEnabled` / volume. SFX master
+  gain stays above the quiet music default so feedback reads first.
 
 ---
 

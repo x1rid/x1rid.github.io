@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const defaultPromptPrefix = 'r3d1bruh@desktop';
         const historyStorageKey = 'terminal_history';
         const maxHistoryEntries = 200;
-        const builtInCommands = ['cls', 'dir', 'ls', 'cd', 'start', 'open', 'echo', 'man', 'rm', 'rmdir', 'cp', 'save', 'load', 'saved-files', 'neofetch', 'layout', 'promptgap', 'help'];
+        const builtInCommands = ['cls', 'dir', 'ls', 'cd', 'start', 'open', 'echo', 'man', 'rm', 'rmdir', 'cp', 'save', 'load', 'saved-files', 'neofetch', 'layout', 'promptgap', 'cursor', 'sound', 'help'];
 
         const vfs = {
             '/': {
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             '/dora': { type: 'dir', children: { 'anushkaverse.html': { type: 'file' }, 'app-manifest.json': { type: 'file' }, 'app.html': { type: 'file' }, 'doraverse.html': { type: 'file' }, 'gallery': { type: 'dir' }, 'index.html': { type: 'file' }, 'manifest.json': { type: 'file' }, 'sw.js': { type: 'file' } } },
             '/l': { type: 'dir', children: { 'index.html': { type: 'file' } } },
-            '/main': { type: 'dir', children: { 'assets': { type: 'dir', children: { 'cursor.gif': { type: 'file' }, 'cursor-reversed.gif': { type: 'file' } } }, 'custom-cursor.js': { type: 'file' }, 'index.html': { type: 'file' }, 'link-exchange.js': { type: 'file' }, 'mobile.css': { type: 'file' }, 'mobile.js': { type: 'file' }, 'music.css': { type: 'file' }, 'music.js': { type: 'file' }, 'playlist': { type: 'dir' }, 'socials': { type: 'dir' }, 'splitter.js': { type: 'file' }, 'terminal.css': { type: 'file' }, 'terminal.js': { type: 'file' } } },
+            '/main': { type: 'dir', children: { 'assets': { type: 'dir', children: { 'cursor-arrow.png': { type: 'file' }, 'cursor-arrow-link.png': { type: 'file' }, 'cursor-arrow-press.png': { type: 'file' }, 'cursor.gif': { type: 'file' }, 'cursor-reversed.gif': { type: 'file' } } }, 'custom-cursor.js': { type: 'file' }, 'context-menu.css': { type: 'file' }, 'context-menu.js': { type: 'file' }, 'iframe-policy.js': { type: 'file' }, 'index.html': { type: 'file' }, 'link-exchange.js': { type: 'file' }, 'mobile.css': { type: 'file' }, 'mobile.js': { type: 'file' }, 'music.css': { type: 'file' }, 'music.js': { type: 'file' }, 'playlist': { type: 'dir' }, 'sfx.css': { type: 'file' }, 'sfx.js': { type: 'file' }, 'socials': { type: 'dir' }, 'splitter.js': { type: 'file' }, 'terminal.css': { type: 'file' }, 'terminal.js': { type: 'file' } } },
             '/main/playlist': { type: 'dir', children: { 'playlist.json': { type: 'file' }, 'Basshunter - In Her Eyes': { type: 'file' }, 'Crystal Castles - Suffocation': { type: 'file' }, 'Pretty Scene Girl': { type: 'file' }, 'The Cure - Friday Im In Love': { type: 'file' } } },
             '/main/socials': { type: 'dir', children: { 'pfp.webp': { type: 'file' }, 'xbox.svg': { type: 'file' }, 'github': { type: 'dir' }, 'reddit': { type: 'dir' }, 'discord': { type: 'dir' }, 'insta': { type: 'dir' }, 'snapchat': { type: 'dir' }, 'tiktok': { type: 'dir' }, 'x': { type: 'dir' }, 'linkedin': { type: 'dir' }, 'steam': { type: 'dir' } } }
         };
@@ -383,6 +383,8 @@ document.addEventListener('DOMContentLoaded', () => {
             neofetch: 'Show system information art block. Usage: neofetch',
             layout: 'Set terminal layout. Usage: layout <compact|normal>',
             promptgap: 'Adjust prompt gap in px or keywords. Usage: promptgap <px|tight|normal|wide>',
+            cursor: 'Switch the pointer scheme. Usage: cursor <ghost|classic|rail|native>',
+            sound: 'Toggle retro interface sounds. Usage: sound <on|off|toggle|test>',
             help: 'Show a short help summary. Usage: help'
         };
 
@@ -1011,6 +1013,86 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            if (command === 'cursor') {
+                const cursorApi = window.SiteCursor;
+                if (!cursorApi || typeof cursorApi.setScheme !== 'function') {
+                    appendTextLine('Cursor controls are unavailable.', 'terminal-muted');
+                    return;
+                }
+
+                const value = arg.trim().toLowerCase();
+                if (!value) {
+                    appendTextLines([
+                        `Cursor scheme: ${cursorApi.getScheme()}`,
+                        `Effective: ${cursorApi.getEffectiveScheme()}`,
+                        'Usage: cursor <ghost|classic|rail|native>',
+                        '  ghost   - pixel arrow, link accent, ghost trail',
+                        '  classic - original GIF cursor + rainbow trail',
+                        '  rail    - native pointer + status-rail readout',
+                        '  native  - native pointer, no effects'
+                    ], 'terminal-muted');
+                    return;
+                }
+
+                const result = cursorApi.setScheme(value);
+                if (!result.ok) {
+                    appendTextLine(`Unknown cursor scheme: ${value}`, 'terminal-muted');
+                    appendTextLine('Usage: cursor <ghost|classic|rail|native>', 'terminal-muted');
+                    return;
+                }
+
+                if (result.reason === 'touch') {
+                    appendTextLine(`Cursor scheme saved: ${result.scheme} (desktop only; touch keeps the native pointer)`, 'terminal-muted');
+                } else if (result.reason === 'reduced-motion') {
+                    appendTextLine(`Cursor scheme saved: ${result.scheme} (reduced motion; using the native pointer)`, 'terminal-muted');
+                } else {
+                    appendTextLine(`Cursor scheme: ${result.scheme}`, 'terminal-muted');
+                }
+                return;
+            }
+
+            if (command === 'sound') {
+                const sfxApi = window.SiteSfx;
+                if (!sfxApi || typeof sfxApi.setEnabled !== 'function') {
+                    appendTextLine('Interface sound controls are unavailable.', 'terminal-muted');
+                    return;
+                }
+
+                const value = arg.trim().toLowerCase();
+                if (!value) {
+                    appendTextLines([
+                        `Interface sounds: ${sfxApi.isEnabled() ? 'ON' : 'OFF'}`,
+                        'Usage: sound <on|off|toggle|test>',
+                        'Effects are synthesized locally and stay off until enabled.'
+                    ], 'terminal-muted');
+                    return;
+                }
+
+                if (value === 'test') {
+                    if (!sfxApi.isEnabled()) {
+                        appendTextLine('Interface sounds are off. Run "sound on" first.', 'terminal-muted');
+                        return;
+                    }
+                    appendTextLine('Sound test: click, key, enter, success, error, pane, window, power-on.', 'terminal-muted');
+                    const sequence = ['click', 'key', 'enter', 'success', 'error', 'pane', 'windowOpen', 'windowClose', 'enable'];
+                    sequence.forEach((name, index) => {
+                        window.setTimeout(() => sfxApi.play(name), 180 + index * 320);
+                    });
+                    return;
+                }
+
+                if (value !== 'on' && value !== 'off' && value !== 'toggle') {
+                    appendTextLine(`Unknown sound setting: ${value}`, 'terminal-muted');
+                    appendTextLine('Usage: sound <on|off|toggle|test>', 'terminal-muted');
+                    return;
+                }
+
+                const next = value === 'toggle' ? !sfxApi.isEnabled() : value === 'on';
+                sfxApi.setEnabled(next);
+                appendTextLine(`Interface sounds: ${next ? 'ON' : 'OFF'}`, 'terminal-muted');
+                return;
+            }
+
             if (command === 'help') {
                 appendTextLines([
                     'Available commands:',
@@ -1027,6 +1109,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     '  neofetch   - Show system info block',
                     '  layout     - Set layout to compact or normal',
                     '  promptgap  - Adjust prompt gap spacing',
+                    '  cursor     - Switch pointer scheme: ghost, classic, rail, native',
+                    '  sound      - Toggle retro interface sounds (on/off/test)',
                     '  save       - Save open editor buffer to browser storage',
                     '  load <n>   - Load saved file into editor',
                     '  saved-files- List files saved in browser storage',
@@ -1041,7 +1125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function clearActiveState() {
             [navLink, navPC].forEach((element) => element && element.classList.remove('active'));
             if (webpagesList) {
-                Array.from(webpagesList.children).forEach((button) => button.classList.remove('active'));
+                Array.from(webpagesList.querySelectorAll('.webpage-btn')).forEach((button) => button.classList.remove('active'));
             }
         }
 
@@ -1071,7 +1155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (element) element.style.display = 'none';
             });
 
-            const isTerminalPane = pane !== 'link';
+            const isTerminalPane = pane === 'pc' || pane === 'webpage';
             if (content) content.classList.toggle('terminal-mode', isTerminalPane);
             if (layout) layout.classList.toggle('terminal-layout', isTerminalPane);
             if (terminalWrapper) terminalWrapper.style.display = pane === 'webpage' ? 'none' : '';
@@ -1144,15 +1228,19 @@ document.addEventListener('DOMContentLoaded', () => {
         let webpageLoadToken = 0;
         let webpageLoadTimeout = null;
         let lastKnownContentHeight = 0;
+        let currentWebpageUrl = null;
         const webpagesStorageKey = 'terminal_webpages_v1';
 
         function saveWebpagesList() {
             if (!webpagesList) return;
             try {
-                const arr = Array.from(webpagesList.children).map((b) => ({
-                    url: b.getAttribute('data-url') || '',
-                    title: (b.textContent || '').trim()
-                })).filter((x) => x.url);
+                const arr = Array.from(webpagesList.querySelectorAll('.webpage-tab')).map((tab) => {
+                    const btn = tab.querySelector('.webpage-btn');
+                    return {
+                        url: btn ? (btn.getAttribute('data-url') || '') : (tab.getAttribute('data-url') || ''),
+                        title: btn ? (btn.dataset.label || '') : ''
+                    };
+                }).filter((item) => item.url);
                 localStorage.setItem(webpagesStorageKey, JSON.stringify(arr));
             } catch (e) {
                 // ignore storage errors
@@ -1168,14 +1256,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!Array.isArray(arr)) return;
                 arr.forEach((item) => {
                     if (!item || !item.url) return;
-                    // avoid duplicating existing buttons
-                    const existing = Array.from(webpagesList.children).find((b) => b.getAttribute('data-url') === item.url) || document.getElementById(`webpage-${btoa(item.url).replace(/=/g,'')}`);
+                    /* A saved tab whose site refuses framing can never render in
+                       the pane, so drop it instead of resurrecting a dead tab. */
+                    if (window.SiteIframes && !window.SiteIframes.canEmbed(item.url)) return;
+                    const existing = webpageTabFor(item.url);
                     if (existing) {
-                        existing.textContent = item.title || existing.textContent;
-                        existing.setAttribute('data-url', item.url);
+                        updateWebpageTabLabel(existing, webpageDisplayName(item.title, item.url));
                     } else {
-                        const btn = addWebpageButton(item.title || item.url, item.url);
-                        if (btn) btn.setAttribute('data-url', item.url);
+                        addWebpageButton(item.title || item.url, item.url);
                     }
                 });
             } catch (e) {
@@ -1184,13 +1272,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function setWebpageButtonLabel(btn, label) {
+            if (!btn) return;
+            const text = String(label || '');
             btn.replaceChildren();
             const prompt = document.createElement('span');
             prompt.className = 'nav-prompt';
             prompt.setAttribute('aria-hidden', 'true');
             prompt.textContent = '>';
             btn.appendChild(prompt);
-            btn.appendChild(document.createTextNode(label));
+            btn.appendChild(document.createTextNode(text));
+            btn.dataset.label = text;
         }
 
         /* Prefer the folder name for local pages ('/dora/index.html' → 'dora');
@@ -1216,30 +1307,83 @@ document.addEventListener('DOMContentLoaded', () => {
             return display || name || url;
         }
 
+        function webpageTabFor(url) {
+            if (!webpagesList || !url) return null;
+            return Array.from(webpagesList.querySelectorAll('.webpage-tab'))
+                .find((tab) => tab.getAttribute('data-url') === url) || null;
+        }
+
+        function updateWebpageTabLabel(tab, label) {
+            if (!tab) return;
+            const btn = tab.querySelector('.webpage-btn');
+            if (btn) setWebpageButtonLabel(btn, label);
+            const close = tab.querySelector('.webpage-tab-close');
+            if (close) {
+                close.setAttribute('aria-label', `Close ${label}`);
+                close.title = `Close ${label}`;
+            }
+        }
+
+        function closeWebpageTab(url) {
+            const tab = webpageTabFor(url);
+            if (!tab) return;
+
+            /* Closing the page that is on screen also closes the pane. */
+            if (currentWebpageUrl === url) closeWebpagePane();
+
+            tab.classList.add('is-closing');
+            window.setTimeout(() => {
+                if (tab.parentElement) tab.parentElement.removeChild(tab);
+                saveWebpagesList();
+            }, 160);
+        }
+
+        function createWebpageTab(url, displayName) {
+            const tab = document.createElement('div');
+            tab.className = 'webpage-tab';
+            tab.setAttribute('data-url', url);
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = `webpage-${btoa(url).replace(/=/g,'')}`;
+            btn.className = 'webpage-btn';
+            btn.setAttribute('data-url', url);
+            setWebpageButtonLabel(btn, displayName);
+            btn.addEventListener('click', () => openWebpage(url, displayName));
+
+            /* The cross is a real control, not a nested one: the tab wrapper
+               holds the destination button and the close button as peers. */
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'webpage-tab-close';
+            close.setAttribute('aria-label', `Close ${displayName}`);
+            close.title = `Close ${displayName}`;
+            close.addEventListener('click', (event) => {
+                event.stopPropagation();
+                closeWebpageTab(url);
+            });
+
+            tab.appendChild(btn);
+            tab.appendChild(close);
+            return tab;
+        }
+
         function addWebpageButton(name, url) {
             if (!webpagesList || !url) return;
             const displayName = webpageDisplayName(name, url);
-            const id = `webpage-${btoa(url).replace(/=/g,'')}`;
-            // prefer existing button by data-url if present
-            const existingByData = Array.from(webpagesList.children).find((b) => b.getAttribute('data-url') === url);
-            if (existingByData) {
-                setWebpageButtonLabel(existingByData, displayName);
-                existingByData.setAttribute('data-url', url);
+            // prefer existing tab by data-url if present
+            const existing = webpageTabFor(url);
+            if (existing) {
+                updateWebpageTabLabel(existing, displayName);
+                existing.setAttribute('data-url', url);
                 saveWebpagesList();
-                return existingByData;
+                return existing.querySelector('.webpage-btn');
             }
 
-            if (document.getElementById(id)) return document.getElementById(id);
-            const btn = document.createElement('button');
-            btn.id = id;
-            btn.className = 'webpage-btn';
-
-            setWebpageButtonLabel(btn, displayName);
-            btn.setAttribute('data-url', url);
-            btn.addEventListener('click', () => openWebpage(url, displayName));
-            webpagesList.appendChild(btn);
+            const tab = createWebpageTab(url, displayName);
+            webpagesList.appendChild(tab);
             saveWebpagesList();
-            return btn;
+            return tab.querySelector('.webpage-btn');
         }
 
         function showUnlockAnimation() {
@@ -1358,7 +1502,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function setActiveWebpageButton(url) {
             clearActiveState();
             if (!webpagesList || !url) return;
-            Array.from(webpagesList.children).forEach((b) => {
+            Array.from(webpagesList.querySelectorAll('.webpage-btn')).forEach((b) => {
                 const btnUrl = b.getAttribute('data-url') || '';
                 const match = url && (btnUrl === url || b.id === `webpage-${btoa(url).replace(/=/g,'')}`);
                 if (match) {
@@ -1371,12 +1515,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function openWebpage(url, title) {
             if (!webpagePane || !webpageIframe) return;
+
+            /* Sites that send X-Frame-Options / CSP frame-ancestors cannot
+               render inside the pane. Never show their error screen: hand the
+               destination to a real browser tab instead. */
+            if (window.SiteIframes && !window.SiteIframes.canEmbed(url)) {
+                const policy = window.SiteIframes.embedPolicy(url);
+                appendTextLine(`${policy.host || url} refuses to be embedded — opened in a new tab.`, 'terminal-muted');
+                try { window.open(url, '_blank', 'noopener'); } catch (e) {}
+                return;
+            }
+
             const name = title || url.replace(/^https?:\/\//, '').replace(/\/.*/, '');
             const display = webpageDisplayName(name, url);
             const btn = addWebpageButton(display, url);
             if (btn) btn.setAttribute('data-url', url);
             webpageLoadToken += 1;
             const currentToken = webpageLoadToken;
+            currentWebpageUrl = url;
             webpageTitle.textContent = display;
             // ensure layout and pane classes for webpage view, then hide terminal wrapper
             try { showPane('webpage'); } catch (e) {}
@@ -1403,20 +1559,42 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        function closeWebpagePane() {
+            if (!webpagePane) return;
+            webpageLoadToken += 1;
+            currentWebpageUrl = null;
+            if (webpageIframe) webpageIframe.src = 'about:blank';
+            try { clearTimeout(webpageLoadTimeout); } catch (e) {}
+            // hide webpage pane and restore the link exchange
+            webpagePane.style.display = 'none';
+            const terminalWrapper = document.getElementById('terminal-wrapper');
+            if (terminalWrapper) terminalWrapper.style.display = '';
+            setActiveWebpageButton(null);
+            setWebpageLoading(false);
+            showPane('link');
+        }
+
+        /* The desktop link menu is deliberately decoupled from the terminal:
+           it emits a small document event so the page pane stays a terminal
+           concern. Only http(s) URLs can reach the embedded browser. */
+        document.addEventListener('site:openpage', (event) => {
+            const detail = event && event.detail ? event.detail : {};
+            const raw = String(detail.url || '');
+            if (!raw) return;
+
+            let parsed;
+            try {
+                parsed = new URL(raw, window.location.href);
+            } catch (_) {
+                return;
+            }
+            if (!/^https?:$/.test(parsed.protocol)) return;
+
+            openWebpage(parsed.href, String(detail.title || ''));
+        });
+
         if (webpageBack) {
-            webpageBack.addEventListener('click', () => {
-                if (!webpagePane) return;
-                webpageLoadToken += 1;
-                webpageIframe.src = 'about:blank';
-                try { clearTimeout(webpageLoadTimeout); } catch (e) {}
-                // hide webpage pane and restore terminal
-                if (webpagePane) webpagePane.style.display = 'none';
-                const terminalWrapper = document.getElementById('terminal-wrapper');
-                if (terminalWrapper) terminalWrapper.style.display = '';
-                setActiveWebpageButton(null);
-                setWebpageLoading(false);
-                showPane('link');
-            });
+            webpageBack.addEventListener('click', closeWebpagePane);
         }
 
         if (webpageIframe) {
@@ -1435,16 +1613,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     // If we found a title and this is not a local workspace path, use it
                     if (foundTitle && /^https?:\/\//i.test(url)) {
                         webpageTitle.textContent = foundTitle;
-                        if (webpagesList) {
-                            // update corresponding button text if present
-                            const btnByData = Array.from(webpagesList.children).find((b) => b.getAttribute('data-url') === url);
-                            const btnById = document.getElementById(`webpage-${btoa(url).replace(/=/g,'')}`);
-                            const btn = btnByData || btnById;
-                            if (btn) {
-                                btn.textContent = foundTitle;
-                                // persist updated title
-                                try { saveWebpagesList(); } catch (e) {}
-                            }
+                        const tab = webpageTabFor(currentWebpageUrl || url);
+                        if (tab) {
+                            updateWebpageTabLabel(tab, foundTitle);
+                            // persist updated title
+                            try { saveWebpagesList(); } catch (e) {}
                         }
                     }
                 } catch (e) {

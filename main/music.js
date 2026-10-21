@@ -13,7 +13,9 @@
     const PREF_DOCK_KEY = 'retroMusicDockPosition';
     const PREF_VOLUME_KEY = 'retroMusicVolume';
 
-    const DEFAULT_VOLUME = 0.18;
+    /* Quiet by default so the opt-in interface sounds (master 0.9 in sfx.js)
+       sit clearly above the music bed. The player slider still goes to 1.0. */
+    const DEFAULT_VOLUME = 0.06;
     const FADE_IN = 2.4;
     const FADE_OUT = 2.4;
     const MANUAL_FADE = 0.28;
@@ -173,11 +175,24 @@
         return files;
     }
 
+    /* Wraps fetch() with a timeout so that file:// requests (which can hang
+       in Chrome rather than fast-failing) don't block playlist discovery. */
+    function fetchWithTimeout(input, init, timeoutMs) {
+        const ms = timeoutMs || 4000;
+        if (typeof AbortController === 'undefined') {
+            return fetch(input, init);
+        }
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), ms);
+        return fetch(input, Object.assign({}, init, { signal: controller.signal }))
+            .finally(() => clearTimeout(timer));
+    }
+
     async function readManifest(base, bust) {
         try {
             const url = new URL('playlist.json', base);
             if (bust) url.searchParams.set('v', String(Date.now()));
-            const response = await fetch(url.href, {
+            const response = await fetchWithTimeout(url.href, {
                 cache: bust ? 'no-store' : 'default',
                 headers: { Accept: 'application/json' }
             });
@@ -197,7 +212,7 @@
         try {
             const url = new URL(base);
             if (bust) url.searchParams.set('v', String(Date.now()));
-            const response = await fetch(url.href, {
+            const response = await fetchWithTimeout(url.href, {
                 cache: 'no-store',
                 headers: { Accept: 'application/json, text/html;q=0.9, */*;q=0.2' }
             });
@@ -727,7 +742,9 @@
      * Window UI
      * ------------------------------------------------------------------ */
     function setWindowVisible(visible) {
-        isWindowVisible = Boolean(visible);
+        const next = Boolean(visible);
+        const changed = next !== isWindowVisible;
+        isWindowVisible = next;
         if (winEl) winEl.hidden = !isWindowVisible;
         /* While the player is put away, the minimized dock is the only UI. */
         if (miniEl) miniEl.hidden = isWindowVisible;
@@ -735,6 +752,16 @@
         if (isWindowVisible) {
             if (winDrag) winDrag.restore();
             requestAnimationFrame(() => { if (winDrag) winDrag.clamp(); });
+        }
+
+        if (changed) {
+            try {
+                document.dispatchEvent(new CustomEvent('site:windowchange', {
+                    detail: { id: 'music', visible: isWindowVisible }
+                }));
+            } catch (_) {
+                /* CustomEvent is available in every browser this site supports. */
+            }
         }
     }
 

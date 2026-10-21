@@ -17,15 +17,19 @@ There is **no React, no bundler, no build step** and none should be introduced.
 - `main/css/*.css` — page theme/layout modules in cascade order: `variables`,
   `base`, `marquee`, `layout`, `links`, `components`, `responsive` (keep
   `responsive` last). Feature sheets: `terminal.css` (terminal/neofetch/webpage
-  pane), `music.css` (music widget/player), `mobile.css` (≤760px
-  compact/tablet), `phone.css` (≤600px phone shell, linked with
+  pane), `music.css` (music widget/player), `sfx.css` (footer interface-sound
+  control), `context-menu.css` (desktop link menu + copy toast), `mobile.css`
+  (≤760px compact/tablet), `phone.css` (≤600px phone shell, linked with
   `media="(max-width:600px)"` so it is not fetched above that width).
 - `main/*.js` — `draggable.js` (shared window/dock drag physics), `mobile.js`
   (the phone shell controller), `link-exchange.js`, `splitter.js`, `music.js`,
+  `sfx.js` (opt-in synthesized interface sounds), `context-menu.js` (link-only
+  desktop context menu), `iframe-policy.js` (hosts that refuse framing),
   `terminal.js`, `chrome.js` (status rail / page counter / focus state),
   `custom-cursor.js` (all defer, plain classic scripts).
 - `main/data/` — `links.json` (link tiles) and `vfs.json` (terminal filesystem).
-- `main/assets/` — cursor gifs. `main/socials/` — profile/social icons.
+- `main/assets/` — pixel cursor sprites (`cursor-*.png`) + legacy cursor GIFs.
+  `main/socials/` — profile avatar and the link-exchange icon set.
 - `main/playlist/` — music tracks + `playlist.json` (committed manifest).
 - `serve.py` — dev server; `python serve.py [port]` (default 5500).
 - `verify.py` — static checks; `python verify.py` (must print `VERIFY OK`).
@@ -55,10 +59,15 @@ There is **no React, no bundler, no build step** and none should be introduced.
 - There are **two** deliberate width boundaries: `760px` is compact/tablet
   layout (`responsive.css` + `mobile.css`) and `600px` is the phone shell
   (`phone.css` + `mobile.js`). The `max-width: 600px` string appears in exactly
-  three places — the `phone.css` link, `mobile.js`'s `matchMedia`, and the
-  marquee script in `index.html` — and they must stay identical.
-- `.content-area` is a `<main>` element (one landmark, no second one). Its
-  heading `#main-section-title` renders `data-meta` through `::after`
+  four places — the `phone.css` link, `mobile.js`'s `matchMedia`,
+  `custom-cursor.js`'s guard, and the marquee script in `index.html` — and they
+  must stay identical.
+- `.content-area` is a `<main>` element (one landmark, no second one). In the
+  Link Exchange view it is deliberately **frameless** (`.content-area:not(.terminal-mode)`);
+  the terminal/webpage panes keep the console frame, and the sidebar keeps the
+  site's panel recipe. Do not add a border back to the link view; the icon
+  screen's own hairline bezel and faint wash are part of the tile, not a pane
+  frame. Its heading `#main-section-title` renders `data-meta` through `::after`
   (entry count + active filter, written by `link-exchange.js`). The phone shell
   hides that heading (`phone.css`) and mirrors `data-meta` into the header's
   `.phone-view-meta` and the current view into `#phone-view-path` (both
@@ -80,16 +89,34 @@ There is **no React, no bundler, no build step** and none should be introduced.
   `link-exchange.js` and `terminal.js` keep inline fallbacks so the pages still
   work from `file://` and offline. Never make the fallback path depend on the
   fetch.
-- `main/socials/*.gif` are animated only on tile hover (`link-exchange.js`
-  swaps `src` webp⇄gif) and only for hover-capable fine pointers, so touch
-  devices stay static; the GIF is fetched on first hover — keep it that way.
-- The custom cursor should never hide the native cursor unless its own GIF
-  loaded (`custom-cursor.js` guards this) and never runs for touch input or
-  reduced-motion users. Cursor GIFs are `main/assets/cursor{,-reversed}.gif`.
+- `main/socials/icons/` holds one square SVG per link; older logo versions were
+  preferred, generated marks fill the gaps (see `icons/SOURCES.md`). The hover
+  animation is CSS in `css/links.css`, scoped to link-exchange tiles — no hover
+  image is fetched, and reduced-motion users get colour-only feedback.
+- The custom cursor must never hide the native cursor until its own sprites
+  loaded (`custom-cursor.js` guards this). `ghost`/`classic` never run for touch
+  input, phone widths (`<=600px`), or reduced-motion users. `rail` stays
+  available under reduced motion (desktop only) and draws no custom pointer;
+  touch/phone layouts still force native. Ghost sprites are
+  `main/assets/cursor-*.png`; `classic` keeps `cursor{,-reversed}.gif`. The
+  scheme is persisted in `localStorage['retroCursorScheme']` and switched with
+  the terminal `cursor` command.
 - Sidebar loads **compact by default** (220px). A user-dragged width persists in
   `localStorage['retroSidebarWidth']`.
 - Sidebar webpage buttons (opened via `open <url>`) must reuse the
   `.sidebar-nav button` styling so they line up with Link Exchange/Neofetch.
+  Each lives in a `.webpage-tab` wrapper with a `.webpage-tab-close` cross;
+  closing the on-screen tab returns the pane to the link exchange. `mobile.js`
+  mirrors the same wrapper into the phone pages list, so keep the close control
+  a real peer button (never nest it inside `.webpage-btn`).
+- `main/iframe-policy.js` owns the `window.SiteIframes` API. It blocks known
+  `X-Frame-Options` / CSP `frame-ancestors` hosts from the page pane, while
+  explicit embed URLs (YouTube `/embed/`, Spotify `/embed/`, SoundCloud player,
+  Vimeo player, Google Maps embed) stay allowed. `context-menu.js` removes the
+  page-pane action for blocked hosts, and `terminal.js` opens their URLs in a
+  real tab. Unknown hosts stay embeddable — never guess from a failed iframe,
+  because refusals still fire `load` and are indistinguishable from cross-origin
+  pages.
 - `.terminal-output` must keep its gap to the prompt identical to the gap
   between output lines (or the just-sent command visually jumps). The `:empty`
   guard handles the first line.
@@ -113,9 +140,29 @@ There is **no React, no bundler, no build step** and none should be introduced.
 - Terminal neofetch reuses a cached `DocumentFragment` (`cloneNode(true)`) —
   don't rebuild the DOM from scratch on every call, and keep it plain
   (no card/padding) so it lines up with the other commands.
+- Interface sounds (`main/sfx.js`) are **opt-in** and off by default. They use
+  `localStorage['retroSfxEnabled']`, are separate from the music player's own
+  `retroMusicEnabled`, and must never start an `AudioContext` before a real
+  pointer/key gesture or while disabled. They cover clicks, terminal
+  keys/results, pane changes and the music window; hover, wheel and continuous
+  drag stay silent. Voices must stay distinct (not all click variants), and
+  `sound test` auditions them. The SFX master (`0.9`) stays above the music
+  default volume (`0.06`); don't raise the music default without rechecking the
+  mix.
+- The desktop link menu (`main/context-menu.js`) is **link-scoped and
+  desktop-only**: it handles `contextmenu` only for `http(s)` anchors on fine
+  pointers above `600px`, leaving text selections, inputs, `mailto:` links,
+  terminal output, iframes and empty space native. `Shift + right-click` must
+  always bypass it (keyboard **Shift+F10** still opens the custom menu). Do not
+  turn this into a global right-click handler. Copy success uses the bottom
+  `.link-toast` and a short `.social-tile` flash; the page-pane action is the
+  `site:openpage` document event consumed by `terminal.js` (never call terminal
+  internals directly). The page-pane item is hidden when
+  `window.SiteIframes.canEmbed(url)` is false. Keep the clipboard fallback and
+  reduced-motion opt-out.
 - localStorage keys: `terminal_history`, `terminal_webpages_v1`,
   `retroSidebarWidth`, `retroMusicEnabled`, `retroMusicWindowPosition`,
-  `retroMusicDockPosition`, `retroMusicVolume`.
+  `retroMusicDockPosition`, `retroMusicVolume`, `retroSfxEnabled`.
   The page counter uses the per-tab `sessionStorage` key
   `retroGlobalPageView`; it is not a local counter.
 
@@ -123,7 +170,7 @@ There is **no React, no bundler, no build step** and none should be introduced.
 
 `cls`, `dir`/`ls`, `cd`, `start`/`open`, `echo`, `man` (pager), `rm`, `rmdir`,
 `cp`, `save`, `load`, `saved-files`, `neofetch`, `layout compact|normal`,
-`promptgap <px>`, `help`, plus
+`promptgap <px>`, `cursor <scheme>`, `sound on|off|toggle|test`, `help`, plus
 Up/Down history, Tab completion, Ctrl+L/Ctrl+C. Keep `README.md` in sync when
 adding commands.
 

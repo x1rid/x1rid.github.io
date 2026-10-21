@@ -42,6 +42,17 @@
     justify-content: center;
 }
 
+/* Wrapped tabs stay compact at this width, so several can share a row. */
+#webpages-list .webpage-tab {
+    width: auto;
+    flex: 0 1 auto;
+}
+
+#webpages-list .webpage-tab .webpage-btn {
+    flex: 0 1 auto;
+    min-width: 176px;
+}
+
 .content-area {
     padding: 10px !important;
 }

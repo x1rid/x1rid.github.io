@@ -7,7 +7,6 @@
     <meta name="theme-color" content="#0b061d">
     <meta name="description" content="r3d1bruh — retro purple desktop, links, music and terminal.">
     <link rel="preconnect" href="https://fonts.cdnfonts.com" crossorigin>
-    <link rel="preconnect" href="https://cdn.simpleicons.org" crossorigin>
     <link rel="icon" type="image/webp" href="./socials/pfp.webp">
     <link href="https://fonts.cdnfonts.com/css/cascadia-mono" rel="stylesheet">
     <link rel="stylesheet" href="./css/variables.css">
@@ -19,9 +18,10 @@
     <link rel="stylesheet" href="./css/responsive.css">
     <link rel="stylesheet" href="./terminal.css">
     <link rel="stylesheet" href="./music.css">
+    <link rel="stylesheet" href="./sfx.css">
+    <link rel="stylesheet" href="./context-menu.css">
     <link rel="stylesheet" href="./mobile.css" media="(max-width:760px)">
     <link rel="stylesheet" href="./phone.css" media="(max-width:600px)">
-    <link rel="preload" as="image" href="./socials/github.webp">
     <link rel="prefetch" as="fetch" href="./playlist/playlist.json" crossorigin>
     <noscript>
         <style>
@@ -63,7 +63,9 @@
     <!-- ======= STATUS RAIL (real values only, set by chrome.js) ======= -->
     <div class="status-rail" aria-hidden="true">
         <span class="rail-pane">r3d1bruh://link-exchange</span>
+        <span class="rail-context"></span>
         <span class="status-rail__spacer"></span>
+        <span class="rail-pointer" hidden>PTR ----,---- · —</span>
         <span class="rail-track">--</span>
         <span class="rail-clock">--:--</span>
     </div>
@@ -101,28 +103,30 @@
 
             <!-- ── LINK EXCHANGE PANE ── -->
             <div id="link-exchange" class="pane">
-                <div class="link-exchange-categories" role="tablist" aria-label="Link categories">
-                    <button class="link-exchange-category active" type="button" role="tab" aria-selected="true"  data-link-category="all">ALL</button>
-                    <button class="link-exchange-category"        type="button" role="tab" aria-selected="false" data-link-category="social">SOCIAL</button>
-                    <button class="link-exchange-category"        type="button" role="tab" aria-selected="false" data-link-category="gaming">GAMING</button>
-                    <button class="link-exchange-category"        type="button" role="tab" aria-selected="false" data-link-category="ai-tech">AI / TECH</button>
+                <div class="link-exchange-categories" role="group" aria-label="Filter links">
+                    <button class="link-exchange-category active" type="button" aria-pressed="true"  data-link-category="all">ALL</button>
+                    <button class="link-exchange-category"        type="button" aria-pressed="false" data-link-category="social">SOCIAL</button>
+                    <button class="link-exchange-category"        type="button" aria-pressed="false" data-link-category="dev">DEV</button>
+                    <button class="link-exchange-category"        type="button" aria-pressed="false" data-link-category="play">PLAY</button>
+                    <button class="link-exchange-category"        type="button" aria-pressed="false" data-link-category="more">MORE</button>
                 </div>
-                <div class="link-exchange-grid" role="tabpanel" aria-live="polite" aria-label="All links"></div>
+                <div class="link-exchange-grid" aria-label="All links"></div>
+                <p class="visually-hidden" role="status" id="link-status"></p>
                 <noscript>
+                    <!-- Live destinations only; pending tiles are omitted. -->
                     <ul class="link-plain" aria-label="Links">
-                        <li><a href="https://github.com/r3d1bruh">github.com/r3d1bruh</a></li>
-                        <li><a href="https://reddit.com/user/r3d1bruh">reddit.com/user/r3d1bruh</a></li>
+                        <li><a href="https://github.com/x1rid">github.com/x1rid</a></li>
+                        <li><a href="https://linkedin.com/in/xrid">linkedin.com/in/xrid</a></li>
+                        <li><a href="mailto:ridoanulislam0@gmail.com">ridoanulislam0@gmail.com</a></li>
+                        <li><a href="https://reddit.com/user/r3d1bro">reddit.com/user/r3d1bro</a></li>
+                        <li><a href="https://discord.com/users/558031359050776581">discord.com/users/558031359050776581</a></li>
                         <li><a href="https://instagram.com/r3d1bruh">instagram.com/r3d1bruh</a></li>
                         <li><a href="https://snapchat.com/add/r3d1bruh">snapchat.com/add/r3d1bruh</a></li>
                         <li><a href="https://tiktok.com/@r3d1bruh">tiktok.com/@r3d1bruh</a></li>
-                        <li><a href="https://twitter.com/r3d1bruh">twitter.com/r3d1bruh</a></li>
-                        <li><a href="https://linkedin.com/in/r3d1bruh">linkedin.com/in/r3d1bruh</a></li>
-                        <li><a href="https://steamcommunity.com/id/r3d1bruh">steamcommunity.com/id/r3d1bruh</a></li>
-                        <li><a href="https://telegram.org">telegram.org</a></li>
-                        <li><a href="https://www.whatsapp.com">whatsapp.com</a></li>
-                        <li><a href="https://www.facebook.com">facebook.com</a></li>
-                        <li><a href="https://itch.io">itch.io</a></li>
-                        <li><a href="https://huggingface.co">huggingface.co</a></li>
+                        <li><a href="https://x.com/i/user/1190238367666954241">x.com/i/user/1190238367666954241</a></li>
+                        <li><a href="tg://user?id=7798423087">telegram</a></li>
+                        <li><a href="https://www.facebook.com/profile.php?id=100088120805119">facebook.com</a></li>
+                        <li><a href="https://steamcommunity.com/profiles/76561199067995946">steamcommunity.com/profiles/76561199067995946</a></li>
                     </ul>
                 </noscript>
             </div>
@@ -175,8 +179,7 @@
                 <div class="phone-pages-list" id="phone-pages-list"></div>
                 <p class="phone-pages-empty" id="phone-pages-empty">NO SAVED PAGES — OPEN ONE FROM THE TERMINAL</p>
             </div>
-        </main>
-    </div>
+        </main>    </div>
 
     <!-- ======= FOOTER ======= -->
     <div class="footer">
@@ -193,6 +196,15 @@
             <button class="music-toggle" type="button" aria-pressed="false">OFF</button>
         </div>
 
+        <!-- UI effects are opt-in and separate from the music player's own
+             sound preference. Hidden until sfx.js reveals it, so no-JS and
+             failed-load users never see a dead control. -->
+        <div class="sfx-panel" role="group" aria-label="Retro interface sounds" hidden>
+            <span class="sfx-led" aria-hidden="true"></span>
+            <span class="sfx-label">SFX</span>
+            <button class="sfx-toggle" type="button" aria-pressed="false" aria-label="Enable retro interface sounds" title="Retro interface sounds: off">OFF</button>
+        </div>
+
         <p>&copy; 1998-2024 r3d1bruh &nbsp;·&nbsp; ALL RIGHTS RESERVED &nbsp;·&nbsp; STAY RAD</p>
     </div>
 
@@ -206,12 +218,15 @@
 
 <!-- ======= SCRIPTS ======= -->
 <script src="./mobile.js" defer></script>
+<script src="./iframe-policy.js" defer></script>
 <script src="./link-exchange.js" defer></script>
 <script src="./custom-cursor.js" defer></script>
 <script src="./splitter.js" defer></script>
 <script src="./draggable.js" defer></script>
 <script src="./music.js" defer></script>
+<script src="./sfx.js" defer></script>
 <script src="./terminal.js" defer></script>
+<script src="./context-menu.js" defer></script>
 <script src="./chrome.js" defer></script>
 
 <!-- ── Marquee: measure actual copy width → set CSS var ──

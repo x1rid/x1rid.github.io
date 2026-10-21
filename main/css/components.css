@@ -57,9 +57,25 @@
 
 .rail-pane {
     color: var(--ink-70);
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* Transient context: destination of the tile under the pointer/focus,
+   or the live width while the splitter is held. Empty collapses. */
+.status-rail > .rail-context {
+    padding-left: 10px;
+    border-left: 1px solid var(--line);
+    color: var(--ink-50);
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 24ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rail-context:empty { display: none; }
 
 .status-rail > .rail-track,
 .status-rail > .rail-clock {
@@ -69,6 +85,7 @@
 
 .rail-track {
     color: var(--ink-50);
+    min-width: 0;
     max-width: 46ch;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -79,6 +96,23 @@
 .rail-clock {
     color: var(--ink-50);
     font-variant-numeric: tabular-nums;
+}
+
+/* Rail scheme: the rail becomes the cursor readout. Hidden otherwise,
+   and dropped before the clock/transport on narrower desktops. */
+.status-rail > .rail-pointer {
+    padding-left: 10px;
+    border-left: 1px solid var(--line);
+    color: var(--ink-50);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    min-width: 21ch;
+}
+
+.rail-pointer[hidden] { display: none; }
+
+@media (max-width: 980px) {
+    .status-rail > .rail-pointer { display: none !important; }
 }
 
 /* ============================================================
@@ -168,24 +202,132 @@
 /* ============================================================
  *  CUSTOM CURSOR
  *  The class is toggled on <html> by custom-cursor.js only when
- *  the animated cursor actually loads (and motion is allowed).
+ *  a custom scheme actually loads. The scheme name lives on
+ *  <html data-cursor-scheme="..."> for inspection and styling.
  * ============================================================ */
 .custom-cursor-enabled,
 .custom-cursor-enabled * { cursor: none !important; }
 
+/* Ghost-only native cursor zones. The pixel pointer stands down over
+   text, the splitter, embedded pages and disabled controls so the
+   browser keeps the cursor that actually fits those jobs. Classic is
+   deliberately left alone: it is the original all-GIF time capsule. */
+html[data-cursor-effective="ghost"].custom-cursor-enabled :is(
+    textarea,
+    [contenteditable="true"],
+    [contenteditable=""],
+    input:not([type]),
+    input[type="text"],
+    input[type="search"],
+    input[type="email"],
+    input[type="url"],
+    input[type="tel"],
+    input[type="password"],
+    input[type="number"],
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"],
+    input[type="month"],
+    input[type="week"],
+    .terminal-output,
+    .terminal-output *,
+    .terminal-pager-body,
+    .terminal-pager-body *,
+    [contenteditable="true"] *,
+    [contenteditable=""] *
+) { cursor: text !important; }
+html[data-cursor-effective="ghost"].custom-cursor-enabled :is(
+    .panel-splitter,
+    .panel-splitter *,
+    body.is-splitting,
+    body.is-splitting *
+) { cursor: col-resize !important; }
+html[data-cursor-effective="ghost"].custom-cursor-enabled iframe { cursor: auto !important; }
+html[data-cursor-effective="ghost"].custom-cursor-enabled :is(
+    :disabled,
+    :disabled *,
+    [aria-disabled="true"],
+    [aria-disabled="true"] *
+) { cursor: not-allowed !important; }
+
+/* Pixel pointer (ghost scheme) */
 .custom-cursor-main {
     position: fixed;
     left: 0;
     top: 0;
-    width: 48px;
-    height: 48px;
-    background-size: contain;
-    background-repeat: no-repeat;
+    width: var(--cursor-size, 32px);
+    height: var(--cursor-size, 32px);
     pointer-events: none;
     z-index: 20000;
     transform: translate3d(-9999px, -9999px, 0);
     will-change: transform;
     display: none;
+}
+
+.custom-cursor-sprite {
+    width: 100%;
+    height: 100%;
+    background-size: contain;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    transform: scale(var(--cursor-scale, 1)) rotate(var(--cursor-rotate, 0deg));
+    transform-origin: 3px 3px;
+    will-change: transform;
+}
+
+/* The small state tag: menu, scroll arrow or move cross. */
+.custom-cursor-badge {
+    position: absolute;
+    left: 19px;
+    top: 2px;
+    width: 12px;
+    height: 12px;
+    display: none;
+    place-items: center;
+    background: var(--surface-3);
+    border: 1px solid var(--line-hi);
+    color: var(--signal-active);
+    font: 700 8px/1 'Cascadia Mono', 'Courier New', monospace;
+    box-shadow: 0 0 0 1px var(--surface-3);
+    pointer-events: none;
+    user-select: none;
+}
+
+.custom-cursor-main[data-badge] .custom-cursor-badge { display: grid; }
+
+/* Windows 95-style ghost trail: fixed sprites, not a particle system. */
+.custom-cursor-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 32px;
+    height: 32px;
+    pointer-events: none;
+    z-index: 19999;
+    background-size: contain;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    display: none;
+    transform: translate3d(-9999px, -9999px, 0);
+    will-change: transform, opacity;
+}
+
+/* Click burst: a few lavender triangle petals, ghost scheme only. */
+.custom-cursor-pixels {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 20001;
+    display: none;
+}
+
+/* Classic scheme: the original GIF, glow and rainbow trail. */
+.custom-cursor-classic {
+    --cursor-size: 48px;
+    background-size: contain;
+    background-repeat: no-repeat;
 }
 
 .custom-cursor-glow {

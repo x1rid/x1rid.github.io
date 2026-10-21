@@ -166,7 +166,7 @@
         }
 
         if (currentView === 'page') {
-            const pages = webpagesList ? webpagesList.children.length : 0;
+            const pages = webpagesList ? webpagesList.querySelectorAll('.webpage-tab').length : 0;
             viewMeta.textContent = pages ? `${pages} saved` : '';
             return;
         }
@@ -176,10 +176,10 @@
             return;
         }
 
-        /* Keep the phone meta short: "20 entries · filter: All" becomes
+        /* Keep the phone meta short: "20 links · filter: All" becomes
            "20 · All" so it fits beside the path. */
         const meta = sectionTitle ? sectionTitle.dataset.meta || '' : '';
-        const compact = meta.match(/^(\d+)\s+entr(?:y|ies)\s*·\s*filter:\s*(.+)$/i);
+        const compact = meta.match(/^(\d+)\s+(?:entries?|links?)\s*·\s*filter:\s*(.+)$/i);
         viewMeta.textContent = compact ? `${compact[1]} · ${compact[2]}` : meta;
     }
 
@@ -190,7 +190,7 @@
      * back to the original button (listeners and storage stay untouched).
      * ------------------------------------------------------------------ */
     function syncPages() {
-        const count = webpagesList ? webpagesList.children.length : 0;
+        const count = webpagesList ? webpagesList.querySelectorAll('.webpage-tab').length : 0;
 
         if (pagesTab) pagesTab.hidden = count === 0;
         if (pagesEmpty) pagesEmpty.hidden = count > 0;
@@ -207,10 +207,29 @@
         if (!pagesList || !webpagesList) return;
         pagesList.replaceChildren();
 
-        Array.from(webpagesList.children).forEach((source) => {
+        Array.from(webpagesList.querySelectorAll('.webpage-tab')).forEach((source) => {
             const row = source.cloneNode(true);
             row.removeAttribute('id');
-            row.addEventListener('click', () => source.click());
+            const rowButton = row.querySelector('.webpage-btn');
+            if (rowButton) rowButton.removeAttribute('id');
+
+            /* The clone is only a projection: both controls click the source
+               tab, whose listeners and storage write stay in terminal.js. */
+            const close = row.querySelector('.webpage-tab-close');
+            if (close) {
+                close.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    const sourceClose = source.querySelector('.webpage-tab-close');
+                    if (sourceClose) sourceClose.click();
+                });
+            }
+
+            row.addEventListener('click', (event) => {
+                if (event.target.closest('.webpage-tab-close')) return;
+                const button = source.querySelector('.webpage-btn');
+                if (button) button.click();
+            });
+
             pagesList.appendChild(row);
         });
 

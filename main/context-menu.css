@@ -1,0 +1,369 @@
+/* ============================================================
+ *  LINK CONTEXT MENU + COPY TOAST
+ *  Desktop-only, link-scoped. The native menu stays in charge
+ *  everywhere else (Shift + right-click also bypasses this).
+ * ============================================================ */
+
+.link-context-menu[hidden],
+.link-toast[hidden] {
+    display: none;
+}
+
+/* The page-pane action is removed for hosts that refuse framing. */
+.lcm-item[hidden] {
+    display: none;
+}
+
+/* ── Link menu ───────────────────────────────────────────── */
+.link-context-menu {
+    position: fixed;
+    z-index: 15000;
+    min-width: 222px;
+    max-width: min(330px, calc(100vw - 16px));
+    max-height: calc(100vh - 16px);
+    overflow: hidden auto;
+    padding: 0;
+    border: 1px solid var(--line-hi);
+    background: var(--surface-3);
+    color: var(--ink-70);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.72),
+        0 12px 30px rgba(0, 0, 0, 0.46),
+        0 0 18px rgba(192, 132, 252, 0.14);
+    font: 700 var(--text-xs)/1.25 'Cascadia Mono', 'Courier New', monospace;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    user-select: none;
+    clip-path: inset(0);
+}
+
+.link-context-menu.is-open {
+    animation: lcm-in 150ms steps(3, end) both;
+}
+
+.link-context-menu.is-closing {
+    pointer-events: none;
+    animation: lcm-out 90ms steps(2, end) both;
+}
+
+/* One quick CRT sweep on open — the only decorative motion here. */
+.link-context-menu::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    z-index: 2;
+    height: 2px;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--signal-active), transparent);
+    opacity: 0;
+}
+
+.link-context-menu.is-open::after {
+    animation: lcm-scan 220ms steps(4, end) 1;
+}
+
+.link-context-menu > * {
+    position: relative;
+    z-index: 1;
+}
+
+.lcm-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 7px 10px 6px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--ink-50);
+}
+
+.lcm-head-label {
+    flex: 0 0 auto;
+    color: var(--signal-active);
+    font-size: var(--text-2xs);
+}
+
+.lcm-url {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink-70);
+    font-size: var(--text-2xs);
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.lcm-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 9px 10px;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-align: left;
+    text-transform: inherit;
+    cursor: pointer;
+    transition:
+        background-color 80ms steps(2, end),
+        color 80ms steps(2, end),
+        box-shadow 80ms steps(2, end);
+}
+
+.lcm-item:hover,
+.lcm-item:focus-visible {
+    background: rgba(192, 132, 252, 0.12);
+    color: var(--signal-active);
+    outline: 2px solid var(--signal-active);
+    outline-offset: -2px;
+    box-shadow: inset 2px 0 0 var(--signal-active);
+}
+
+.lcm-item:active {
+    background: rgba(192, 132, 252, 0.2);
+    transform: translateX(1px);
+}
+
+.lcm-key {
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--ink-50);
+    font-size: 11px;
+    line-height: 1;
+    text-align: center;
+}
+
+.lcm-item:hover .lcm-key,
+.lcm-item:focus-visible .lcm-key {
+    border-color: var(--signal-active);
+    color: var(--signal-active);
+}
+
+.lcm-hint {
+    padding: 6px 10px 7px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-30);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-align: right;
+}
+
+@keyframes lcm-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+        clip-path: inset(0 0 100% 0);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        clip-path: inset(-40px);
+    }
+}
+
+@keyframes lcm-out {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+        clip-path: inset(-40px);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-2px);
+        clip-path: inset(0 0 100% 0);
+    }
+}
+
+@keyframes lcm-scan {
+    0% { top: 0; opacity: 0.55; }
+    100% { top: 100%; opacity: 0; }
+}
+
+/* ── Android-style copy confirmation, retro skin ─────────── */
+.link-toast {
+    position: fixed;
+    left: 50%;
+    bottom: max(18px, env(safe-area-inset-bottom));
+    z-index: 15000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: max-content;
+    max-width: min(430px, calc(100vw - 24px));
+    box-sizing: border-box;
+    padding: 9px 13px 11px;
+    border: 1px solid var(--signal-ok);
+    background: var(--surface-3);
+    color: var(--ink-90);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.72),
+        0 10px 26px rgba(0, 0, 0, 0.48),
+        0 0 16px rgba(85, 255, 153, 0.14);
+    font: 700 var(--text-xs)/1.2 'Cascadia Mono', 'Courier New', monospace;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    pointer-events: none;
+    transform: translateX(-50%);
+}
+
+.link-toast[data-tone="error"] {
+    border-color: var(--signal-hot);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.72),
+        0 10px 26px rgba(0, 0, 0, 0.48),
+        0 0 16px rgba(255, 79, 216, 0.14);
+}
+
+.link-toast.is-showing {
+    animation: toast-in 170ms steps(3, end) both;
+}
+
+.link-toast.is-leaving {
+    animation: toast-out 140ms steps(2, end) both;
+}
+
+.link-toast__mark {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--signal-ok);
+    color: var(--signal-ok);
+    font-size: 12px;
+    line-height: 1;
+    box-shadow: 0 0 8px rgba(85, 255, 153, 0.2);
+}
+
+.link-toast[data-tone="error"] .link-toast__mark {
+    border-color: var(--signal-hot);
+    color: var(--signal-hot);
+    box-shadow: 0 0 8px rgba(255, 79, 216, 0.2);
+}
+
+.link-toast__body {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.link-toast__title {
+    color: var(--signal-ok);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--track-ui);
+}
+
+.link-toast[data-tone="error"] .link-toast__title {
+    color: var(--signal-hot);
+}
+
+.link-toast__url {
+    max-width: 310px;
+    overflow: hidden;
+    color: var(--ink-50);
+    font-size: var(--text-2xs);
+    font-weight: 400;
+    letter-spacing: 0;
+    text-overflow: ellipsis;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+.link-toast::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--signal-ok);
+    opacity: 0.8;
+    transform-origin: left;
+}
+
+.link-toast.is-showing::after {
+    animation: toast-timer 2400ms linear both;
+}
+
+.link-toast[data-tone="error"]::after {
+    background: var(--signal-hot);
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translate(-50%, 10px) scale(0.98); }
+    to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes toast-out {
+    from { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    to   { opacity: 0; transform: translate(-50%, 6px) scale(0.98); }
+}
+
+@keyframes toast-timer {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); }
+}
+
+/* The copy action gets a short signal flash on its source tile. */
+.social-tile {
+    position: relative;
+}
+
+.social-tile::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border: 1px solid var(--signal-ok);
+    box-shadow: 0 0 0 1px rgba(85, 255, 153, 0.2);
+    opacity: 0;
+}
+
+.social-tile.is-copied::after {
+    animation: tile-copied 460ms steps(3, end) both;
+}
+
+@keyframes tile-copied {
+    0%, 100% { opacity: 0; }
+    15%, 55% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .link-context-menu,
+    .link-context-menu::after,
+    .link-toast,
+    .link-toast::after,
+    .social-tile.is-copied::after {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    .link-context-menu.is-open,
+    .link-toast.is-showing {
+        opacity: 1;
+        transform: none;
+        clip-path: none;
+    }
+
+    .link-toast.is-showing {
+        transform: translateX(-50%);
+    }
+
+    .social-tile.is-copied::after {
+        opacity: 0;
+    }
+}

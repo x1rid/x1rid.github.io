@@ -5,30 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>r3d1bruh</title>
     <link rel="icon" type="image/webp" href="./main/socials/pfp.webp" />
+    <!--
+      Redirect instead of iframe.
+      The old iframe approach breaks when the file is opened locally (file://)
+      because browsers treat the nested page as a cross-origin frame and block
+      script execution, fetch(), and localStorage inside it.
+      A redirect gives both local and hosted visitors the same full experience.
+    -->
+    <meta http-equiv="refresh" content="0; url=./main/index.html" />
     <style>
-      html,
-      body {
-        margin: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-      }
-
-      iframe {
-        display: block;
-        width: 100%;
-        height: 100%;
-        border: 0;
-      }
+      html, body { margin: 0; background: #0b061d; color: #c084fc; font-family: monospace; }
+      p { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+      a { color: #c084fc; }
     </style>
   </head>
   <body>
-    <iframe
-      src="./main/index.html"
-      title="r3d1bruh"
-      allow="autoplay; fullscreen"
-    >
-      <a href="./main/index.html">Open r3d1bruh</a>
-    </iframe>
+    <p>Redirecting&hellip;<br><a href="./main/index.html">click here if not redirected</a></p>
+    <script>location.replace('./main/index.html');</script>
   </body>
 </html>

@@ -1,0 +1,1406 @@
+/* ===========================================================================
+ *  PROGRAMS — launcher, app window chrome, and the four in-house programs.
+ *
+ *  This is the purple/black reading of the 1998 software shelf: square
+ *  corners, hairline bevels, mono labels, and one lit colour per state.
+ *  Nothing here is a grey Windows copy — greys are replaced by the site's
+ *  surface ladder, and every glow is interaction- or state-driven.
+ *
+ *  Loaded after music.css and before the media-query layers.
+ * =========================================================================== */
+
+#programs {
+    width: 100%;
+    box-sizing: border-box;
+    padding-top: 0;
+    background-image: radial-gradient(circle, rgba(192, 132, 252, 0.08) 1px, transparent 1.3px);
+    background-size: 20px 20px;
+    background-position: 4px 8px;
+}
+
+/* ===========================================================================
+ *  LAUNCHER
+ * =========================================================================== */
+.apps-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 12px;
+    padding: 0 0 7px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-50);
+    font: 700 var(--text-2xs) 'Courier New', monospace;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+}
+
+.apps-head strong {
+    color: var(--ink-70);
+    font-weight: 700;
+}
+
+.apps-head span:last-child {
+    color: var(--ink-30);
+    font-variant-numeric: tabular-nums;
+}
+
+.apps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+    gap: 10px;
+}
+
+.app-tile {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    background: color-mix(in srgb, var(--surface-1) 58%, transparent);
+    color: var(--ink-90);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    transition: border-color var(--motion-fast), background-color var(--motion-fast);
+}
+
+.app-tile:hover,
+.app-tile:focus-visible {
+    border-color: var(--signal-active);
+    background: rgba(192, 132, 252, 0.07);
+}
+
+.app-tile:active {
+    transform: translateY(1px);
+}
+
+.app-tile-icon {
+    flex: 0 0 52px;
+    width: 52px;
+    height: 52px;
+    display: grid;
+    place-items: center;
+    background: var(--surface-3);
+    border: 1px solid var(--line-hi);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+.app-tile-icon svg {
+    display: block;
+    width: 36px;
+    height: 36px;
+}
+
+.app-tile-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.app-tile-name {
+    color: var(--ink-90);
+    font: 700 var(--text-sm) 'Courier New', monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+
+.app-tile-desc {
+    margin-top: 4px;
+    color: var(--ink-50);
+    font: 400 var(--text-xs) 'Courier New', monospace;
+    line-height: 1.45;
+}
+
+.app-tile-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 7px;
+    color: var(--ink-30);
+    font: 700 var(--text-2xs) 'Courier New', monospace;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+}
+
+.app-tile-open {
+    color: var(--ink-30);
+    transition: color var(--motion-fast);
+}
+
+.app-tile:hover .app-tile-open,
+.app-tile:focus-visible .app-tile-open {
+    color: var(--signal-active);
+}
+
+.apps-note {
+    margin: 14px 0 0;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+    color: var(--ink-30);
+    font: 700 var(--text-2xs) 'Courier New', monospace;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    line-height: 1.6;
+}
+
+.apps-note a {
+    color: var(--ink-50) !important;
+}
+
+/* ===========================================================================
+ *  APP WINDOW
+ *  One frame, same recipe as .sidebar / .content-area. The title bar is a
+ *  real toolbar: LAUNCHER and CLOSE both do something.
+ * =========================================================================== */
+.app-window {
+    border: 1px solid var(--line-hi);
+    background: var(--surface-1);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+.app-window[hidden] {
+    display: none !important;
+}
+
+.app-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 4px 5px 4px 9px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+}
+
+.app-titlebar-icon {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    display: grid;
+    place-items: center;
+    color: var(--signal-active);
+}
+
+.app-titlebar-icon svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+}
+
+.app-titlebar-name {
+    color: var(--ink-90);
+    font: 700 var(--text-xs) 'Courier New', monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.app-titlebar-meta {
+    margin-left: auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink-50);
+    font: 700 var(--text-2xs) 'Courier New', monospace;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+}
+
+.app-titlebar-actions {
+    display: flex;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+
+.app-body {
+    min-height: 380px;
+    padding: 14px;
+}
+
+/* ===========================================================================
+ *  SHARED CONTROLS
+ * =========================================================================== */
+.app-btn {
+    min-height: 28px;
+    padding: 4px 9px;
+    border: 1px solid var(--line-hi);
+    border-radius: 0;
+    background: var(--surface-2);
+    color: var(--ink-70);
+    font: 700 var(--text-2xs) 'Courier New', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color var(--motion-fast), border-color var(--motion-fast),
+                background-color var(--motion-fast);
+}
+
+.app-btn:hover,
+.app-btn:focus-visible {
+    border-color: var(--signal-active);
+    color: var(--signal-active);
+    background: rgba(192, 132, 252, 0.09);
+}
+
+.app-btn:active {
+    transform: translateY(1px);
+}
+
+.app-btn:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+}
+
+.app-btn:disabled:hover,
+.app-btn:disabled:focus-visible {
+    border-color: var(--line-hi);
+    color: var(--ink-70);
+    background: var(--surface-2);
+}
+
+.app-btn[aria-pressed="true"],
+.app-btn.is-active {
+    border-color: var(--signal-active);
+    color: var(--signal-active);
+    background: rgba(192, 132, 252, 0.13);
+}
+
+.app-btn--danger:hover,
+.app-btn--danger:focus-visible {
+    border-color: var(--signal-hot);
+    color: var(--signal-hot);
+    background: rgba(255, 79, 216, 0.09);
+}
+
+.app-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+}
+
+.app-toolbar__group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+.app-toolbar__group + .app-toolbar__group {
+    padding-left: 8px;
+    border-left: 1px solid var(--line);
+}
+
+.app-toolbar__label {
+    margin-right: 2px;
+    color: var(--ink-30);
+    font: 700 var(--text-2xs) 'Courier New', monospace;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+}
+
+.app-readout {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    color: var(--ink-50);
+    font: 700 var(--text-2xs) 'Courier New', monospace;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.app-readout b {
+    min-width: 3ch;
+    color: var(--ink-90);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+/* Games and pads: never wait 300ms for a tap to resolve. */
+.app-tile,
+.app-btn,
+.ms-cell,
+.ms-face,
+.sol-card,
+.sol-slot,
+.paint-tool,
+.paint-swatch,
+.calc-key {
+    touch-action: manipulation;
+}
+
+.app-hint {
+    margin: 10px 0 0;
+    color: var(--ink-30);
+    font: 400 var(--text-xs) 'Courier New', monospace;
+    line-height: 1.55;
+}
+
+.app-hint kbd {
+    padding: 0 3px;
+    border: 1px solid var(--line);
+    background: var(--surface-3);
+    color: var(--ink-70);
+    font: inherit;
+    font-size: 0.95em;
+}
+
+.app-error {
+    max-width: 48ch;
+    padding: 12px;
+    border: 1px dashed var(--signal-hot);
+    background: rgba(255, 79, 216, 0.05);
+    color: var(--ink-70);
+    font: 400 var(--text-sm) 'Courier New', monospace;
+    line-height: 1.5;
+}
+
+/* ===========================================================================
+ *  MINESWEEPER
+ * =========================================================================== */
+.ms {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.ms-hud {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: max-content;
+    max-width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+}
+
+.ms-readout {
+    min-width: 4.8ch;
+    padding: 3px 6px;
+    border: 1px solid var(--line-hi);
+    background: var(--surface-3);
+    color: var(--ink-90);
+    font: 700 var(--text-md) 'Courier New', monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+    text-align: center;
+    line-height: 1;
+}
+
+.ms-face {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--line-hi);
+    border-radius: 0;
+    background: var(--surface-3);
+    color: var(--ink-70);
+    font: 700 var(--text-sm) 'Courier New', monospace;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.ms-face:hover,
+.ms-face:focus-visible {
+    border-color: var(--signal-active);
+    color: var(--signal-active);
+}
+
+.ms-face[data-face="lost"] {
+    border-color: var(--signal-hot);
+    color: var(--signal-hot);
+}
+
+.ms-face[data-face="won"] {
+    border-color: var(--signal-ok);
+    color: var(--signal-ok);
+}
+
+.ms-levels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.ms-board-wrap {
+    max-width: 100%;
+    padding: 6px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    background: var(--surface-3);
+}
+
+.ms-board {
+    display: grid;
+    grid-template-columns: repeat(var(--ms-cols, 9), var(--ms-cell, 26px));
+    gap: 1px;
+    width: max-content;
+}
+
+.ms-cell {
+    width: var(--ms-cell, 26px);
+    height: var(--ms-cell, 26px);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: #241238;
+    box-shadow:
+        inset 1px 1px 0 rgba(189, 138, 255, 0.2),
+        inset -1px -1px 0 rgba(0, 0, 0, 0.55);
+    color: var(--ink-90);
+    font: 700 calc(var(--ms-cell, 26px) * 0.52) 'Courier New', monospace;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.ms-cell:hover {
+    background: #2e1749;
+}
+
+.ms-cell:active {
+    box-shadow:
+        inset 1px 1px 0 rgba(0, 0, 0, 0.55),
+        inset -1px -1px 0 rgba(189, 138, 255, 0.12);
+}
+
+.ms-cell.is-open {
+    background: #0d061c;
+    box-shadow: inset 0 0 0 1px rgba(77, 40, 107, 0.32);
+    cursor: default;
+}
+
+.ms-cell.is-open:hover {
+    background: #0d061c;
+}
+
+.ms-cell.is-flag {
+    color: var(--signal-hot);
+}
+
+.ms-cell.is-mine {
+    background: #3a0f2e;
+    color: var(--signal-hot);
+}
+
+.ms-cell.is-wrong {
+    color: var(--ink-30);
+    text-decoration: line-through;
+}
+
+.ms-cell.is-hint {
+    background: rgba(192, 132, 252, 0.16);
+}
+
+/* Classic number colours, retuned for a dark purple surface. They are game
+   content, not UI state, so the one-accent rule does not cover them. */
+.ms-cell[data-n="1"] { color: #8be9fd; }
+.ms-cell[data-n="2"] { color: #55ff99; }
+.ms-cell[data-n="3"] { color: #ff8fe0; }
+.ms-cell[data-n="4"] { color: #bd93f9; }
+.ms-cell[data-n="5"] { color: #ffb86c; }
+.ms-cell[data-n="6"] { color: #50fa7b; }
+.ms-cell[data-n="7"] { color: #f1fa8c; }
+.ms-cell[data-n="8"] { color: #cda6ff; }
+
+.ms-status {
+    color: var(--ink-50);
+    font: 700 var(--text-2xs) 'Courier New', monospace;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+}
+
+.ms-status[data-state="lost"] { color: var(--signal-hot); }
+.ms-status[data-state="won"] { color: var(--signal-ok); }
+
+/* ===========================================================================
+ *  PAINT — a 320×200 pixel sheet, so every stroke stays chunky.
+ * =========================================================================== */
+.paint {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.paint-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.paint-tool {
+    width: 34px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    background: var(--surface-2);
+    color: var(--ink-70);
+    font: 700 var(--text-sm) 'Courier New', monospace;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+
+.paint-tool:hover,
+.paint-tool:focus-visible {
+    border-color: var(--signal-active);
+    color: var(--signal-active);
+}
+
+.paint-tool.is-active {
+    border-color: var(--signal-active);
+    background: rgba(192, 132, 252, 0.14);
+    color: var(--signal-active);
+}
+
+.paint-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.paint-swatch {
+    width: 19px;
+    height: 19px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 0;
+    cursor: pointer;
+}
+
+.paint-swatch.is-active {
+    outline: 2px solid var(--ink-90);
+    outline-offset: 1px;
+}
+
+.paint-color {
+    width: 34px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid var(--line-hi);
+    background: transparent;
+    cursor: pointer;
+}
+
+.paint-stage {
+    padding: 6px;
+    border: 1px solid var(--line-hi);
+    background: #07020a;
+}
+
+.paint-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: #0b061d;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    touch-action: none;
+    cursor: crosshair;
+}
+
+.paint-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--ink-30);
+    font: 700 var(--text-2xs) 'Courier New', monospace;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+}
+
+.paint-status b {
+    color: var(--ink-50);
+    font-weight: 700;
+}
+
+/* ===========================================================================
+ *  SOLITAIRE — dark card faces, fanned stacks, click-to-move.
+ * =========================================================================== */
+.sol {
+    --card-w: 62px;
+    --card-h: 88px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sol-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.sol-status {
+    margin-left: auto;
+    color: var(--ink-50);
+    font: 700 var(--text-2xs) 'Courier New', monospace;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+}
+
+.sol-status[data-state="won"] {
+    color: var(--signal-ok);
+}
+
+.sol-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.sol-stock {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    flex: 0 0 auto;
+}
+
+.sol-waste {
+    position: relative;
+    width: calc(var(--card-w) + 28px);
+    height: var(--card-h);
+    flex: 0 0 auto;
+}
+
+.sol-waste .sol-card {
+    position: absolute;
+    top: 0;
+}
+
+.sol-foundations {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.sol-slot {
+    width: var(--card-w);
+    height: var(--card-h);
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px dashed var(--line-hi);
+    border-radius: 3px;
+    background: rgba(7, 2, 10, 0.5);
+    color: var(--ink-30);
+    font: 700 var(--text-xs) 'Courier New', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: default;
+}
+
+.sol-slot.is-live {
+    cursor: pointer;
+}
+
+.sol-slot.is-live:hover,
+.sol-slot.is-live:focus-visible {
+    border-color: var(--signal-active);
+    color: var(--signal-active);
+    background: rgba(192, 132, 252, 0.08);
+}
+
+.sol-columns {
+    display: grid;
+    grid-template-columns: repeat(7, var(--card-w));
+    gap: 8px;
+    justify-content: center;
+    align-items: start;
+    padding-bottom: 8px;
+}
+
+.sol-col {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: var(--card-h);
+    min-width: 0;
+}
+
+/* Empty-column placeholder sits behind the cards. */
+.sol-col > .sol-slot {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.sol-col.is-valid > .sol-slot {
+    border-color: var(--signal-active);
+    border-style: solid;
+}
+
+.sol-col.is-valid {
+    outline: 1px dashed rgba(192, 132, 252, 0.5);
+    outline-offset: 2px;
+}
+
+.sol-card {
+    position: relative;
+    z-index: 1;
+    width: var(--card-w);
+    height: var(--card-h);
+    padding: 4px 5px;
+    border: 1px solid #8b6bb5;
+    border-radius: 3px;
+    background: linear-gradient(160deg, #1b0d31, #130927 70%);
+    color: var(--ink-90);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    user-select: none;
+    flex: 0 0 auto;
+    transition: border-color var(--motion-fast), box-shadow var(--motion-fast),
+                transform var(--motion-fast);
+}
+
+.sol-card:hover {
+    border-color: var(--signal-active);
+}
+
+.sol-card.is-back:hover,
+.sol-card.is-static:hover {
+    border-color: #8b6bb5;
+}
+
+.sol-card.is-static {
+    pointer-events: none;
+    cursor: default;
+}
+
+/* The stock card is a control even though it is face down. */
+.sol-card.is-back[data-action="stock"] {
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.sol-card.is-back[data-action="stock"]:hover {
+    border-color: var(--signal-active);
+}
+
+.sol-card:focus-visible {
+    outline-offset: 1px;
+}
+
+.sol-card.is-back {
+    padding: 0;
+    border-color: var(--line-hi);
+    background:
+        repeating-linear-gradient(45deg, #2a1346 0 4px, #1b0d31 4px 8px);
+    cursor: default;
+}
+
+.sol-card.is-back::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border: 1px solid rgba(192, 132, 252, 0.28);
+    border-radius: 2px;
+}
+
+.sol-card.is-selected {
+    border-color: var(--signal-active);
+    box-shadow: 0 0 0 1px var(--signal-active);
+    transform: translateY(-2px);
+}
+
+.sol-card.is-red { color: #ff8fe0; }
+.sol-card.is-black { color: #e9dfff; }
+
+.sol-corner {
+    position: absolute;
+    top: 4px;
+    left: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+    font-size: calc(var(--card-w) * 0.23);
+    font-weight: 700;
+}
+
+.sol-corner i {
+    margin-top: 2px;
+    font-style: normal;
+    font-size: 0.9em;
+}
+
+.sol-corner--br {
+    top: auto;
+    left: auto;
+    right: 5px;
+    bottom: 4px;
+    transform: rotate(180deg);
+}
+
+.sol-pip {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: calc(var(--card-w) * 0.52);
+    line-height: 1;
+    opacity: 0.9;
+}
+
+.sol-card.is-back .sol-pip,
+.sol-card.is-back .sol-corner {
+    display: none;
+}
+
+.sol-empty-note {
+    color: var(--ink-30);
+    font: 400 var(--text-xs) 'Courier New', monospace;
+    line-height: 1.5;
+}
+
+/* ===========================================================================
+ *  CALCULATOR
+ * =========================================================================== */
+.calc {
+    width: min(330px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.calc-display {
+    padding: 10px 12px;
+    border: 1px solid var(--line-hi);
+    background: var(--surface-3);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+    font-family: 'Courier New', monospace;
+    font-variant-numeric: tabular-nums;
+    transition: border-color var(--motion-fast);
+}
+
+.calc-display.is-focused {
+    border-color: var(--signal-active);
+}
+
+.calc-expression {
+    min-height: 1.2em;
+    overflow: hidden;
+    color: var(--ink-50);
+    font-size: var(--text-xs);
+    letter-spacing: 0.04em;
+    text-align: right;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.calc-value {
+    overflow: hidden;
+    color: var(--ink-90);
+    font-size: 1.85rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-align: right;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.calc-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+}
+
+.calc-key {
+    min-height: 44px;
+    padding: 4px;
+    border: 1px solid var(--line-hi);
+    border-radius: 0;
+    background: var(--surface-2);
+    color: var(--ink-90);
+    font: 700 var(--text-md) 'Courier New', monospace;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.calc-key:hover,
+.calc-key:focus-visible {
+    border-color: var(--signal-active);
+    background: rgba(192, 132, 252, 0.09);
+}
+
+.calc-key:active {
+    transform: translateY(1px);
+}
+
+.calc-key--fn {
+    background: var(--surface-3);
+    color: var(--ink-70);
+    font-size: var(--text-sm);
+}
+
+.calc-key--op {
+    color: var(--signal-active);
+}
+
+.calc-key--eq {
+    border-color: var(--signal-active);
+    background: var(--signal-active);
+    color: #180a2b;
+    font-weight: 800;
+}
+
+.calc-key--eq:hover,
+.calc-key--eq:focus-visible {
+    background: #d5a9ff;
+    color: #180a2b;
+}
+
+.calc-key--wide {
+    grid-column: span 2;
+}
+
+/* ===========================================================================
+ *  RESPONSIVE
+ * =========================================================================== */
+@media (max-width: 900px) {
+    .sol {
+        --card-w: 54px;
+        --card-h: 76px;
+    }
+
+    .ms-board {
+        --ms-cell: 23px;
+    }
+}
+
+@media (max-width: 760px) {
+    .apps-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .app-body {
+        padding: 10px;
+        min-height: 320px;
+    }
+
+    .apps-head {
+        margin-bottom: 10px;
+    }
+
+    .sol {
+        --card-w: 46px;
+        --card-h: 65px;
+    }
+
+    .sol-columns {
+        gap: 5px;
+    }
+
+    .sol-foundations {
+        gap: 4px;
+    }
+
+    .ms-board {
+        --ms-cell: 21px;
+    }
+}
+
+@media (max-width: 600px) {
+    /* The phone shell removes window frames; the app keeps its own. */
+    .app-window {
+        border-left: 0;
+        border-right: 0;
+        margin: 0 calc(-1 * var(--pt-pad-l)) 0 calc(-1 * var(--pt-pad-r));
+    }
+
+    .app-titlebar {
+        padding-left: var(--pt-pad-l);
+        padding-right: var(--pt-pad-r);
+    }
+
+    .app-body {
+        padding: 10px var(--pt-pad-r) 16px var(--pt-pad-l);
+    }
+
+    .sol {
+        --card-w: 41px;
+        --card-h: 58px;
+    }
+
+    .sol-corner {
+        top: 3px;
+        left: 4px;
+    }
+
+    .sol-corner--br {
+        right: 4px;
+        bottom: 3px;
+    }
+
+    .sol-columns {
+        gap: 4px;
+    }
+
+    .sol-waste {
+        width: calc(var(--card-w) + 20px);
+    }
+
+    .ms-board {
+        --ms-cell: 20px;
+    }
+
+    .ms-hud {
+        gap: 6px;
+        padding: 5px 6px;
+    }
+
+    .app-hint {
+        display: none;
+    }
+
+    .calc {
+        width: 100%;
+    }
+}
+
+/* Two-column launcher on very narrow phones would be unreadable; one column
+   is already set at 760px. */
+@media (prefers-reduced-motion: reduce) {
+    .app-tile,
+    .app-btn,
+    .paint-tool,
+    .ms-face,
+    .ms-cell,
+    .sol-card,
+    .calc-key {
+        transition: none;
+    }
+
+    .app-tile:active,
+    .app-btn:active,
+    .paint-tool:active,
+    .ms-cell:active,
+    .sol-card.is-selected,
+    .calc-key:active {
+        transform: none;
+    }
+}
+
+/* ===========================================================================
+ *  WIN95 MEDIA PLAYER (PURPLE RETRO ADAPTATION)
+ * =========================================================================== */
+.w95-player-app {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background: var(--surface-1);
+    color: var(--ink-90);
+    padding: 6px;
+    box-sizing: border-box;
+    font-family: 'Cascadia Mono', monospace;
+    user-select: none;
+}
+
+.w95-menubar {
+    display: flex;
+    gap: 8px;
+    padding: 2px 4px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 6px;
+    font-size: 11px;
+}
+
+.w95-menu {
+    position: relative;
+    cursor: pointer;
+    padding: 1px 6px;
+}
+
+.w95-menu:hover,
+.w95-menu:focus-within {
+    background: var(--row-selected);
+    color: var(--ink-90);
+}
+
+.w95-menu-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 100;
+    min-width: 160px;
+    background: var(--surface-1);
+    border: 1px solid var(--line-hi);
+    box-shadow: inset 1px 1px 0 var(--bevel-light), inset -1px -1px 0 var(--bevel-dark), 0 8px 24px rgba(0,0,0,0.6);
+    padding: 2px;
+}
+
+.w95-menu:hover .w95-menu-dropdown,
+.w95-menu:focus-within .w95-menu-dropdown {
+    display: block;
+}
+
+.w95-menu-item {
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--ink-70);
+    cursor: pointer;
+}
+
+.w95-menu-item:hover {
+    background: var(--row-selected);
+    color: var(--ink-90);
+}
+
+.w95-menu-separator {
+    height: 1px;
+    background: var(--line);
+    margin: 2px 4px;
+}
+
+.w95-screen-container {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 180px;
+    background: var(--surface-3);
+    border: 2px solid var(--line-hi);
+    box-shadow: inset 1px 1px 0 rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.w95-drop-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(192, 132, 252, 0.25);
+    border: 2px dashed var(--signal-active);
+    z-index: 20;
+    align-items: center;
+    justify-content: center;
+    color: var(--signal-active);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+}
+
+.w95-video-el {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+.w95-audio-splash {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    text-align: center;
+}
+
+.w95-splash-icon img {
+    width: 48px;
+    height: 48px;
+    image-rendering: pixelated;
+    filter: invert(80%) sepia(20%) hue-rotate(220deg);
+}
+
+.w95-splash-title {
+    color: var(--signal-active);
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.w95-splash-hint {
+    color: var(--ink-30);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+}
+
+.w95-info-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    font-size: 11px;
+    color: var(--ink-70);
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 4px;
+}
+
+.w95-type-icon img {
+    width: 14px;
+    height: 14px;
+    vertical-align: middle;
+    filter: invert(80%) sepia(20%) hue-rotate(220deg);
+}
+
+.w95-title-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink-90);
+    font-weight: 700;
+}
+
+.w95-state-text {
+    color: var(--ink-50);
+}
+
+.w95-track-section {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0 6px;
+}
+
+.w95-progress-outer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.w95-progress-track {
+    position: relative;
+    flex: 1;
+    height: 12px;
+    background: var(--surface-3);
+    border: 1px solid var(--line-hi);
+    box-shadow: inset 1px 1px 0 rgba(0,0,0,0.6);
+    cursor: pointer;
+}
+
+.w95-thumb {
+    position: absolute;
+    top: -3px;
+    width: 10px;
+    height: 16px;
+    background: var(--signal-active);
+    border: 1px solid var(--ink-90);
+    box-shadow: inset 1px 1px 0 var(--bevel-light), inset -1px -1px 0 var(--bevel-dark);
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.w95-scroll-btns {
+    display: flex;
+    gap: 2px;
+}
+
+.w95-scroll-btn {
+    width: 14px;
+    height: 14px;
+    display: grid;
+    place-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    box-shadow: inset 1px 1px 0 var(--bevel-light), inset -1px -1px 0 var(--bevel-dark);
+    padding: 0;
+    cursor: pointer;
+}
+
+.w95-scroll-btn img {
+    width: 8px;
+    height: 8px;
+    image-rendering: pixelated;
+    filter: invert(80%) sepia(20%) hue-rotate(220deg);
+}
+
+.w95-ruler {
+    display: flex;
+    justify-content: space-between;
+    padding: 1px 0;
+    color: var(--ink-30);
+    font-size: 8px;
+    user-select: none;
+}
+
+.w95-control-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-top: 4px;
+    border-top: 1px solid var(--line);
+}
+
+.w95-btn-cluster {
+    display: flex;
+    gap: 2px;
+}
+
+.w95-ctrl-btn {
+    width: 26px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    box-shadow: inset 1px 1px 0 var(--bevel-light), inset -1px -1px 0 var(--bevel-dark);
+    padding: 0;
+    cursor: pointer;
+}
+
+.w95-ctrl-btn:hover {
+    background: var(--row-hover);
+    border-color: var(--signal-active);
+}
+
+.w95-ctrl-btn:active {
+    box-shadow: inset 1px 1px 0 var(--bevel-dark);
+    transform: translate(1px, 1px);
+}
+
+.w95-ctrl-btn img {
+    width: 14px;
+    height: 14px;
+    image-rendering: pixelated;
+    filter: invert(80%) sepia(20%) hue-rotate(220deg);
+}
+
+.w95-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--line);
+}
+
+.w95-counter-box {
+    margin-left: auto;
+    padding: 2px 8px;
+    background: var(--surface-3);
+    border: 1px solid var(--line);
+    box-shadow: inset 1px 1px 0 rgba(0,0,0,0.5);
+    color: var(--signal-ok);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
