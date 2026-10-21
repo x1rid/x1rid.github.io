@@ -635,10 +635,10 @@
     th[aria-sort] .sort-arrow { opacity: 1; }
 
     .col-name { width: 30%; }
-    .col-type { width: 10%; }
-    .col-target { width: 25%; }
+    .col-type { width: 14%; }
+    .col-size, .col-target { width: 16%; }
     .col-status { width: 10%; }
-    .col-note { width: 25%; }
+    .col-modified, .col-note { width: 30%; }
 
     td {
         height: 30px;
@@ -660,7 +660,21 @@
 
     tbody tr:hover { background: var(--row-hover); }
 
-    tbody tr:hover .filename {
+    tbody tr:hover 
+    .rename-input {
+        background: var(--well-bg);
+        color: var(--ink-90);
+        border: 1px solid var(--signal-active);
+        font: inherit;
+        font-size: 12px;
+        padding: 1px 4px;
+        outline: none;
+        box-shadow: inset 1px 1px 0 var(--bevel-dark);
+        width: calc(100% - 10px);
+        max-width: 240px;
+    }
+
+    .filename {
         text-decoration: underline;
         text-underline-offset: 2px;
     }
@@ -708,10 +722,12 @@
         text-transform: uppercase;
     }
 
-    td.col-target { color: var(--ink-70); }
-    td.col-note { color: var(--ink-50); font-size: 11px; }
+    td.col-size, td.col-target { color: var(--ink-70); }
+    td.col-modified, td.col-note { color: var(--ink-50); font-size: 11px; }
 
+    tbody tr.is-selected td.col-size,
     tbody tr.is-selected td.col-target,
+    tbody tr.is-selected td.col-modified,
     tbody tr.is-selected td.col-note { color: var(--ink-70); }
 
     td.col-status {
@@ -775,7 +791,9 @@
     /* List view: names + status only. */
     .explorer.is-list table { table-layout: auto; }
     .explorer.is-list .col-type,
+    .explorer.is-list .col-size,
     .explorer.is-list .col-target,
+    .explorer.is-list .col-modified,
     .explorer.is-list .col-note { display: none; }
     .explorer.is-list .col-name { width: auto; }
     .explorer.is-list .col-status { width: 110px; }
@@ -995,10 +1013,10 @@
     /* ── Responsive ─────────────────────────────────────────── */
     @media (max-width: 1100px) {
         .col-name { width: 34%; }
-        .col-type { width: 11%; }
-        .col-target { width: 30%; }
+        .col-type { width: 14%; }
+        .col-size, .col-target { width: 18%; }
         .col-status { width: 11%; }
-        .col-note { width: 14%; }
+        .col-modified, .col-note { width: 23%; }
         .searchbox { width: 150px; }
     }
 
@@ -1006,10 +1024,10 @@
         :root { --tree-width: 210px; }
         .tree-count { display: none; }
         .col-name { width: 42%; }
-        .col-type { width: 13%; }
-        .col-target { width: 29%; }
-        .col-status { width: 16%; }
-        .col-note { display: none; }
+        .col-type { width: 16%; }
+        .col-size, .col-target { width: 24%; }
+        .col-status { width: 18%; }
+        .col-modified, .col-note { display: none; }
         .concept-hint { display: none; }
     }
 
@@ -1018,7 +1036,7 @@
         body { padding: 10px; overflow: auto; }
         .explorer { height: calc(100vh - 90px); min-height: 420px; }
         .searchbox { width: 120px; }
-        .col-target { display: none; }
+        .col-size, .col-target { display: none; }
         .col-name { width: 66%; }
         .col-type { width: 14%; }
         .col-status { width: 20%; }
@@ -2521,18 +2539,31 @@
         .custom-cursor-enabled .custom-cursor-glow { animation: none; }
     }
 </style>
+    <script src="./profile/profile-db.js?v=20261028"></script>
+    <script src="./profile/profile-service.js?v=20261028"></script>
+    <script src="./profile/persistence-service.js?v=20261028"></script>
+    <script src="./fs/types.js?v=20261028"></script>
+    <script src="./fs/node-store.js?v=20261028"></script>
+    <script src="./fs/content-store.js?v=20261028"></script>
+    <script src="./fs/path-resolver.js?v=20261028"></script>
+    <script src="./fs/events.js?v=20261028"></script>
+    <script src="./fs/filesystem-service.js?v=20261028"></script>
+    <script src="./fs/migrations.js?v=20261028"></script>
+    <script src="./fs/init.js?v=20261028"></script>
+    <script src="./profile/boot.js?v=20261028"></script>
+    <script src="./profile/profile-ui.js?v=20261028"></script>
 </head>
 <body>
 <div class="desktop" id="desktop" role="main" aria-label="Desktop">
     <canvas class="wallpaper" id="wallpaper" aria-hidden="true"></canvas>
     <div class="wallpaper-grid" aria-hidden="true"></div>
 
-    <button class="desktop-icon" onclick="openMyComputer()" ondblclick="openMyComputer()" aria-label="My Computer" title="My Computer" style="left:92px;">
+    <button class="desktop-icon" onclick="openMyComputer()" ondblclick="openMyComputer()" aria-label="My Computer" title="My Computer" style="top:18px; left:18px;">
         <span class="pc-icon" aria-hidden="true"></span>
         <span class="icon-label">My Computer</span>
     </button>
 
-    <button class="desktop-icon" onclick="openRecycleBin()" ondblclick="openRecycleBin()" aria-label="Recycle Bin" title="Recycle Bin">
+    <button class="desktop-icon" onclick="openRecycleBin()" ondblclick="openRecycleBin()" aria-label="Recycle Bin" title="Recycle Bin" style="top:102px; left:18px;">
         <span class="trash-icon" aria-hidden="true"></span>
         <span class="icon-label">Recycle Bin</span>
     </button>
@@ -2570,7 +2601,7 @@
             <aside class="tree-pane" aria-label="Folders">
                 <div class="tree-header">
                     <span>Folders</span>
-                    <span class="tree-header-count" id="tree-total">21 LINKS</span>
+                    <span class="tree-header-count" id="tree-total">-- OBJECTS</span>
                 </div>
                 <div class="tree" id="tree" role="tree" aria-label="Link exchange folders"></div>
             </aside>
@@ -2590,14 +2621,14 @@
                                 <th class="col-type" data-sort="type">
                                     <button type="button" data-sort-key="type">Type <span class="sort-arrow">▲</span></button>
                                 </th>
-                                <th class="col-target" data-sort="target">
-                                    <button type="button" data-sort-key="target">Target <span class="sort-arrow">▲</span></button>
+                                <th class="col-size" data-sort="size">
+                                    <button type="button" data-sort-key="size">Size <span class="sort-arrow">▲</span></button>
+                                </th>
+                                <th class="col-modified" data-sort="modified">
+                                    <button type="button" data-sort-key="modified">Modified <span class="sort-arrow">▲</span></button>
                                 </th>
                                 <th class="col-status" data-sort="status">
                                     <button type="button" data-sort-key="status">Status <span class="sort-arrow">▲</span></button>
-                                </th>
-                                <th class="col-note" data-sort="note">
-                                    <button type="button" data-sort-key="note">Note <span class="sort-arrow">▲</span></button>
                                 </th>
                             </tr>
                         </thead>
@@ -2608,7 +2639,7 @@
         </div>
 
         <footer class="statusbar">
-            <span class="status-cell status-count" id="status-count">21 objects</span>
+            <span class="status-cell status-count" id="status-count">-- objects</span>
             <span class="status-cell status-target" id="status-target" aria-live="polite">Double-click or press Enter to open</span>
             <span class="status-cell status-state"><span class="state-dot" aria-hidden="true"></span>LOCAL</span>
             <span class="status-cell status-clock" id="clock">--:--</span>
@@ -2779,1259 +2810,7 @@
     </div>
 </div>
 
-<script>
-(() => {
-    'use strict';
-
-    /* ── Real link data (mirrors main/data/links.json) ──────── */
-    const LINKS = [
-        { name: 'GitHub',       category: 'dev',    url: 'https://github.com/x1rid',            icon: './socials/icons/github.svg',      username: 'x1rid' },
-        { name: 'Hugging Face', category: 'dev',    url: '#',                                   icon: './socials/icons/huggingface.svg' },
-        { name: 'LinkedIn',     category: 'dev',    url: 'https://linkedin.com/in/xrid',        icon: './socials/icons/linkedin.svg',    username: 'xrid' },
-        { name: 'Email',        category: 'social', url: 'mailto:ridoanulislam0@gmail.com',     icon: './socials/icons/email.svg',       username: 'ridoanulislam0@gmail.com' },
-        { name: 'Reddit',       category: 'social', url: 'https://reddit.com/user/r3d1bro',     icon: './socials/icons/reddit.svg',      username: 'r3d1bro' },
-        { name: 'Discord',      category: 'social', url: 'https://discord.com/users/558031359050776581', icon: './socials/icons/discord.svg', username: 'x9rid' },
-        { name: 'Instagram',    category: 'social', url: 'https://instagram.com/r3d1bruh',      icon: './socials/icons/instagram.svg',   username: 'r3d1bruh' },
-        { name: 'Snapchat',     category: 'social', url: 'https://snapchat.com/add/r3d1bruh',   icon: './socials/icons/snapchat.svg',    username: 'r3d1bruh' },
-        { name: 'TikTok',       category: 'social', url: 'https://tiktok.com/@r3d1bruh',        icon: './socials/icons/tiktok.svg',      username: 'r3d1bruh' },
-        { name: 'Twitter',      category: 'social', url: 'https://x.com/i/user/1190238367666954241', icon: './socials/icons/twitter.svg', username: 'x4rid' },
-        { name: 'Telegram',     category: 'social', url: 'tg://user?id=7798423087',             icon: './socials/icons/telegram.svg',    username: '7798423087' },
-        { name: 'WhatsApp',     category: 'social', url: '#',                                   icon: './socials/icons/whatsapp.svg' },
-        { name: 'Facebook',     category: 'social', url: 'https://www.facebook.com/profile.php?id=100088120805119', icon: './socials/icons/facebook.svg' },
-        { name: 'Steam',        category: 'play',   url: 'https://steamcommunity.com/profiles/76561199067995946', icon: './socials/icons/steam.svg', friendCode: '1107730218' },
-        { name: 'Xbox',         category: 'play',   url: '#',                                   icon: './socials/icons/xbox.svg' },
-        { name: 'Riot Games',   category: 'play',   url: '#',                                   icon: './socials/icons/riotgames.svg' },
-        { name: 'Epic Games',   category: 'play',   url: '#',                                   icon: './socials/icons/epicgames.svg' },
-        { name: 'itch.io',      category: 'play',   url: '#',                                   icon: './socials/icons/itchio.svg' },
-        { name: 'Ubisoft Connect', category: 'play', url: '#',                                  icon: './socials/icons/ubisoft.svg' },
-        { name: 'EA',           category: 'play',   url: '#',                                   icon: './socials/icons/ea.svg' },
-        { name: 'GOG',          category: 'play',   url: '#',                                   icon: './socials/icons/gog.svg' }
-    ];
-
-    /* One-line notes are the text-heavy part. In production these
-       belong in links.json next to the link, not in a UI file. */
-    const NOTES = {
-        'GitHub': 'code and experiments',
-        'Hugging Face': 'models and datasets — no public profile yet',
-        'LinkedIn': 'work and professional stuff',
-        'Email': 'the most reliable way to reach me',
-        'Reddit': 'lurking, mostly',
-        'Discord': 'usually online after dark',
-        'Instagram': 'photos',
-        'Snapchat': 'rarely used',
-        'TikTok': 'short videos',
-        'Twitter': 'posts and links',
-        'Telegram': 'direct messages',
-        'WhatsApp': 'family and friends',
-        'Facebook': 'rarely used',
-        'Steam': 'games and friends',
-        'Xbox': 'gamertag not linked yet',
-        'Riot Games': 'account not linked yet',
-        'Epic Games': 'account not linked yet',
-        'itch.io': 'page not set up yet',
-        'Ubisoft Connect': 'account not linked yet',
-        'EA': 'account not linked yet',
-        'GOG': 'account not linked yet'
-    };
-
-    const FOLDERS = {
-        all:         { view: 'all',         note: 'Every link, pending entries last' },
-        social:      { view: 'social',      note: 'Social links' },
-        dev:         { view: 'dev',         note: 'Dev links' },
-        play:        { view: 'play',        note: 'Play links' },
-        unavailable: { view: 'unavailable', note: 'Shortcuts with no destination yet' },
-        'my-computer': { view: 'my-computer', note: 'System drives and folders' },
-        'recycle-bin': { view: 'recycle-bin', note: 'Deleted items' }
-    };
-
-    const FOLDER_ORDER = ['all', 'social', 'dev', 'play', 'unavailable'];
-
-    const README = [
-        'r3d1bruh://link-exchange',
-        '========================',
-        '',
-        'A personal site by r3d1bruh.',
-        'Links, music, a terminal, and too many purple gradients.',
-        '',
-        'This file is part of a desktop shell prototype.',
-        'The phone design is intentionally untouched.',
-        '',
-        'Try:',
-        '  - click a row to select it',
-        '  - double-click or press Enter to open',
-        '  - right-click for the context menu',
-        '  - click a column header to sort',
-        '  - type in the search box to filter',
-        '  - drag the splitter to resize the folder pane',
-        '',
-        '-- r3d1bruh'
-    ].join('\n');
-
-    const state = {
-        view: 'all',
-        selected: null,
-        sortKey: 'name',
-        sortDir: 'asc',
-        search: '',
-        layout: 'details',
-        history: ['all'],
-        historyIndex: 0,
-        hovered: null,
-        contextKey: null
-    };
-
-    /* ── Helpers ────────────────────────────────────────────── */
-    const isPending = (link) => !link.url || link.url === '#';
-
-    function hostOf(url) {
-        if (!/^https?:\/\//i.test(String(url || ''))) return '';
-        try {
-            return new URL(url).hostname.replace(/^www\./, '');
-        } catch (_) {
-            return '';
-        }
-    }
-
-    function contactOf(url) {
-        const value = String(url || '');
-        return /^mailto:/i.test(value) ? value.slice(7).split('?')[0] : '';
-    }
-
-    function targetOf(link) {
-        if (isPending(link)) return '--';
-        const mail = contactOf(link.url);
-        if (mail) return mail;
-        if (/^tg:/i.test(link.url)) return 'telegram';
-        return hostOf(link.url) || link.url;
-    }
-
-    function typeOf(link) {
-        if (isPending(link)) return 'Shortcut';
-        if (/^mailto:/i.test(link.url)) return 'Mail';
-        if (/^tg:/i.test(link.url)) return 'App';
-        if (/^https?:/i.test(link.url)) return 'URL';
-        return 'File';
-    }
-
-    function statusOf(link) {
-        if (isPending(link)) return 'MISSING';
-        if (/^mailto:/i.test(link.url)) return 'MAIL';
-        if (/^tg:/i.test(link.url)) return 'APP';
-        return 'OPEN';
-    }
-
-    function slugOf(name) {
-        return String(name)
-            .toLowerCase()
-            .replace(/[^a-z0-9.]+/g, '-')
-            .replace(/^-+|-+$/g, '');
-    }
-
-    function filenameOf(link) {
-        const base = slugOf(link.name);
-        if (isPending(link)) return `${base}.lnk`;
-        if (/^mailto:/i.test(link.url)) return `${base}.eml`;
-        return `${base}.url`;
-    }
-
-    function itemFromLink(link) {
-        const filename = filenameOf(link);
-        const dot = filename.lastIndexOf('.');
-        return {
-            key: `link:${link.name}`,
-            kind: 'link',
-            name: link.name,
-            filename,
-            base: filename.slice(0, dot),
-            ext: filename.slice(dot),
-            type: typeOf(link),
-            target: targetOf(link),
-            status: statusOf(link),
-            note: NOTES[link.name] || '',
-            pending: isPending(link),
-            isFolder: false,
-            icon: link.icon,
-            data: link
-        };
-    }
-
-    function countFor(view) {
-        if (view === 'all') return LINKS.length;
-        if (view === 'unavailable') return LINKS.filter(isPending).length;
-        if (view === 'my-computer') return 6;
-        if (view === 'recycle-bin') return 2;
-        return LINKS.filter((link) => link.category === view).length;
-    }
-
-    function folderItem(view) {
-        const meta = FOLDERS[view];
-        const count = countFor(view);
-        return {
-            key: `folder:${view}`,
-            kind: 'folder',
-            view,
-            name: view,
-            filename: view,
-            base: view,
-            ext: '',
-            type: 'Folder',
-            target: `${count} item${count === 1 ? '' : 's'}`,
-            status: '--',
-            note: meta.note,
-            pending: false,
-            isFolder: true,
-            icon: null,
-            data: null
-        };
-    }
-
-    function readmeItem() {
-        return {
-            key: 'file:readme',
-            kind: 'readme',
-            name: 'readme',
-            filename: 'readme.txt',
-            base: 'readme',
-            ext: '.txt',
-            type: 'Text',
-            target: 'local',
-            status: 'OPEN',
-            note: 'About this site and this prototype',
-            pending: false,
-            isFolder: false,
-            icon: null,
-            data: null
-        };
-    }
-
-    function itemsForView(view) {
-        if (view === 'link-exchange') {
-            return FOLDER_ORDER.map(folderItem).concat(readmeItem());
-        }
-        if (view === 'my-computer') {
-            return [
-                { key: 'mc:c', kind: 'folder', view: 'all', isFolder: true, name: 'Local Disk (C:)', filename: 'C:', base: 'C:', ext: '', type: 'Folder', target: 'System', status: '--', note: 'Root directory', pending: false, icon: null, data: null },
-                { key: 'mc:d', kind: 'folder', view: 'dev', isFolder: true, name: 'Project (D:)', filename: 'D:', base: 'D:', ext: '', type: 'Folder', target: 'Project', status: '--', note: 'main source', pending: false, icon: null, data: null },
-                { key: 'mc:v', kind: 'folder', view: 'dev', isFolder: true, name: 'Vendor (V:)', filename: 'V:', base: 'V:', ext: '', type: 'Folder', target: 'Vendor', status: '--', note: '98 / webamp / clippy', pending: false, icon: null, data: null },
-                { key: 'mc:z', kind: 'folder', view: 'dev', isFolder: true, name: 'Dora (Z:)', filename: 'Z:', base: 'Z:', ext: '', type: 'Folder', target: 'Dora', status: '--', note: 'gallery / app', pending: false, icon: null, data: null },
-                { key: 'mc:a', kind: 'folder', view: 'all', isFolder: true, name: '3½ Floppy (A:)', filename: 'A:', base: 'A:', ext: '', type: 'Folder', target: 'Floppy', status: '--', note: '1.44 MB', pending: false, icon: null, data: null },
-                { key: 'mc:e', kind: 'folder', view: 'all', isFolder: true, name: 'CD-ROM (E:)', filename: 'E:', base: 'E:', ext: '', type: 'Folder', target: 'CD', status: '--', note: 'Desktop Shell', pending: false, icon: null, data: null },
-            ];
-        }
-        if (view === 'recycle-bin') {
-            return [
-                { key: 'bin:1', kind: 'file', name: 'old-draft.md', filename: 'old-draft.md', base: 'old-draft', ext: '.md', type: 'Text', target: 'C:\\', status: 'DELETED', note: 'Deleted 21 Oct 2026', pending: false, isFolder: false, icon: null, data: null },
-                { key: 'bin:2', kind: 'file', name: 'temp-logo-v1.svg', filename: 'temp-logo-v1.svg', base: 'temp-logo-v1', ext: '.svg', type: 'Image', target: 'D:\\', status: 'DELETED', note: 'Deleted 20 Oct 2026', pending: false, isFolder: false, icon: null, data: null },
-            ];
-        }
-        let links = LINKS;
-        if (view === 'unavailable') links = LINKS.filter(isPending);
-        else if (view !== 'all') links = LINKS.filter((link) => link.category === view);
-        return links.map(itemFromLink);
-    }
-
-    function sortValue(item) {
-        if (state.sortKey === 'type') return item.type;
-        if (state.sortKey === 'target') return item.target;
-        if (state.sortKey === 'status') return item.status;
-        if (state.sortKey === 'note') return item.note;
-        return item.name;
-    }
-
-    function sortedItems(items) {
-        const dir = state.sortDir === 'asc' ? 1 : -1;
-        return items.slice().sort((a, b) => {
-            if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
-            if (a.pending !== b.pending) return a.pending ? 1 : -1;
-            const av = sortValue(a);
-            const bv = sortValue(b);
-            if (av === bv) return a.name.localeCompare(b.name);
-            return String(av).localeCompare(String(bv), undefined, {
-                numeric: true,
-                sensitivity: 'base'
-            }) * dir;
-        });
-    }
-
-    function visibleItems() {
-        const query = state.search.trim().toLowerCase();
-        let items = itemsForView(state.view);
-        if (query) {
-            items = items.filter((item) => [
-                item.name,
-                item.filename,
-                item.type,
-                item.target,
-                item.note,
-                item.status
-            ].join(' ').toLowerCase().includes(query));
-        }
-        return sortedItems(items);
-    }
-
-    /* ── DOM ────────────────────────────────────────────────── */
-    const explorer = document.getElementById('explorer');
-    const tree = document.getElementById('tree');
-    const treeTotal = document.getElementById('tree-total');
-    const fileRows = document.getElementById('file-rows');
-    const fileTable = document.getElementById('file-table');
-    const tableWrap = document.getElementById('table-wrap');
-    const breadcrumbs = document.getElementById('breadcrumbs');
-    const search = document.getElementById('search');
-    const statusCount = document.getElementById('status-count');
-    const statusTarget = document.getElementById('status-target');
-    const clock = document.getElementById('clock');
-    const navBack = document.getElementById('nav-back');
-    const navForward = document.getElementById('nav-forward');
-    const navUp = document.getElementById('nav-up');
-    const viewToggle = document.getElementById('view-toggle');
-    const splitter = document.getElementById('splitter');
-    const contextMenu = document.getElementById('context-menu');
-    const dialogOverlay = document.getElementById('dialog-overlay');
-    const dialogTitle = document.getElementById('dialog-title');
-    const dialogBody = document.getElementById('dialog-body');
-    const dialogOk = document.getElementById('dialog-ok');
-
-    function updateClock() {
-        const now = new Date();
-        clock.textContent = now.toLocaleTimeString('en-GB', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-        });
-    }
-
-    updateClock();
-    window.setInterval(updateClock, 15000);
-
-    /* ── Rendering ──────────────────────────────────────────── */
-    const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (ch) => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-    }[ch]));
-
-    function initialsOf(name) {
-        return String(name).split(/\s+/).map((word) => word[0] || '').join('').slice(0, 2).toUpperCase();
-    }
-
-    function renderTree() {
-        const selectedView = state.view;
-        const expanded = state.expanded || (state.expanded = { root: true, 'link-exchange': true });
-        const rootOpen = expanded.root !== false;
-        const exchangeOpen = expanded['link-exchange'] !== false;
-
-        const categoryRows = FOLDER_ORDER.map((view) => {
-            const selected = view === selectedView;
-            return `
-                <div class="tree-row${selected ? ' is-selected' : ''}"
-                     role="treeitem"
-                     data-view="${view}"
-                     aria-selected="${selected}"
-                     tabindex="${selected ? '0' : '-1'}"
-                     title="${view} — ${countFor(view)} items"
-                     style="--depth:2">
-                    <span class="twisty" aria-hidden="true"></span>
-                    <span class="folder-icon${view === 'unavailable' ? ' is-dim' : ''}${selected ? ' is-open' : ''}" aria-hidden="true"></span>
-                    <span class="tree-label">${view}</span>
-                    <span class="tree-count">${countFor(view)}</span>
-                </div>`;
-        }).join('');
-
-        const special = (icon, label) => `
-            <div class="tree-row is-disabled" role="treeitem" aria-disabled="true" tabindex="-1" title="${label} — not part of this prototype" style="--depth:1">
-                <span class="twisty" aria-hidden="true"></span>
-                <span class="app-icon" aria-hidden="true">${icon}</span>
-                <span class="tree-label">${label}</span>
-                <span class="soon-badge">SOON</span>
-            </div>`;
-
-        const exchangeSelected = selectedView === 'link-exchange';
-
-        tree.innerHTML = `
-            <div class="tree-row"
-                 role="treeitem"
-                 data-node="root"
-                 aria-expanded="${rootOpen}"
-                 tabindex="-1"
-                 title="r3d1bruh"
-                 style="--depth:0">
-                <span class="twisty" aria-hidden="true">▸</span>
-                <span class="app-icon" aria-hidden="true">▣</span>
-                <span class="tree-label">r3d1bruh</span>
-            </div>
-            <div class="tree-group" role="group" ${rootOpen ? '' : 'hidden'}>
-                <div class="tree-row${exchangeSelected ? ' is-selected' : ''}"
-                     role="treeitem"
-                     data-view="link-exchange"
-                     aria-expanded="${exchangeOpen}"
-                     aria-selected="${exchangeSelected}"
-                     tabindex="${exchangeSelected ? '0' : '-1'}"
-                     title="link-exchange — ${LINKS.length} links"
-                     style="--depth:1">
-                    <span class="twisty" aria-hidden="true">▸</span>
-                    <span class="folder-icon${exchangeOpen ? ' is-open' : ''}" aria-hidden="true"></span>
-                    <span class="tree-label">link-exchange</span>
-                </div>
-                <div class="tree-group" role="group" ${exchangeOpen ? '' : 'hidden'}>
-                    ${categoryRows}
-                </div>
-                <div class="tree-row${state.view === 'my-computer' ? ' is-selected' : ''}"
-                     role="treeitem"
-                     data-view="my-computer"
-                     aria-selected="${state.view === 'my-computer'}"
-                     tabindex="${state.view === 'my-computer' ? '0' : '-1'}"
-                     title="my-computer — 6 drives"
-                     style="--depth:1">
-                    <span class="twisty" aria-hidden="true"></span>
-                    <span class="folder-icon${state.view === 'my-computer' ? ' is-open' : ''}" aria-hidden="true"></span>
-                    <span class="tree-label">My Computer</span>
-                    <span class="tree-count">6</span>
-                </div>
-                <div class="tree-row${state.view === 'recycle-bin' ? ' is-selected' : ''}"
-                     role="treeitem"
-                     data-view="recycle-bin"
-                     aria-selected="${state.view === 'recycle-bin'}"
-                     tabindex="${state.view === 'recycle-bin' ? '0' : '-1'}"
-                     title="recycle-bin — 2 deleted"
-                     style="--depth:1">
-                    <span class="twisty" aria-hidden="true"></span>
-                    <span class="folder-icon${state.view === 'recycle-bin' ? ' is-open' : ''}" aria-hidden="true"></span>
-                    <span class="tree-label">Recycle Bin</span>
-                    <span class="tree-count">2</span>
-                </div>
-                ${special('&gt;_', 'terminal')}
-                ${special('▤', 'neofetch')}
-                ${special('▦', 'pages')}
-            </div>`;
-    }
-
-    function renderBreadcrumbs() {
-        const crumbs = [];
-        if (state.view === 'my-computer' || state.view === 'recycle-bin') {
-            crumbs.push(`<button class="crumb" type="button" data-crumb="link-exchange">r3d1bruh://</button>`);
-            crumbs.push(`<span class="crumb-sep" aria-hidden="true">\\</span>`);
-            crumbs.push(`<span class="crumb is-current">${state.view === 'my-computer' ? 'My Computer' : 'Recycle Bin'}</span>`);
-        } else {
-            crumbs.push(`<button class="crumb" type="button" data-crumb="link-exchange">r3d1bruh://</button>`);
-            crumbs.push(`<span class="crumb-sep" aria-hidden="true">\\</span>`);
-            if (state.view === 'link-exchange') {
-                crumbs.push(`<span class="crumb is-current">link-exchange</span>`);
-            } else {
-                crumbs.push(`<button class="crumb" type="button" data-crumb="link-exchange">link-exchange</button>`);
-                crumbs.push(`<span class="crumb-sep" aria-hidden="true">\\</span>`);
-                crumbs.push(`<span class="crumb is-current">${escapeHtml(state.view)}</span>`);
-            }
-        }
-        breadcrumbs.innerHTML = crumbs.join('');
-    }
-
-    function iconHtml(item) {
-        if (item.isFolder) {
-            const open = item.view === state.view ? ' is-open' : '';
-            const dim = item.view === 'unavailable' ? ' is-dim' : '';
-            return `<span class="folder-icon${open}${dim}" aria-hidden="true"></span>`;
-        }
-        if (item.kind === 'readme') {
-            return '<span class="doc-icon" aria-hidden="true"></span>';
-        }
-        const badge = item.pending
-            ? '<span class="missing-badge" aria-hidden="true">×</span>'
-            : '<span class="shortcut" aria-hidden="true">↗</span>';
-        return `<span class="file-icon">
-            <img src="${escapeHtml(item.icon)}" alt="" width="16" height="16" loading="lazy">
-            <span class="fallback" aria-hidden="true">${escapeHtml(initialsOf(item.name))}</span>
-            ${badge}
-        </span>`;
-    }
-
-    function renderList() {
-        const items = visibleItems();
-        const viewTotal = itemsForView(state.view).length;
-
-        if (state.selected && !items.some((item) => item.key === state.selected)) {
-            state.selected = null;
-        }
-
-        if (!items.length) {
-            fileRows.innerHTML = `<tr class="empty-row"><td colspan="5">${state.search ? 'NO FILES MATCH' : 'NO FILES IN THIS FOLDER'}</td></tr>`;
-            updateStatus();
-            return;
-        }
-
-        fileRows.innerHTML = items.map((item, index) => {
-            const selected = item.key === state.selected;
-            const tabindex = selected || (!state.selected && index === 0) ? '0' : '-1';
-            const classes = [
-                selected ? 'is-selected' : '',
-                item.pending ? 'is-pending' : ''
-            ].filter(Boolean).join(' ');
-            const status = item.isFolder
-                ? '<span class="status-label">--</span>'
-                : item.pending
-                    ? `<span class="status-label"><span class="status-dot" aria-hidden="true"></span>MISSING</span>`
-                    : `<span class="status-label"><span class="status-dot" aria-hidden="true"></span>${escapeHtml(item.status)}<span class="open-hint" aria-hidden="true">→</span></span>`;
-
-            return `
-                <tr class="${classes}"
-                    data-key="${escapeHtml(item.key)}"
-                    data-kind="${item.kind}"
-                    ${item.view ? `data-view="${item.view}"` : ''}
-                    aria-selected="${selected}"
-                    title="${escapeHtml(item.filename)} — ${escapeHtml(item.target)}"
-                    tabindex="${tabindex}">
-                    <td class="col-name">
-                        <span class="name-cell">
-                            ${iconHtml(item)}
-                            <span class="filename">${escapeHtml(item.base)}<span class="ext">${escapeHtml(item.ext)}</span></span>
-                        </span>
-                    </td>
-                    <td class="col-type">${escapeHtml(item.type)}</td>
-                    <td class="col-target">${escapeHtml(item.target)}</td>
-                    <td class="col-status">${status}</td>
-                    <td class="col-note">${escapeHtml(item.note)}</td>
-                </tr>`;
-        }).join('');
-
-        fileRows.querySelectorAll('.file-icon img').forEach((img) => {
-            img.addEventListener('error', () => {
-                const frame = img.closest('.file-icon');
-                if (frame) frame.classList.add('is-broken');
-            }, { once: true });
-        });
-
-        state.visibleCount = items.length;
-        state.viewTotal = viewTotal;
-        updateStatus();
-    }
-
-    function previewFor(item) {
-        if (!item) return '';
-        if (item.isFolder) return `${item.name} — ${item.target}`;
-        if (item.kind === 'readme') return `Open readme.txt — ${item.note}`;
-        if (item.pending) return `Shortcut target missing — ${item.name} has no destination yet`;
-        return `Open ${item.name} — ${item.target}`;
-    }
-
-    function updateStatus() {
-        const items = visibleItems();
-        const selected = items.find((item) => item.key === state.selected);
-        const hovered = items.find((item) => item.key === state.hovered);
-
-        if (selected) {
-            statusCount.textContent = '1 selected';
-        } else if (state.search) {
-            statusCount.textContent = `${items.length} of ${itemsForView(state.view).length} objects`;
-        } else {
-            statusCount.textContent = `${items.length} object${items.length === 1 ? '' : 's'}`;
-        }
-
-        if (hovered) statusTarget.textContent = previewFor(hovered);
-        else if (selected) statusTarget.textContent = previewFor(selected);
-        else statusTarget.textContent = 'Double-click or press Enter to open · right-click for options';
-    }
-
-    function updateToolbar() {
-        navBack.disabled = state.historyIndex <= 0;
-        navForward.disabled = state.historyIndex >= state.history.length - 1;
-        navUp.disabled = state.view === 'link-exchange';
-        viewToggle.textContent = state.layout === 'list' ? 'LIST' : 'DETAILS';
-        viewToggle.setAttribute('aria-pressed', String(state.layout === 'list'));
-    }
-
-    function animateList() {
-        tableWrap.classList.remove('is-switching');
-        void tableWrap.offsetWidth;
-        tableWrap.classList.add('is-switching');
-        window.setTimeout(() => tableWrap.classList.remove('is-switching'), 170);
-    }
-
-    function render() {
-        renderTree();
-        renderBreadcrumbs();
-        renderList();
-        updateToolbar();
-    }
-
-    function applyView(view) {
-        state.view = view;
-        state.selected = null;
-        state.search = '';
-        state.hovered = null;
-        search.value = '';
-        render();
-        animateList();
-    }
-
-    window.navigateExplorer = navigate;
-    window.openExplorer = (path) => {
-        const win = windows.get('explorer');
-        if (win && !win.closed) { focusWindow('explorer', true); }
-        else openPrograms();
-        if (path === '/' || path === '/main') navigate('all');
-        else if (path === '/l') navigate('dev');
-        else if (path === '/vendor') navigate('dev');
-        else navigate('all');
-    };
-
-    function navigate(view, push = true) {
-        if (!view || view === state.view) return;
-        if (push) {
-            state.history = state.history.slice(0, state.historyIndex + 1);
-            state.history.push(view);
-            state.historyIndex = state.history.length - 1;
-        }
-        applyView(view);
-    }
-
-    function goBack() {
-        if (state.historyIndex <= 0) return;
-        state.historyIndex -= 1;
-        applyView(state.history[state.historyIndex]);
-    }
-
-    function goForward() {
-        if (state.historyIndex >= state.history.length - 1) return;
-        state.historyIndex += 1;
-        applyView(state.history[state.historyIndex]);
-    }
-
-    function goUp() {
-        if (state.view === 'link-exchange') return;
-        navigate('link-exchange');
-    }
-
-    /* ── Selection and actions ──────────────────────────────── */
-    function findItemByKey(key) {
-        return itemsForView(state.view).find((item) => item.key === key) || null;
-    }
-
-    function selectItem(key) {
-        state.selected = key || null;
-        const rows = Array.from(fileRows.querySelectorAll('tr[data-key]'));
-        rows.forEach((row, index) => {
-            const selected = row.dataset.key === state.selected;
-            row.classList.toggle('is-selected', selected);
-            row.setAttribute('aria-selected', String(selected));
-            row.tabIndex = selected || (!state.selected && index === 0) ? 0 : -1;
-        });
-        updateStatus();
-    }
-
-    function launchUrl(url) {
-        if (/^https?:/i.test(url)) {
-            const anchor = document.createElement('a');
-            anchor.href = url;
-            anchor.target = '_blank';
-            anchor.rel = 'noopener noreferrer';
-            document.body.appendChild(anchor);
-            anchor.click();
-            anchor.remove();
-            return;
-        }
-        window.location.href = url;
-    }
-
-    function launchItem(item) {
-        const row = Array.from(fileRows.children).find((tr) => tr.dataset.key === item.key);
-        if (row) {
-            row.classList.add('is-launching');
-            window.setTimeout(() => row.classList.remove('is-launching'), 220);
-        }
-        statusTarget.textContent = `OPENING ${item.name} — ${item.target}`;
-        launchUrl(item.data.url);
-        window.setTimeout(updateStatus, 1400);
-    }
-
-    function flashMissing(item) {
-        const row = Array.from(fileRows.children).find((tr) => tr.dataset.key === item.key);
-        if (row) {
-            row.classList.add('is-error');
-            window.setTimeout(() => row.classList.remove('is-error'), 650);
-        }
-        statusTarget.textContent = `TARGET MISSING — ${item.name} has no destination yet`;
-        window.setTimeout(updateStatus, 1800);
-    }
-
-    function openItem(item) {
-        if (!item) return;
-        if (item.isFolder) {
-            navigate(item.view);
-            return;
-        }
-        if (item.kind === 'readme') {
-            openReadme();
-            return;
-        }
-        if (item.pending) {
-            flashMissing(item);
-            return;
-        }
-        launchItem(item);
-    }
-
-    async function copyText(text) {
-        try {
-            await navigator.clipboard.writeText(text);
-        } catch (_) {
-            const area = document.createElement('textarea');
-            area.value = text;
-            area.setAttribute('readonly', '');
-            area.style.position = 'fixed';
-            area.style.opacity = '0';
-            document.body.appendChild(area);
-            area.select();
-            try { document.execCommand('copy'); } catch (__) {}
-            area.remove();
-        }
-        statusTarget.textContent = `COPIED — ${text}`;
-        window.setTimeout(updateStatus, 1600);
-    }
-
-    /* ── Context menu ───────────────────────────────────────── */
-    window.hideContextMenu = hideContextMenu;
-
-    function hideContextMenu() {
-        contextMenu.hidden = true;
-        contextMenu.innerHTML = '';
-        state.contextKey = null;
-    }
-
-    function showContextMenu(item, x, y) {
-        state.contextKey = item.key;
-        const canOpen = !item.pending;
-        const isHttp = Boolean(item.data && /^https?:/i.test(item.data.url));
-
-        contextMenu.innerHTML = `
-            <button class="menu-item" type="button" role="menuitem" data-action="open" ${canOpen ? '' : 'disabled'}>
-                <span class="menu-icon" aria-hidden="true">▸</span>Open
-                <span class="menu-shortcut">Enter</span>
-            </button>
-            <button class="menu-item" type="button" role="menuitem" data-action="newtab" ${isHttp ? '' : 'disabled'}>
-                <span class="menu-icon" aria-hidden="true">↗</span>Open in new tab
-                <span class="menu-shortcut">Ctrl+Enter</span>
-            </button>
-            <button class="menu-item" type="button" role="menuitem" data-action="copy" ${canOpen ? '' : 'disabled'}>
-                <span class="menu-icon" aria-hidden="true">⧉</span>Copy link
-                <span class="menu-shortcut">Ctrl+C</span>
-            </button>
-            <div class="menu-sep" role="separator"></div>
-            <button class="menu-item" type="button" role="menuitem" data-action="properties">
-                <span class="menu-icon" aria-hidden="true">i</span>Properties
-                <span class="menu-shortcut">Alt+Enter</span>
-            </button>
-            <div class="menu-sep" role="separator"></div>
-            <button class="menu-item" type="button" role="menuitem" data-action="cancel">
-                <span class="menu-icon" aria-hidden="true">×</span>Cancel
-                <span class="menu-shortcut">Esc</span>
-            </button>`;
-        contextMenu.hidden = false;
-
-        const rect = contextMenu.getBoundingClientRect();
-        const left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8));
-        const top = Math.max(8, Math.min(y, window.innerHeight - rect.height - 8));
-        contextMenu.style.left = `${left}px`;
-        contextMenu.style.top = `${top}px`;
-
-        const first = contextMenu.querySelector('.menu-item:not(:disabled)');
-        if (first) first.focus();
-    }
-
-    contextMenu.addEventListener('click', (event) => {
-        const button = event.target.closest('.menu-item');
-        if (!button || button.disabled) return;
-        const item = state.contextKey ? findItemByKey(state.contextKey) : null;
-        const action = button.dataset.action;
-
-        if (action === 'cancel') {
-            hideContextMenu();
-            return;
-        }
-        if (!item) {
-            hideContextMenu();
-            return;
-        }
-
-        hideContextMenu();
-        if (action === 'open') openItem(item);
-        else if (action === 'newtab' && item.data) window.open(item.data.url, '_blank', 'noopener');
-        else if (action === 'copy' && item.data) copyText(item.data.url);
-        else if (action === 'properties') openProperties(item);
-    });
-
-    contextMenu.addEventListener('keydown', (event) => {
-        const items = Array.from(contextMenu.querySelectorAll('.menu-item:not(:disabled)'));
-        const index = items.indexOf(document.activeElement);
-        if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            items[(index + 1) % items.length]?.focus();
-        } else if (event.key === 'ArrowUp') {
-            event.preventDefault();
-            items[(index - 1 + items.length) % items.length]?.focus();
-        } else if (event.key === 'Escape') {
-            event.preventDefault();
-            hideContextMenu();
-        }
-    });
-
-    /* ── Dialogs ────────────────────────────────────────────── */
-    let lastFocus = null;
-
-    function openDialog(title, html) {
-        lastFocus = document.activeElement;
-        dialogTitle.textContent = title;
-        dialogBody.innerHTML = html;
-        dialogOverlay.hidden = false;
-        dialogOk.focus();
-    }
-
-    function closeDialog() {
-        dialogOverlay.hidden = true;
-        dialogBody.innerHTML = '';
-        if (lastFocus && typeof lastFocus.focus === 'function') lastFocus.focus();
-        lastFocus = null;
-    }
-
-    function propRow(key, value, missing = false) {
-        return `<div class="prop-key">${escapeHtml(key)}</div>
-                <div class="prop-value${missing ? ' is-missing' : ''}">${escapeHtml(value)}</div>`;
-    }
-
-    function openProperties(item) {
-        let rows = '';
-        if (item.isFolder) {
-            rows += propRow('Name', item.name);
-            rows += propRow('Type', 'Folder');
-            rows += propRow('Contains', item.target);
-            rows += propRow('Location', `r3d1bruh://link-exchange\\${item.name}`);
-            rows += propRow('Note', item.note);
-        } else if (item.kind === 'readme') {
-            rows += propRow('Name', item.filename);
-            rows += propRow('Type', 'Text Document');
-            rows += propRow('Location', 'r3d1bruh://link-exchange\\readme.txt');
-            rows += propRow('Note', item.note);
-        } else {
-            rows += propRow('Name', item.filename);
-            rows += propRow('Type', item.type);
-            rows += propRow('Target', item.target, item.pending);
-            rows += propRow('Category', item.data.category);
-            rows += propRow('Username', item.data.username || '--', !item.data.username);
-            rows += propRow('Friend code', item.data.friendCode || '--', !item.data.friendCode);
-            rows += propRow('Status', item.status, item.pending);
-            rows += propRow('Note', item.note || '--', !item.note);
-        }
-        openDialog(`${item.filename} Properties`, `<div class="prop-grid">${rows}</div>`);
-    }
-
-    function openReadme() {
-        openDialog('readme.txt — Notepad', `<pre>${escapeHtml(README)}</pre>`);
-    }
-
-    dialogOk.addEventListener('click', closeDialog);
-    dialogOverlay.addEventListener('click', (event) => {
-        if (event.target === dialogOverlay) closeDialog();
-    });
-
-    /* ── Tree interactions ──────────────────────────────────── */
-    function toggleTreeNode(row) {
-        const node = row.dataset.node || row.dataset.view;
-        const group = row.nextElementSibling;
-        if (!group || !group.classList.contains('tree-group')) return;
-        const open = row.getAttribute('aria-expanded') === 'true';
-        const next = !open;
-        row.setAttribute('aria-expanded', String(next));
-        group.hidden = !next;
-        if (!next) {
-            tree.querySelectorAll('.tree-row').forEach((item) => { item.tabIndex = -1; });
-            row.tabIndex = 0;
-        }
-        if (node) {
-            state.expanded = state.expanded || {};
-            state.expanded[node] = next;
-        }
-    }
-
-    function treeRows() {
-        return Array.from(tree.querySelectorAll('.tree-row'))
-            .filter((row) => !row.closest('.tree-group[hidden]'));
-    }
-
-    function focusTreeRow(row) {
-        if (!row) return;
-        tree.querySelectorAll('.tree-row').forEach((item) => { item.tabIndex = -1; });
-        row.tabIndex = 0;
-        row.focus();
-    }
-
-    tree.addEventListener('click', (event) => {
-        const row = event.target.closest('.tree-row');
-        if (!row) return;
-
-        if (event.target.closest('.twisty') && row.hasAttribute('aria-expanded')) {
-            event.preventDefault();
-            toggleTreeNode(row);
-            return;
-        }
-
-        if (row.classList.contains('is-disabled')) {
-            const label = row.querySelector('.tree-label')?.textContent || 'This node';
-            statusTarget.textContent = `${label} — not part of this prototype`;
-            return;
-        }
-
-        if (row.dataset.view) navigate(row.dataset.view);
-        else if (row.dataset.node === 'root') toggleTreeNode(row);
-    });
-
-    tree.addEventListener('keydown', (event) => {
-        const row = event.target.closest('.tree-row');
-        if (!row) return;
-        const rows = treeRows();
-        const index = rows.indexOf(row);
-
-        if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            focusTreeRow(rows[Math.min(index + 1, rows.length - 1)]);
-        } else if (event.key === 'ArrowUp') {
-            event.preventDefault();
-            focusTreeRow(rows[Math.max(index - 1, 0)]);
-        } else if (event.key === 'Home') {
-            event.preventDefault();
-            focusTreeRow(rows[0]);
-        } else if (event.key === 'End') {
-            event.preventDefault();
-            focusTreeRow(rows[rows.length - 1]);
-        } else if (event.key === 'ArrowRight') {
-            event.preventDefault();
-            if (row.getAttribute('aria-expanded') === 'false') {
-                toggleTreeNode(row);
-            } else {
-                const group = row.nextElementSibling;
-                if (group && group.classList.contains('tree-group') && !group.hidden) {
-                    const first = group.querySelector('.tree-row');
-                    if (first) focusTreeRow(first);
-                }
-            }
-        } else if (event.key === 'ArrowLeft') {
-            event.preventDefault();
-            if (row.getAttribute('aria-expanded') === 'true') {
-                toggleTreeNode(row);
-            } else {
-                const group = row.closest('.tree-group');
-                const parent = group ? group.previousElementSibling : null;
-                if (parent && parent.classList.contains('tree-row')) focusTreeRow(parent);
-            }
-        } else if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            if (row.classList.contains('is-disabled')) {
-                const label = row.querySelector('.tree-label')?.textContent || 'This node';
-                statusTarget.textContent = `${label} — not part of this prototype`;
-            } else if (row.dataset.view) {
-                navigate(row.dataset.view);
-            } else {
-                toggleTreeNode(row);
-            }
-        }
-    });
-
-    tree.addEventListener('mouseover', (event) => {
-        const row = event.target.closest('.tree-row');
-        if (!row || row.contains(event.relatedTarget)) return;
-        const label = row.querySelector('.tree-label')?.textContent || '';
-        if (row.classList.contains('is-disabled')) {
-            statusTarget.textContent = `${label} — not part of this prototype`;
-        } else if (row.dataset.view) {
-            const count = countFor(row.dataset.view);
-            statusTarget.textContent = `${label} — ${count} item${count === 1 ? '' : 's'}`;
-        } else {
-            statusTarget.textContent = label;
-        }
-    });
-
-    tree.addEventListener('mouseleave', updateStatus);
-
-    /* ── List interactions ──────────────────────────────────── */
-    fileRows.addEventListener('click', (event) => {
-        const row = event.target.closest('tr[data-key]');
-        if (!row) return;
-        selectItem(row.dataset.key);
-    });
-
-    fileRows.addEventListener('dblclick', (event) => {
-        const row = event.target.closest('tr[data-key]');
-        if (!row) return;
-        openItem(findItemByKey(row.dataset.key));
-    });
-
-    fileRows.addEventListener('contextmenu', (event) => {
-        const row = event.target.closest('tr[data-key]');
-        if (!row) return;
-        event.preventDefault();
-        const item = findItemByKey(row.dataset.key);
-        if (!item) return;
-        selectItem(row.dataset.key);
-        showContextMenu(item, event.clientX, event.clientY);
-    });
-
-    fileRows.addEventListener('mouseover', (event) => {
-        const row = event.target.closest('tr[data-key]');
-        if (!row || row.contains(event.relatedTarget)) return;
-        state.hovered = row.dataset.key;
-        updateStatus();
-    });
-
-    fileRows.addEventListener('mouseleave', () => {
-        state.hovered = null;
-        updateStatus();
-    });
-
-    fileRows.addEventListener('keydown', (event) => {
-        const row = event.target.closest('tr[data-key]');
-        if (!row) return;
-        const rows = Array.from(fileRows.querySelectorAll('tr[data-key]'));
-        const index = rows.indexOf(row);
-
-        if (event.key === 'Enter' && !event.altKey && !event.ctrlKey) {
-            event.preventDefault();
-            openItem(findItemByKey(row.dataset.key));
-        } else if (event.key === ' ') {
-            event.preventDefault();
-            selectItem(row.dataset.key);
-        } else if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            const next = rows[Math.min(index + 1, rows.length - 1)];
-            if (next) { selectItem(next.dataset.key); next.focus(); }
-        } else if (event.key === 'ArrowUp') {
-            event.preventDefault();
-            const previous = rows[Math.max(index - 1, 0)];
-            if (previous) { selectItem(previous.dataset.key); previous.focus(); }
-        } else if (event.key === 'Home') {
-            event.preventDefault();
-            if (rows[0]) { selectItem(rows[0].dataset.key); rows[0].focus(); }
-        } else if (event.key === 'End') {
-            event.preventDefault();
-            const last = rows[rows.length - 1];
-            if (last) { selectItem(last.dataset.key); last.focus(); }
-        } else if (event.key === 'Escape') {
-            event.preventDefault();
-            selectItem(null);
-        }
-    });
-
-    tableWrap.addEventListener('click', (event) => {
-        if (event.target.closest('tr[data-key]')) return;
-        if (event.target.closest('th')) return;
-        selectItem(null);
-    });
-
-    /* ── Search, sort, view ─────────────────────────────────── */
-    search.addEventListener('input', () => {
-        state.search = search.value;
-        renderList();
-    });
-
-    search.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            search.value = '';
-            state.search = '';
-            renderList();
-        }
-    });
-
-    function updateSortHeaders() {
-        fileTable.querySelectorAll('th[data-sort]').forEach((th) => {
-            const active = th.dataset.sort === state.sortKey;
-            if (active) {
-                th.setAttribute('aria-sort', state.sortDir === 'asc' ? 'ascending' : 'descending');
-            } else {
-                th.removeAttribute('aria-sort');
-            }
-            const arrow = th.querySelector('.sort-arrow');
-            if (arrow) arrow.textContent = active && state.sortDir === 'desc' ? '▼' : '▲';
-        });
-    }
-
-    fileTable.querySelectorAll('th[data-sort] button').forEach((button) => {
-        button.addEventListener('click', () => {
-            const key = button.dataset.sortKey;
-            if (state.sortKey === key) {
-                state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
-            } else {
-                state.sortKey = key;
-                state.sortDir = 'asc';
-            }
-            updateSortHeaders();
-            renderList();
-        });
-    });
-
-    viewToggle.addEventListener('click', () => {
-        state.layout = state.layout === 'details' ? 'list' : 'details';
-        explorer.classList.toggle('is-list', state.layout === 'list');
-        updateToolbar();
-    });
-
-    /* ── Navigation ─────────────────────────────────────────── */
-    navBack.addEventListener('click', goBack);
-    navForward.addEventListener('click', goForward);
-    navUp.addEventListener('click', goUp);
-
-    breadcrumbs.addEventListener('click', (event) => {
-        const crumb = event.target.closest('[data-crumb]');
-        if (crumb) navigate(crumb.dataset.crumb);
-    });
-
-    /* ── Splitter ───────────────────────────────────────────── */
-    function setTreeWidth(width) {
-        const clamped = Math.max(160, Math.min(360, width));
-        explorer.style.setProperty('--tree-width', `${clamped}px`);
-        splitter.setAttribute('aria-valuenow', String(Math.round(clamped)));
-    }
-
-    splitter.addEventListener('pointerdown', (event) => {
-        event.preventDefault();
-        const startX = event.clientX;
-        const startWidth = parseFloat(
-            getComputedStyle(explorer).getPropertyValue('--tree-width')
-        ) || 220;
-
-        document.body.classList.add('is-resizing');
-        try { splitter.setPointerCapture(event.pointerId); } catch (_) {}
-
-        const onMove = (moveEvent) => {
-            setTreeWidth(startWidth + moveEvent.clientX - startX);
-        };
-
-        const onUp = () => {
-            document.body.classList.remove('is-resizing');
-            splitter.removeEventListener('pointermove', onMove);
-            splitter.removeEventListener('pointerup', onUp);
-            splitter.removeEventListener('pointercancel', onUp);
-        };
-
-        splitter.addEventListener('pointermove', onMove);
-        splitter.addEventListener('pointerup', onUp);
-        splitter.addEventListener('pointercancel', onUp);
-    });
-
-    splitter.addEventListener('keydown', (event) => {
-        const current = parseInt(splitter.getAttribute('aria-valuenow'), 10) || 220;
-        if (event.key === 'ArrowLeft') {
-            event.preventDefault();
-            setTreeWidth(current - 10);
-        } else if (event.key === 'ArrowRight') {
-            event.preventDefault();
-            setTreeWidth(current + 10);
-        } else if (event.key === 'Home') {
-            event.preventDefault();
-            setTreeWidth(160);
-        } else if (event.key === 'End') {
-            event.preventDefault();
-            setTreeWidth(360);
-        }
-    });
-
-    /* ── Global keys ────────────────────────────────────────── */
-    document.addEventListener('click', (event) => {
-        if (!contextMenu.hidden && !contextMenu.contains(event.target)) hideContextMenu();
-    });
-
-    window.addEventListener('resize', hideContextMenu);
-    document.addEventListener('scroll', hideContextMenu, true);
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            if (!contextMenu.hidden) {
-                hideContextMenu();
-                return;
-            }
-            if (!dialogOverlay.hidden) {
-                closeDialog();
-                return;
-            }
-        }
-
-        if (!dialogOverlay.hidden) return;
-        if (!contextMenu.hidden) return;
-        if (event.defaultPrevented) return;
-
-        /* The shell owns focus. Explorer shortcuts only run when the
-           Explorer window is the active window. */
-        const activeWindow = document.body.dataset.activeWindow;
-        if (activeWindow && activeWindow !== 'explorer') return;
-
-        const target = event.target;
-        const inField = target instanceof Element && target.matches('input, textarea');
-
-        if (!inField && event.altKey && event.key === 'ArrowLeft') {
-            event.preventDefault();
-            goBack();
-        } else if (!inField && event.altKey && event.key === 'ArrowRight') {
-            event.preventDefault();
-            goForward();
-        } else if (!inField && event.key === 'Backspace') {
-            event.preventDefault();
-            goUp();
-        } else if (!inField && event.ctrlKey && event.key === 'Enter' && state.selected) {
-            const item = findItemByKey(state.selected);
-            if (item && item.data && /^https?:/i.test(item.data.url)) {
-                event.preventDefault();
-                window.open(item.data.url, '_blank', 'noopener');
-            }
-        } else if (!inField && event.ctrlKey && event.key.toLowerCase() === 'c' && state.selected && !window.getSelection().toString()) {
-            const item = findItemByKey(state.selected);
-            if (item && item.data && !item.pending) {
-                event.preventDefault();
-                copyText(item.data.url);
-            }
-        } else if (!inField && event.altKey && event.key === 'Enter' && state.selected) {
-            event.preventDefault();
-            const item = findItemByKey(state.selected);
-            if (item) openProperties(item);
-        }
-    });
-
-    /* ── Shell API ──────────────────────────────────────────── */
-    window.linkExchangeApp = {
-        navigate: (view) => navigate(view),
-        openReadme,
-        openLink(name) {
-            const needle = String(name || '').toLowerCase();
-            const link = LINKS.find((candidate) => {
-                const filename = filenameOf(candidate);
-                return candidate.name.toLowerCase() === needle
-                    || filename.toLowerCase() === needle
-                    || filename.replace(/\.[^.]+$/, '').toLowerCase() === needle;
-            });
-            if (!link) return { ok: false, reason: 'not-found' };
-            const item = itemFromLink(link);
-            if (item.pending) return { ok: false, reason: 'pending', item };
-            launchItem(item);
-            return { ok: true, item };
-        },
-        getLinks() {
-            return LINKS.map((link) => {
-                const item = itemFromLink(link);
-                item.category = link.category;
-                return item;
-            });
-        },
-        getFolders() {
-            return FOLDER_ORDER.map(folderItem);
-        },
-        getReadme: () => readmeItem(),
-        getView: () => state.view
-    };
-
-    /* ── Init ───────────────────────────────────────────────── */
-    treeTotal.textContent = `${LINKS.length} LINKS`;
-    updateSortHeaders();
-    render();
-    updateClock();
-})();
-</script>
+<script src="./fs/explorer-adapter.js?v=20261028"></script>
 <script>
 /* ---------------------------------------------------------------------------
  *  Programs registry for the desktop shell.
@@ -4283,7 +3062,7 @@ window.RetroApps = (() => {
 <script src="./vendor/clippy/jquery-3.4.1.min.js"></script>
 <script src="./vendor/clippy/clippy.js"></script>
 <script>
-(() => {
+window.ProfileReady.then(() => {
     'use strict';
 
     const desktop = document.getElementById('desktop');
@@ -4905,7 +3684,7 @@ window.RetroApps = (() => {
         else focusWindow(id, true);
     }
 
-    function openExplorer() {
+    function openExplorer(nodeId) {
         const win = windows.get('explorer');
         if (!win) return;
         clearShowDesktopState();
@@ -4914,9 +3693,15 @@ window.RetroApps = (() => {
             win.node.classList.remove('is-closed');
             if (!win.taskbarButton) addTaskbarButton(win);
             fitWindowToDesktop(win);
+        } else if (win.minimized) {
+            restoreWindow('explorer');
         }
         focusWindow('explorer', true);
+        if (nodeId && typeof window.navigateExplorer === 'function') {
+            window.navigateExplorer(nodeId);
+        }
     }
+    window.openExplorerWindow = openExplorer;
 
     function openMusic() {
         const win = windows.get('music');
@@ -5068,24 +3853,12 @@ window.RetroApps = (() => {
     }
 
     function openRecycleBin() {
-        const win = windows.get('explorer');
-        if (win && !win.closed) {
-            clearShowDesktopState();
-            if (win.minimized) restoreWindow('explorer');
-            else focusWindow('explorer', true);
-        }
-        if (typeof window.navigateExplorer === 'function') window.navigateExplorer('recycle-bin');
+        openExplorer('__recycle__');
     }
     window.openRecycleBin = openRecycleBin;
 
     function openMyComputer() {
-        const win = windows.get('explorer');
-        if (win && !win.closed) {
-            clearShowDesktopState();
-            if (win.minimized) restoreWindow('explorer');
-            else focusWindow('explorer', true);
-        }
-        if (typeof window.navigateExplorer === 'function') window.navigateExplorer('my-computer');
+        openExplorer('root');
     }
     window.openMyComputer = openMyComputer;
 
@@ -5679,15 +4452,32 @@ window.RetroApps = (() => {
         const promptElement = node.querySelector('.terminal-prompt');
         const term = {
             cwd: '~',
+            cwdId: (window.VFS ? window.VFS.getKnownFolder('userProfile') : null),
             history: [],
             historyIndex: 0
         };
 
-        const api = () => window.linkExchangeApp;
+        const vfsReady = () => window.VFS;
         const categories = ['all', 'social', 'dev', 'play', 'unavailable'];
 
         function promptText() {
-            return `r3d1bruh@desktop:${term.cwd}$`;
+            const vfs = vfsReady();
+            let display = term.cwd;
+            if (vfs && term.cwdId) {
+                const userProfileId = vfs.getKnownFolder('userProfile');
+                if (term.cwdId === userProfileId) {
+                    display = '~';
+                } else {
+                    const path = vfs.getPath(term.cwdId);
+                    const userPath = vfs.getPath(userProfileId);
+                    if (path && userPath && path.startsWith(userPath + '\\')) {
+                        display = '~/' + path.slice(userPath.length + 1).replace(/\\/g, '/');
+                    } else if (path) {
+                        display = path.replace(/\\/g, '/');
+                    }
+                }
+            }
+            return `r3d1bruh@desktop:${display}$`;
         }
 
         function updatePrompt() {
@@ -5725,14 +4515,36 @@ window.RetroApps = (() => {
         }
 
         function currentPath() {
-            return term.cwd === '~' ? 'r3d1bruh://' : `r3d1bruh://${term.cwd}`;
+            const vfs = vfsReady();
+            if (vfs && term.cwdId) {
+                return vfs.getPath(term.cwdId) || 'C:\\';
+            }
+            const home = (vfs && vfs.username) || 'r3d1'; return term.cwd === '~' ? 'C:\\Users\\' + home : 'C:\\Users\\' + home + '\\' + term.cwd;
         }
 
         function findFolder(value) {
             const name = String(value || '').toLowerCase();
             if (!name || name === '~' || name === '/' || name === 'home') return '~';
-            if (name === 'link-exchange' || name === 'linkexchange') return 'link-exchange';
-            if (categories.includes(name)) return name;
+            const vfs = vfsReady();
+            if (vfs) {
+                const knownMap = {
+                    'desktop': 'desktop', 'documents': 'documents', 'downloads': 'downloads',
+                    'pictures': 'pictures', 'music': 'music', 'videos': 'videos',
+                    'appdata': 'appData', 'program files': 'programFiles',
+                    'programdata': 'programData', 'windows': 'windows'
+                };
+                if (knownMap[name]) {
+                    const id = vfs.getKnownFolder(knownMap[name]);
+                    if (id) return id;
+                }
+                const node = vfs.resolvePath(value) || vfs.resolvePath('C:\\Users\\' + (vfs.username || 'r3d1') + '\\' + value);
+                if (node && node.type === 'directory') return node.id;
+                if (term.cwdId) {
+                    const children = vfs.getChildren(term.cwdId);
+                    const child = children.find(c => c.name.toLowerCase() === name && c.type === 'directory');
+                    if (child) return child.id;
+                }
+            }
             return null;
         }
 
@@ -5743,42 +4555,41 @@ window.RetroApps = (() => {
             return links.filter((item) => item.category === view);
         }
 
+        function formatTermSize(bytes) {
+            if (bytes === 0) return '0 B';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
         function printLs(long) {
-            if (term.cwd === '~') {
-                if (long) {
-                    line('drwx  --       link-exchange/');
-                    line('-rw-  OPEN     readme.txt -> local');
-                } else {
-                    line('link-exchange/  readme.txt');
-                }
+            const vfs = vfsReady();
+            if (!vfs || !term.cwdId) {
+                line('ls: filesystem not available', 'error');
                 return;
             }
-
-            if (term.cwd === 'link-exchange') {
-                if (long) {
-                    categories.forEach((view) => {
-                        line(`drwx  --       ${view}/`);
-                    });
-                    line('-rw-  OPEN     readme.txt -> local');
-                } else {
-                    line(categories.map((view) => `${view}/`).concat('readme.txt').join('  '));
-                }
-                return;
-            }
-
-            const items = linksForView(term.cwd);
-            if (!items.length) {
+            const children = vfs.getChildren(term.cwdId)
+                .filter(n => !n.attributes || !n.attributes.hidden);
+            if (!children.length) {
                 line('(empty)', 'dim');
                 return;
             }
+            children.sort((a, b) => {
+                if (a.type === 'directory' && b.type !== 'directory') return -1;
+                if (a.type !== 'directory' && b.type === 'directory') return 1;
+                return a.name.localeCompare(b.name, undefined, {sensitivity: 'base'});
+            });
             if (long) {
-                items.forEach((item) => {
-                    const status = item.pending ? 'MISSING' : item.status;
-                    const permissions = item.pending ? '-r--' : '-rw-';
-                    line(`${permissions}  ${status.padEnd(7)} ${item.filename.padEnd(24)} -> ${item.target}`);
+                children.forEach((node) => {
+                    const isDir = node.type === 'directory';
+                    const perm = node.attributes && node.attributes.readOnly ? 'dr--' : (isDir ? 'drwx' : '-rw-');
+                    const size = isDir ? '--' : formatTermSize(node.size || 0);
+                    const name = isDir ? node.name + '/' : node.name;
+                    line(`${perm}  ${size.padEnd(10)} ${name}`);
                 });
             } else {
-                line(items.map((item) => item.filename).join('  '));
+                const names = children.map(n => n.type === 'directory' ? n.name + '/' : n.name);
+                line(names.join('  '));
             }
         }
 
@@ -5835,17 +4646,38 @@ window.RetroApps = (() => {
             }
 
             if (command === 'cd') {
-                const target = args[0] ? args[0].toLowerCase() : '~';
-                if (target === '..') {
-                    if (term.cwd === '~' || term.cwd === 'link-exchange') term.cwd = '~';
-                    else term.cwd = 'link-exchange';
+                const vfs = vfsReady();
+                const target = args[0] || '~';
+                if (target === '..' || target === '..\\' || target === '../') {
+                    if (vfs && term.cwdId) {
+                        const cur = vfs.getNode(term.cwdId);
+                        if (cur && cur.parentId) {
+                            term.cwdId = cur.parentId;
+                            term.cwd = vfs.getNode(cur.parentId).name;
+                        }
+                    } else {
+                        term.cwd = '~';
+                    }
+                } else if (target === '~' || target === '/' || target.toLowerCase() === 'home') {
+                    if (vfs) {
+                        term.cwdId = vfs.getKnownFolder('userProfile');
+                        term.cwd = '~';
+                    } else {
+                        term.cwd = '~';
+                    }
                 } else {
                     const folder = findFolder(target);
                     if (!folder) {
                         line(`cd: no such directory: ${args[0]}`, 'error');
                         return true;
                     }
-                    term.cwd = folder;
+                    if (vfs) {
+                        const node = vfs.getNode(folder);
+                        term.cwdId = folder;
+                        term.cwd = node ? node.name : folder;
+                    } else {
+                        term.cwd = folder;
+                    }
                 }
                 updatePrompt();
                 return true;
@@ -5858,38 +4690,91 @@ window.RetroApps = (() => {
 
             if (command === 'open') {
                 if (!args.length) {
-                    line('open: usage: open <folder|link|readme.txt>', 'error');
+                    line('open: usage: open <file|folder>', 'error');
                     return true;
                 }
                 const target = args.join(' ');
-                const lower = target.toLowerCase();
-                if (lower === 'readme' || lower === 'readme.txt') {
+                const vfs = vfsReady();
+                if (!vfs) {
+                    line('open: filesystem not available', 'error');
+                    return true;
+                }
+                if (term.cwdId) {
+                    const children = vfs.getChildren(term.cwdId);
+                    const match = children.find(c => c.name.toLowerCase() === target.toLowerCase());
+                    if (match) {
+                        if (match.type === 'directory') {
+                            openExplorer();
+                            window.navigateExplorer(match.id);
+                            line(`opened ${match.name} in Explorer`, 'success');
+                        } else {
+                            openExplorer();
+                            window.navigateExplorer(match.id);
+                            line(`opened ${match.name}`, 'success');
+                        }
+                        return false;
+                    }
+                }
+                const node = vfs.resolvePath(target) || vfs.resolvePath('C:\\Users\\' + (vfs.username || 'r3d1') + '\\' + target);
+                if (node) {
                     openExplorer();
-                    if (api()) api().openReadme();
-                    line('opened readme.txt in Notepad', 'success');
+                    window.navigateExplorer(node.id);
+                    line(`opened ${node.name}`, 'success');
                     return false;
                 }
-                const folder = findFolder(lower);
+                const folder = findFolder(target.toLowerCase());
                 if (folder) {
                     openExplorer();
-                    if (api()) api().navigate(folder === '~' ? 'link-exchange' : folder);
-                    line(`opened ${folder === '~' ? 'link-exchange' : folder} in Explorer`, 'success');
+                    window.navigateExplorer(folder);
+                    line(`opened in Explorer`, 'success');
                     return false;
                 }
-                if (!api()) {
-                    line('open: Explorer is not available', 'error');
-                    return true;
-                }
-                const result = api().openLink(target);
-                if (result.ok) {
-                    line(`opening ${result.item.name} — ${result.item.target}`, 'success');
-                    return true;
-                }
-                if (result.reason === 'pending') {
-                    line(`TARGET MISSING — ${result.item.name} has no destination yet`, 'error');
-                    return true;
-                }
                 line(`open: not found: ${target}`, 'error');
+                return true;
+            }
+
+            if (command === 'mkdir') {
+                const dirName = args.join(' ');
+                if (!dirName) {
+                    line('mkdir: usage: mkdir <name>', 'error');
+                    return true;
+                }
+                const vfs = vfsReady();
+                if (!vfs || !term.cwdId) {
+                    line('mkdir: filesystem not available', 'error');
+                    return true;
+                }
+                vfs.createDirectory(term.cwdId, dirName).then(() => {
+                    line(`created directory: ${dirName}`, 'success');
+                }).catch(err => {
+                    line(`mkdir: ${err.message}`, 'error');
+                });
+                return true;
+            }
+
+            if (command === 'cat') {
+                const fileName = args.join(' ');
+                if (!fileName) {
+                    line('cat: usage: cat <file>', 'error');
+                    return true;
+                }
+                const vfs = vfsReady();
+                if (!vfs || !term.cwdId) {
+                    line('cat: filesystem not available', 'error');
+                    return true;
+                }
+                const children = vfs.getChildren(term.cwdId);
+                const match = children.find(c => c.name.toLowerCase() === fileName.toLowerCase() && c.type === 'file');
+                if (!match) {
+                    line(`cat: no such file: ${fileName}`, 'error');
+                    return true;
+                }
+                vfs.readFile(match.id).then(content => {
+                    const text = content.kind === 'text' ? content.value : '(binary content)';
+                    text.split('\n').forEach(l => line(l));
+                }).catch(err => {
+                    line(`cat: ${err.message}`, 'error');
+                });
                 return true;
             }
 
@@ -6086,10 +4971,10 @@ window.RetroApps = (() => {
                 kind: 'app',
                 app: 'explorer',
                 title: 'Explorer',
-                subtitle: 'Browse link-exchange, folders, and files',
+                subtitle: 'Browse Windows Virtual Filesystem',
                 icon: '▣',
                 type: 'APP',
-                keywords: 'files file manager link exchange explorer'
+                keywords: 'files file manager virtual filesystem explorer'
             },
             {
                 id: 'app-terminal',
@@ -6110,19 +4995,18 @@ window.RetroApps = (() => {
                 icon: '♪',
                 type: 'APP',
                 keywords: 'music audio player playlist r3d1bruh fm'
+            },
+            {
+                id: 'app-programs',
+                kind: 'app',
+                app: 'programs',
+                title: 'Programs',
+                subtitle: 'Open the program shelf',
+                icon: '\u25A6',
+                type: 'APP',
+                keywords: 'programs apps launcher software minesweeper paint solitaire calculator'
             }
         ];
-
-        items.push({
-            id: 'app-programs',
-            kind: 'app',
-            app: 'programs',
-            title: 'Programs',
-            subtitle: 'Open the program shelf',
-            icon: '\u25A6',
-            type: 'APP',
-            keywords: 'programs apps launcher software minesweeper paint solitaire calculator flowerbox notepad pinball pipes sound recorder winamp'
-        });
 
         const programs = window.RetroApps ? window.RetroApps.list() : [];
         programs.forEach((program) => {
@@ -6138,47 +5022,53 @@ window.RetroApps = (() => {
             });
         });
 
-        const api = window.linkExchangeApp;
-        if (!api) return items;
+        const vfs = window.VFS;
+        if (vfs && vfs.nodes) {
+            // Index known folders
+            const known = [
+                { name: 'This PC', id: 'root', icon: '▣', desc: 'System Root' },
+                { name: 'Recycle Bin', id: '__recycle__', icon: '🗑', desc: 'Deleted files and folders' }
+            ];
+            const kf = vfs.knownFolders || {};
+            if (kf.desktop) known.push({ name: 'Desktop', id: kf.desktop, icon: '📁', desc: 'Desktop folder' });
+            if (kf.documents) known.push({ name: 'Documents', id: kf.documents, icon: '📁', desc: 'Documents folder' });
+            if (kf.downloads) known.push({ name: 'Downloads', id: kf.downloads, icon: '📁', desc: 'Downloads folder' });
+            if (kf.music) known.push({ name: 'Music', id: kf.music, icon: '📁', desc: 'Music folder' });
+            if (kf.pictures) known.push({ name: 'Pictures', id: kf.pictures, icon: '📁', desc: 'Pictures folder' });
+            if (kf.videos) known.push({ name: 'Videos', id: kf.videos, icon: '📁', desc: 'Videos folder' });
 
-        const links = api.getLinks();
-        api.getFolders().forEach((folder) => {
-            items.push({
-                id: `folder-${folder.view}`,
-                kind: 'folder',
-                view: folder.view,
-                title: folder.name,
-                subtitle: `${folder.target} · ${folder.note}`,
-                icon: '▸',
-                type: 'FOLDER',
-                keywords: `${folder.name} ${folder.view} ${folder.note} folder`
+            known.forEach(k => {
+                items.push({
+                    id: `vfs-known-${k.id}`,
+                    kind: 'vfs',
+                    nodeId: k.id,
+                    title: k.name,
+                    subtitle: k.desc,
+                    icon: k.icon,
+                    type: 'SYSTEM',
+                    keywords: `${k.name} folder known system vfs`
+                });
             });
-        });
 
-        items.push({
-            id: 'file-readme',
-            kind: 'file',
-            file: 'readme',
-            title: 'readme.txt',
-            subtitle: 'About this site and this prototype',
-            icon: '▤',
-            type: 'FILE',
-            keywords: 'readme text notes about local'
-        });
-
-        links.forEach((item) => {
-            items.push({
-                id: `link-${item.name}`,
-                kind: 'link',
-                link: item.name,
-                title: item.name,
-                subtitle: item.pending ? `No destination yet · ${item.category}` : `${item.target} · ${item.category}`,
-                icon: item.icon,
-                type: item.pending ? 'MISSING' : 'LINK',
-                pending: item.pending,
-                keywords: `${item.name} ${item.filename} ${item.category} ${item.target} ${item.note || ''} ${item.pending ? 'missing unavailable' : 'open'}`
-            });
-        });
+            // Index all active non-hidden, non-recycled VFS nodes
+            for (const node of vfs.nodes.values()) {
+                if (node.id === 'root' || node.parentId === '__recycle__' || (node.attributes && node.attributes.hidden)) {
+                    continue;
+                }
+                const path = vfs.getPath(node.id) || node.name;
+                const isDir = node.type === 'directory';
+                items.push({
+                    id: `vfs-node-${node.id}`,
+                    kind: 'vfs',
+                    nodeId: node.id,
+                    title: node.name,
+                    subtitle: path,
+                    icon: isDir ? '📁' : '📄',
+                    type: isDir ? 'FOLDER' : (node.extension ? node.extension.toUpperCase() : 'FILE'),
+                    keywords: `${node.name} ${node.extension || ''} ${path} ${isDir ? 'folder directory' : 'file document'} vfs`
+                });
+            }
+        }
 
         return items;
     }
@@ -6300,11 +5190,6 @@ window.RetroApps = (() => {
 
     function launchSearchItem(item) {
         if (!item) return;
-        if (item.kind === 'link' && item.pending) {
-            toast(`TARGET MISSING — ${item.title} has no destination yet`, 3200);
-            return;
-        }
-
         closeSearch(false);
 
         if (item.kind === 'app') {
@@ -6321,9 +5206,33 @@ window.RetroApps = (() => {
             return;
         }
 
+        if (item.kind === 'vfs' || item.nodeId) {
+            const vfs = window.VFS;
+            if (vfs) {
+                if (item.nodeId === '__recycle__') {
+                    openRecycleBin();
+                    return;
+                }
+                const node = vfs.getNode(item.nodeId);
+                if (node) {
+                    if (node.type === 'directory' || node.id === 'root') {
+                        openExplorer(node.id);
+                    } else {
+                        openExplorer(node.parentId);
+                        if (typeof window.openVfsNode === 'function') {
+                            window.openVfsNode(node);
+                        }
+                    }
+                    toast(`OPENING ${item.title.toUpperCase()}`, 1600);
+                    return;
+                }
+            }
+            openExplorer(item.nodeId);
+            return;
+        }
+
         if (item.kind === 'folder') {
-            openExplorer();
-            if (window.linkExchangeApp) window.linkExchangeApp.navigate(item.view);
+            openExplorer(item.view);
             return;
         }
 
@@ -6651,7 +5560,14 @@ window.RetroApps = (() => {
         syncWallpaperMotion();
     });
 
-})();
+    if (window.ProfileState && window.ProfileState.desktop &&
+        window.ProfileState.desktop.wallpaperPaused) {
+        wallpaperPaused = true;
+        if (wallpaperToggle) wallpaperToggle.setAttribute('aria-pressed', 'true');
+    }
+}).catch(function (error) {
+    console.error('[Shell] Boot failed', error);
+});
 </script>
 <script src="./custom-cursor.js" defer></script>
 </body>
