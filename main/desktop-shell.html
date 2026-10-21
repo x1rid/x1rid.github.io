@@ -2532,7 +2532,7 @@
         <span class="icon-label">My Computer</span>
     </button>
 
-    <button class="desktop-icon" onclick="openRecycleBin()" aria-label="Recycle Bin" title="Recycle Bin">
+    <button class="desktop-icon" onclick="openRecycleBin()" ondblclick="openRecycleBin()" aria-label="Recycle Bin" title="Recycle Bin">
         <span class="trash-icon" aria-hidden="true"></span>
         <span class="icon-label">Recycle Bin</span>
     </button>
@@ -2840,7 +2840,8 @@
         dev:         { view: 'dev',         note: 'Dev links' },
         play:        { view: 'play',        note: 'Play links' },
         unavailable: { view: 'unavailable', note: 'Shortcuts with no destination yet' },
-        'my-computer': { view: 'my-computer', note: 'System drives and folders' }
+        'my-computer': { view: 'my-computer', note: 'System drives and folders' },
+        'recycle-bin': { view: 'recycle-bin', note: 'Deleted items' }
     };
 
     const FOLDER_ORDER = ['all', 'social', 'dev', 'play', 'unavailable'];
@@ -2958,6 +2959,7 @@
         if (view === 'all') return LINKS.length;
         if (view === 'unavailable') return LINKS.filter(isPending).length;
         if (view === 'my-computer') return 6;
+        if (view === 'recycle-bin') return 2;
         return LINKS.filter((link) => link.category === view).length;
     }
 
@@ -3014,6 +3016,12 @@
                 { key: 'mc:z', kind: 'folder', view: 'dev', isFolder: true, name: 'Dora (Z:)', filename: 'Z:', base: 'Z:', ext: '', type: 'Folder', target: 'Dora', status: '--', note: 'gallery / app', pending: false, icon: null, data: null },
                 { key: 'mc:a', kind: 'folder', view: 'all', isFolder: true, name: '3½ Floppy (A:)', filename: 'A:', base: 'A:', ext: '', type: 'Folder', target: 'Floppy', status: '--', note: '1.44 MB', pending: false, icon: null, data: null },
                 { key: 'mc:e', kind: 'folder', view: 'all', isFolder: true, name: 'CD-ROM (E:)', filename: 'E:', base: 'E:', ext: '', type: 'Folder', target: 'CD', status: '--', note: 'Desktop Shell', pending: false, icon: null, data: null },
+            ];
+        }
+        if (view === 'recycle-bin') {
+            return [
+                { key: 'bin:1', kind: 'file', name: 'old-draft.md', filename: 'old-draft.md', base: 'old-draft', ext: '.md', type: 'Text', target: 'C:\\', status: 'DELETED', note: 'Deleted 21 Oct 2026', pending: false, isFolder: false, icon: null, data: null },
+                { key: 'bin:2', kind: 'file', name: 'temp-logo-v1.svg', filename: 'temp-logo-v1.svg', base: 'temp-logo-v1', ext: '.svg', type: 'Image', target: 'D:\\', status: 'DELETED', note: 'Deleted 20 Oct 2026', pending: false, isFolder: false, icon: null, data: null },
             ];
         }
         let links = LINKS;
@@ -3182,6 +3190,18 @@
                     <span class="tree-label">My Computer</span>
                     <span class="tree-count">6</span>
                 </div>
+                <div class="tree-row${state.view === 'recycle-bin' ? ' is-selected' : ''}"
+                     role="treeitem"
+                     data-view="recycle-bin"
+                     aria-selected="${state.view === 'recycle-bin'}"
+                     tabindex="${state.view === 'recycle-bin' ? '0' : '-1'}"
+                     title="recycle-bin — 2 deleted"
+                     style="--depth:1">
+                    <span class="twisty" aria-hidden="true"></span>
+                    <span class="folder-icon${state.view === 'recycle-bin' ? ' is-open' : ''}" aria-hidden="true"></span>
+                    <span class="tree-label">Recycle Bin</span>
+                    <span class="tree-count">2</span>
+                </div>
                 ${special('&gt;_', 'terminal')}
                 ${special('▤', 'neofetch')}
                 ${special('▦', 'pages')}
@@ -3190,10 +3210,10 @@
 
     function renderBreadcrumbs() {
         const crumbs = [];
-        if (state.view === 'my-computer') {
+        if (state.view === 'my-computer' || state.view === 'recycle-bin') {
             crumbs.push(`<button class="crumb" type="button" data-crumb="link-exchange">r3d1bruh://</button>`);
             crumbs.push(`<span class="crumb-sep" aria-hidden="true">\\</span>`);
-            crumbs.push(`<span class="crumb is-current">My Computer</span>`);
+            crumbs.push(`<span class="crumb is-current">${state.view === 'my-computer' ? 'My Computer' : 'Recycle Bin'}</span>`);
         } else {
             crumbs.push(`<button class="crumb" type="button" data-crumb="link-exchange">r3d1bruh://</button>`);
             crumbs.push(`<span class="crumb-sep" aria-hidden="true">\\</span>`);
@@ -5015,51 +5035,13 @@ window.RetroApps = (() => {
     }
 
     function openRecycleBin() {
-        const winId = 'recycle-bin';
-        const existing = windows.get(winId);
-        if (existing && !existing.closed) {
+        const win = windows.get('explorer');
+        if (win && !win.closed) {
             clearShowDesktopState();
-            if (existing.minimized) restoreWindow(winId);
-            else focusWindow(winId, true);
-            return existing;
+            if (win.minimized) restoreWindow('explorer');
+            else focusWindow('explorer', true);
         }
-        const node = document.createElement('section');
-        node.className = 'window recycle-bin-window';
-        node.setAttribute('aria-label', 'Recycle Bin');
-        node.innerHTML = `
-            <header class="titlebar">
-                <span class="program-title-icon" aria-hidden="true">&#9824;</span>
-                <span class="titlebar-title">Recycle Bin</span>
-                <span class="prototype-badge">TRASH</span>
-            </header>
-            <div class="program-app-body program-app-body--frame" tabindex="-1"></div>
-            <footer class="program-statusbar">
-                <span class="program-status-cell">recycle-bin.exe</span>
-                <span class="program-status-cell">IN-HOUSE</span>
-                <span class="program-status-cell program-status-state"><span class="state-dot" aria-hidden="true"></span>LOCAL</span>
-            </footer>
-        `;
-        desktop.appendChild(node);
-        const win = registerWindow(node, {
-            id: winId,
-            appId: 'recycle',
-            title: 'Recycle Bin',
-            taskbarTitle: 'Recycle Bin',
-            icon: '\u9824',
-            minWidth: 420,
-            minHeight: 320,
-            bounds: { top: 120, left: 240, width: 460, height: 380 },
-            focusTarget: '.program-app-body'
-        });
-        const body = node.querySelector('.program-app-body');
-        const frame = document.createElement('iframe');
-        frame.className = 'program-frame';
-        frame.title = 'Recycle Bin';
-        frame.src = './vendor/recycle-bin/index.html';
-        frame.setAttribute('allow', 'autoplay; fullscreen');
-        body.replaceChildren(frame);
-        focusWindow(win.id, true);
-        return win;
+        if (typeof window.navigateExplorer === 'function') window.navigateExplorer('recycle-bin');
     }
     window.openRecycleBin = openRecycleBin;
 
