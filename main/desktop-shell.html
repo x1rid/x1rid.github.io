@@ -3491,6 +3491,8 @@
     }
 
     /* ── Context menu ───────────────────────────────────────── */
+    window.hideContextMenu = hideContextMenu;
+
     function hideContextMenu() {
         contextMenu.hidden = true;
         contextMenu.innerHTML = '';
@@ -5055,6 +5057,39 @@ window.RetroApps = (() => {
         if (typeof window.navigateExplorer === 'function') window.navigateExplorer('my-computer');
     }
     window.openMyComputer = openMyComputer;
+
+    /* ── Global context menu: disable browser menu, use shell menu ─ */
+    document.addEventListener('contextmenu', (e) => {
+        // A specific handler (e.g. Explorer rows) already took over.
+        if (e.defaultPrevented) return;
+        e.preventDefault();
+        const menu = document.getElementById('context-menu');
+        if (!menu) return;
+        const target = e.target.closest('.desktop-icon, .window, .tree-row, .explorer, .desktop, #explorer') || document.body;
+        const isDesktop = target.closest('.desktop-icon') || (target === document.getElementById('desktop'));
+        const isRow = target.closest('.tree-row[data-view]');
+        const isRecycle = target.closest('.desktop-icon[aria-label="Recycle Bin"]');
+        const isMyComp = target.closest('.desktop-icon[aria-label="My Computer"]');
+
+        menu.innerHTML = `
+            <button class="menu-item" onclick="hideContextMenu(); ${isRecycle ? 'openRecycleBin();' : isMyComp ? 'openMyComputer();' : 'openPrograms();'}" role="menuitem"><span class="menu-icon">&#9654;</span> Open <span class="menu-shortcut">Enter</span></button>
+            <div class="menu-sep"></div>
+            <button class="menu-item" onclick="hideContextMenu();" role="menuitem" disabled><span class="menu-icon">&#9998;</span> Rename</button>
+            <button class="menu-item" onclick="hideContextMenu();" role="menuitem" disabled><span class="menu-icon">&#9949;</span> Delete <span class="menu-shortcut">Del</span></button>
+            <div class="menu-sep"></div>
+            <button class="menu-item" onclick="hideContextMenu();" role="menuitem"><span class="menu-icon">&#128736;</span> Refresh</button>
+            <button class="menu-item" onclick="hideContextMenu();" role="menuitem"><span class="menu-icon">&#9881;</span> Properties <span class="menu-shortcut">Alt+Enter</span></button>
+        `;
+        menu.hidden = false;
+        const x = Math.min(e.clientX + 4, window.innerWidth - 230);
+        const y = Math.min(e.clientY + 4, window.innerHeight - 240);
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+    });
+    document.addEventListener('click', () => { const m = document.getElementById('context-menu'); if (m) m.hidden = true; });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const m = document.getElementById('context-menu'); if (m) m.hidden = true; } });
+
+    window.openPrograms = openPrograms;
 
     function openPrograms() {
         const win = windows.get('programs');
