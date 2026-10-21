@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>My Computer — Desktop Shell</title>
+<link rel="stylesheet" href="../../css/variables.css">
+<style>
+:root{--surface-0:#0b061d;--surface-1:#130927;--surface-2:#100721;--line:#4d286b;--line-hi:#6f3a93;--ink-90:#f2eaff;--ink-70:#cda6ff;--ink-50:#8b72b8;--ink-30:#5d4783;--signal-active:#c084fc;}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--surface-0);color:var(--ink-90);font:13px/1.45 'Cascadia Mono','Courier New',monospace}
+body{display:flex;flex-direction:column;padding:14px}
+h1{font-size:14px;font-weight:700;letter-spacing:0.08em;margin:0 0 10px;color:var(--ink-90);border-bottom:1px solid var(--line);padding-bottom:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.drive{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border:1px solid transparent;background:rgba(255,255,255,0.02);border-radius:3px;cursor:pointer;text-align:center;transition:background 80ms,border-color 80ms}
+.drive:hover{border-color:var(--line-hi);background:rgba(192,132,252,0.06)}
+.drive .glyph{width:36px;height:36px;display:grid;place-items:center;font-size:20px;color:var(--signal-active);text-shadow:0 0 6px rgba(192,132,252,0.35)}
+.drive .label{font-size:11px;color:var(--ink-70);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.drive .meta{font-size:9px;color:var(--ink-30);letter-spacing:0.06em}
+</style>
+</head>
+<body>
+<h1>My Computer</h1>
+<div class="grid">
+  <button class="drive" onclick="openExplorer('/')" aria-label="Local Disk C"><span class="glyph">💾</span><span class="label">Local Disk (C:)</span><span class="meta">2.4 GB free</span></button>
+  <button class="drive" onclick="openExplorer('/main')" aria-label="Project Drive"><span class="glyph">📁</span><span class="label">Project (D:)</span><span class="meta">main / src</span></button>
+  <button class="drive" onclick="openExplorer('/l')" aria-label="Links"><span class="glyph">🔗</span><span class="label">Links (L:)</span><span class="meta">link-exchange</span></button>
+  <button class="drive" onclick="openExplorer('/vendor')" aria-label="Vendor"><span class="glyph">📦</span><span class="label">Vendor (V:)</span><span class="meta">98 / jspaint / clippy</span></button>
+  <button class="drive" onclick="openExplorer('/dora')" aria-label="Dora"><span class="glyph">🎭</span><span class="label">Dora (Z:)</span><span class="meta">gallery / app</span></button>
+  <button class="drive" onclick="openExplorer('/')" aria-label="3.5 Floppy"><span class="glyph">💾</span><span class="label">3½ Floppy (A:)</span><span class="meta">1.44 MB</span></button>
+  <button class="drive" onclick="openExplorer('/')" aria-label="CD-ROM"><span class="glyph">💿</span><span class="label">CD-ROM (E:)</span><span class="meta">Desktop Shell</span></button>
+</div>
+<script>
+function openExplorer(p){
+  if(typeof window.navigateExplorer==='function'){ window.navigateExplorer('all'); }
+  else alert('Explorer: '+p);
+}
+</script>
+</body>
+</html>

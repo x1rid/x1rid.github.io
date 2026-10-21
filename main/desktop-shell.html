@@ -1096,6 +1096,107 @@
         box-shadow: inset 0 0 140px 30px rgba(0, 0, 0, 0.55);
     }
 
+    /* ── Desktop icons ──────────────────────────────────────── */
+    .desktop-icon {
+        position: absolute;
+        top: 18px;
+        left: 18px;
+        z-index: 5;
+        width: 76px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 2px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--ink-90);
+        font: 11px/1.3 'Cascadia Mono', 'Courier New', monospace;
+        text-align: center;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .desktop-icon:hover {
+        border-color: var(--line-hi);
+        background: var(--row-hover);
+    }
+
+    .desktop-icon:active { transform: translate(1px, 1px); }
+
+    .desktop-icon:focus-visible {
+        outline: 1px dotted var(--dotted);
+        outline-offset: 1px;
+    }
+
+    .desktop-icon .icon-glyph {
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        font-size: 22px;
+        line-height: 1;
+        color: var(--signal-active);
+        text-shadow: 0 0 8px rgba(192, 132, 252, 0.4);
+    }
+
+    .desktop-icon .pc-icon {
+        width: 28px; height: 28px;
+        position: relative;
+        display: grid; place-items: center;
+        color: var(--signal-active);
+    }
+    .desktop-icon .pc-icon::before {
+        content: '';
+        width: 26px; height: 17px;
+        background: linear-gradient(180deg, #2a1545, #1a0c2e);
+        border: 1px solid var(--line-hi);
+        border-radius: 2px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    .desktop-icon .pc-icon::after {
+        content: '';
+        position: absolute;
+        bottom: 3px;
+        width: 20px; height: 5px;
+        background: var(--line-hi);
+        border: 1px solid var(--line-hi);
+        border-radius: 1px;
+    }
+
+    .desktop-icon .trash-icon {
+        width: 28px; height: 28px;
+        position: relative;
+        display: grid; place-items: center;
+        color: var(--signal-hot);
+        font-size: 14px;
+    }
+    .desktop-icon .trash-icon::before {
+        content: '';
+        width: 22px; height: 16px;
+        background: linear-gradient(180deg, #ff4fd8 60%, #2a1545 60%);
+        border: 1px solid var(--line-hi);
+        border-radius: 2px 2px 0 0;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+    .desktop-icon .trash-icon::after {
+        content: '';
+        position: absolute;
+        top: -3px; left: 5px;
+        width: 12px; height: 4px;
+        background: var(--line-hi);
+        border: 1px solid var(--line-hi);
+        border-radius: 2px;
+    }
+
+    .desktop-icon .icon-label {
+        padding: 1px 3px;
+        background: rgba(11, 6, 29, 0.72);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+
+    .desktop-icon .icon-label:hover { background: var(--row-selected); }
+
     /* ── Windows ────────────────────────────────────────────── */
     .window {
         position: absolute;
@@ -2426,6 +2527,16 @@
     <canvas class="wallpaper" id="wallpaper" aria-hidden="true"></canvas>
     <div class="wallpaper-grid" aria-hidden="true"></div>
 
+    <button class="desktop-icon" onclick="openMyComputer()" ondblclick="openMyComputer()" aria-label="My Computer" title="My Computer" style="left:92px;">
+        <span class="pc-icon" aria-hidden="true"></span>
+        <span class="icon-label">My Computer</span>
+    </button>
+
+    <button class="desktop-icon" onclick="openRecycleBin()" aria-label="Recycle Bin" title="Recycle Bin">
+        <span class="trash-icon" aria-hidden="true"></span>
+        <span class="icon-label">Recycle Bin</span>
+    </button>
+
     <section class="explorer window" id="explorer" aria-label="Link Exchange file manager prototype">
         <header class="titlebar">
             <img class="title-avatar" src="./socials/pfp.webp" alt="" width="20" height="20">
@@ -2728,7 +2839,8 @@
         social:      { view: 'social',      note: 'Social links' },
         dev:         { view: 'dev',         note: 'Dev links' },
         play:        { view: 'play',        note: 'Play links' },
-        unavailable: { view: 'unavailable', note: 'Shortcuts with no destination yet' }
+        unavailable: { view: 'unavailable', note: 'Shortcuts with no destination yet' },
+        'my-computer': { view: 'my-computer', note: 'System drives and folders' }
     };
 
     const FOLDER_ORDER = ['all', 'social', 'dev', 'play', 'unavailable'];
@@ -2845,6 +2957,7 @@
     function countFor(view) {
         if (view === 'all') return LINKS.length;
         if (view === 'unavailable') return LINKS.filter(isPending).length;
+        if (view === 'my-computer') return 6;
         return LINKS.filter((link) => link.category === view).length;
     }
 
@@ -2892,6 +3005,16 @@
     function itemsForView(view) {
         if (view === 'link-exchange') {
             return FOLDER_ORDER.map(folderItem).concat(readmeItem());
+        }
+        if (view === 'my-computer') {
+            return [
+                { key: 'mc:c', kind: 'folder', view: 'all', isFolder: true, name: 'Local Disk (C:)', filename: 'C:', base: 'C:', ext: '', type: 'Folder', target: 'System', status: '--', note: 'Root directory', pending: false, icon: null, data: null },
+                { key: 'mc:d', kind: 'folder', view: 'dev', isFolder: true, name: 'Project (D:)', filename: 'D:', base: 'D:', ext: '', type: 'Folder', target: 'Project', status: '--', note: 'main source', pending: false, icon: null, data: null },
+                { key: 'mc:v', kind: 'folder', view: 'dev', isFolder: true, name: 'Vendor (V:)', filename: 'V:', base: 'V:', ext: '', type: 'Folder', target: 'Vendor', status: '--', note: '98 / webamp / clippy', pending: false, icon: null, data: null },
+                { key: 'mc:z', kind: 'folder', view: 'dev', isFolder: true, name: 'Dora (Z:)', filename: 'Z:', base: 'Z:', ext: '', type: 'Folder', target: 'Dora', status: '--', note: 'gallery / app', pending: false, icon: null, data: null },
+                { key: 'mc:a', kind: 'folder', view: 'all', isFolder: true, name: '3½ Floppy (A:)', filename: 'A:', base: 'A:', ext: '', type: 'Folder', target: 'Floppy', status: '--', note: '1.44 MB', pending: false, icon: null, data: null },
+                { key: 'mc:e', kind: 'folder', view: 'all', isFolder: true, name: 'CD-ROM (E:)', filename: 'E:', base: 'E:', ext: '', type: 'Folder', target: 'CD', status: '--', note: 'Desktop Shell', pending: false, icon: null, data: null },
+            ];
         }
         let links = LINKS;
         if (view === 'unavailable') links = LINKS.filter(isPending);
@@ -3047,6 +3170,18 @@
                 <div class="tree-group" role="group" ${exchangeOpen ? '' : 'hidden'}>
                     ${categoryRows}
                 </div>
+                <div class="tree-row${state.view === 'my-computer' ? ' is-selected' : ''}"
+                     role="treeitem"
+                     data-view="my-computer"
+                     aria-selected="${state.view === 'my-computer'}"
+                     tabindex="${state.view === 'my-computer' ? '0' : '-1'}"
+                     title="my-computer — 6 drives"
+                     style="--depth:1">
+                    <span class="twisty" aria-hidden="true"></span>
+                    <span class="folder-icon${state.view === 'my-computer' ? ' is-open' : ''}" aria-hidden="true"></span>
+                    <span class="tree-label">My Computer</span>
+                    <span class="tree-count">6</span>
+                </div>
                 ${special('&gt;_', 'terminal')}
                 ${special('▤', 'neofetch')}
                 ${special('▦', 'pages')}
@@ -3055,14 +3190,20 @@
 
     function renderBreadcrumbs() {
         const crumbs = [];
-        crumbs.push(`<button class="crumb" type="button" data-crumb="link-exchange">r3d1bruh://</button>`);
-        crumbs.push(`<span class="crumb-sep" aria-hidden="true">\\</span>`);
-        if (state.view === 'link-exchange') {
-            crumbs.push(`<span class="crumb is-current">link-exchange</span>`);
-        } else {
-            crumbs.push(`<button class="crumb" type="button" data-crumb="link-exchange">link-exchange</button>`);
+        if (state.view === 'my-computer') {
+            crumbs.push(`<button class="crumb" type="button" data-crumb="link-exchange">r3d1bruh://</button>`);
             crumbs.push(`<span class="crumb-sep" aria-hidden="true">\\</span>`);
-            crumbs.push(`<span class="crumb is-current">${escapeHtml(state.view)}</span>`);
+            crumbs.push(`<span class="crumb is-current">My Computer</span>`);
+        } else {
+            crumbs.push(`<button class="crumb" type="button" data-crumb="link-exchange">r3d1bruh://</button>`);
+            crumbs.push(`<span class="crumb-sep" aria-hidden="true">\\</span>`);
+            if (state.view === 'link-exchange') {
+                crumbs.push(`<span class="crumb is-current">link-exchange</span>`);
+            } else {
+                crumbs.push(`<button class="crumb" type="button" data-crumb="link-exchange">link-exchange</button>`);
+                crumbs.push(`<span class="crumb-sep" aria-hidden="true">\\</span>`);
+                crumbs.push(`<span class="crumb is-current">${escapeHtml(state.view)}</span>`);
+            }
         }
         breadcrumbs.innerHTML = crumbs.join('');
     }
@@ -3203,6 +3344,17 @@
         render();
         animateList();
     }
+
+    window.navigateExplorer = navigate;
+    window.openExplorer = (path) => {
+        const win = windows.get('explorer');
+        if (win && !win.closed) { focusWindow('explorer', true); }
+        else openPrograms();
+        if (path === '/' || path === '/main') navigate('all');
+        else if (path === '/l') navigate('dev');
+        else if (path === '/vendor') navigate('dev');
+        else navigate('all');
+    };
 
     function navigate(view, push = true) {
         if (!view || view === state.view) return;
@@ -4861,6 +5013,66 @@ window.RetroApps = (() => {
         const status = document.getElementById('programs-status');
         if (status) status.textContent = programs.length ? 'READY' : 'NO PROGRAMS';
     }
+
+    function openRecycleBin() {
+        const winId = 'recycle-bin';
+        const existing = windows.get(winId);
+        if (existing && !existing.closed) {
+            clearShowDesktopState();
+            if (existing.minimized) restoreWindow(winId);
+            else focusWindow(winId, true);
+            return existing;
+        }
+        const node = document.createElement('section');
+        node.className = 'window recycle-bin-window';
+        node.setAttribute('aria-label', 'Recycle Bin');
+        node.innerHTML = `
+            <header class="titlebar">
+                <span class="program-title-icon" aria-hidden="true">&#9824;</span>
+                <span class="titlebar-title">Recycle Bin</span>
+                <span class="prototype-badge">TRASH</span>
+            </header>
+            <div class="program-app-body program-app-body--frame" tabindex="-1"></div>
+            <footer class="program-statusbar">
+                <span class="program-status-cell">recycle-bin.exe</span>
+                <span class="program-status-cell">IN-HOUSE</span>
+                <span class="program-status-cell program-status-state"><span class="state-dot" aria-hidden="true"></span>LOCAL</span>
+            </footer>
+        `;
+        desktop.appendChild(node);
+        const win = registerWindow(node, {
+            id: winId,
+            appId: 'recycle',
+            title: 'Recycle Bin',
+            taskbarTitle: 'Recycle Bin',
+            icon: '\u9824',
+            minWidth: 420,
+            minHeight: 320,
+            bounds: { top: 120, left: 240, width: 460, height: 380 },
+            focusTarget: '.program-app-body'
+        });
+        const body = node.querySelector('.program-app-body');
+        const frame = document.createElement('iframe');
+        frame.className = 'program-frame';
+        frame.title = 'Recycle Bin';
+        frame.src = './vendor/recycle-bin/index.html';
+        frame.setAttribute('allow', 'autoplay; fullscreen');
+        body.replaceChildren(frame);
+        focusWindow(win.id, true);
+        return win;
+    }
+    window.openRecycleBin = openRecycleBin;
+
+    function openMyComputer() {
+        const win = windows.get('explorer');
+        if (win && !win.closed) {
+            clearShowDesktopState();
+            if (win.minimized) restoreWindow('explorer');
+            else focusWindow('explorer', true);
+        }
+        if (typeof window.navigateExplorer === 'function') window.navigateExplorer('my-computer');
+    }
+    window.openMyComputer = openMyComputer;
 
     function openPrograms() {
         const win = windows.get('programs');

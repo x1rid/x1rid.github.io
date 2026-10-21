@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Recycle Bin — Desktop Shell</title>
+<link rel="stylesheet" href="../../css/variables.css">
+<style>
+:root { --surface-0: #0b061d; --surface-1: #130927; --surface-2: #100721; --line: #4d286b; --line-hi: #6f3a93; --ink-90: #f2eaff; --ink-70: #cda6ff; --ink-50: #8b72b8; --ink-30: #5d4783; --signal-active: #c084fc; --signal-hot: #ff4fd8; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; background: var(--surface-0); color: var(--ink-90); font: 13px/1.45 'Cascadia Mono', 'Courier New', monospace; }
+body { display: flex; flex-direction: column; }
+.titlebar { height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: linear-gradient(180deg, #321752, #1b1028); border-bottom: 1px solid var(--line); user-select: none; }
+.title-avatar { width: 18px; height: 18px; background: #2a1545; border: 1px solid var(--line-hi); border-radius: 2px; display: grid; place-items: center; font-size: 10px; color: var(--signal-active); }
+.titlebar-title { font-weight: 700; font-size: 12px; letter-spacing: 0.04em; }
+.toolbar { height: 30px; display: flex; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface-1); }
+.toolbar button { padding: 2px 8px; border: 1px solid transparent; background: transparent; color: var(--ink-70); font: inherit; font-size: 11px; cursor: pointer; }
+.toolbar button:hover { border-color: var(--line-hi); background: rgba(192,132,252,0.06); color: var(--ink-90); }
+.list { flex: 1; overflow: auto; padding: 8px; }
+.item { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-bottom: 1px solid rgba(77,40,107,0.25); }
+.item .icon { width: 16px; height: 14px; background: #c084fc; border: 1px solid #d8b4fe; border-radius: 1px; flex-shrink: 0; }
+.item .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty { padding: 30px; text-align: center; color: var(--ink-30); font-size: 11px; letter-spacing: 0.08em; }
+.statusbar { height: 24px; display: flex; align-items: center; padding: 0 10px; border-top: 1px solid var(--line); background: var(--surface-1); font-size: 10px; color: var(--ink-50); gap: 12px; }
+</style>
+</head>
+<body>
+<div class="titlebar">
+  <div class="title-avatar">&#9824;</div>
+  <div class="titlebar-title">Recycle Bin</div>
+</div>
+<div class="toolbar">
+  <button onclick="emptyTrash()">Empty Bin</button>
+  <button onclick="restoreSelected()">Restore</button>
+  <span style="margin-left:auto;color:var(--ink-30);font-size:10px;">2 objects deleted</span>
+</div>
+<div class="list" id="binList">
+  <div class="item"><div class="icon"></div><div class="name">old-draft.md</div></div>
+  <div class="item"><div class="icon"></div><div class="name">temp-logo-v1.svg</div></div>
+</div>
+<div class="statusbar"><span>2 objects</span><span style="margin-left:auto;">Ready</span></div>
+<script>
+function emptyTrash() { document.getElementById('binList').innerHTML='<div class="empty">Recycle Bin is empty</div>'; }
+function restoreSelected() { document.getElementById('binList').innerHTML='<div class="empty">No selection to restore</div>'; }
+</script>
+</body>
+</html>
