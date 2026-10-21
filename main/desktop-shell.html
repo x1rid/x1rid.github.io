@@ -4140,6 +4140,14 @@ window.RetroApps = (() => {
                 <rect x="2" y="2" width="28" height="28" fill="#07020a" stroke="#6f3a93"></rect>
                 <path d="M13 8l11 8-11 8z" fill="#c084fc" stroke="#f2eaff" stroke-width="0.8"></path>
                 <path d="M8 8v16M25 8v16" stroke="#ff4fd8" stroke-width="1.2"></path>
+            </svg>`,
+        controlpanel: `
+            <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <rect x="2" y="2" width="28" height="28" fill="#07020a" stroke="#6f3a93"></rect>
+                <rect x="7" y="7" width="18" height="18" fill="none" stroke="#c084fc" stroke-width="1.2"></rect>
+                <circle cx="16" cy="16" r="4" fill="#ff4fd8"/>
+                <rect x="13" y="9" width="6" height="2" fill="#55ff99"/>
+                <rect x="13" y="21" width="6" height="2" fill="#55ff99"/>
             </svg>`
     };
 
@@ -4216,6 +4224,29 @@ window.RetroApps = (() => {
                 };
             }
         });
+    });
+
+    /* Control Panel — in-house settings, same plum grammar as the shell. */
+    window.RetroApps.register({
+        id: 'controlpanel',
+        name: 'Control Panel',
+        tagline: 'Appearance, folder options, and desktop settings.',
+        meta: 'SETTINGS \· IN-HOUSE',
+        icon: ICONS.controlpanel,
+        source: 'IN-HOUSE',
+        frame: true,
+        mount(root) {
+            const frame = document.createElement('iframe');
+            frame.className = 'program-frame';
+            frame.title = 'Control Panel';
+            frame.src = './vendor/control-panel/index.html';
+            frame.setAttribute('allow', 'autoplay; fullscreen');
+            root.replaceChildren(frame);
+            return () => {
+                frame.src = 'about:blank';
+                root.replaceChildren();
+            };
+        }
     });
 
     /* JS Paint — dark plum utility theme, aligned with the desktop shell. */

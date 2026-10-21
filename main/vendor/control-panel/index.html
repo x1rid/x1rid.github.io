@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Control Panel — Desktop Shell</title>
+<link rel="stylesheet" href="../../css/variables.css">
+<style>
+:root{--surface-0:#0b061d;--surface-1:#130927;--surface-2:#100721;--line:#4d286b;--line-hi:#6f3a93;--ink-90:#f2eaff;--ink-70:#cda6ff;--ink-50:#8b72b8;--ink-30:#5d4783;--signal-active:#c084fc;--signal-ok:#55ff99;}
+*{box-sizing:border-box}
+html,body{min-height:100%;margin:0;background:var(--surface-0);color:var(--ink-90);font:13px/1.45 'Cascadia Mono','Courier New',monospace}
+body{padding:14px}
+h1{font-size:14px;font-weight:700;letter-spacing:0.08em;margin:0 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.section{margin-bottom:14px;border:1px solid var(--line);background:var(--surface-1);padding:10px}
+.section h2{font-size:11px;text-transform:uppercase;letter-spacing:0.14em;color:var(--ink-50);margin:0 0 8px}
+.row{display:flex;align-items:center;gap:10px;padding:3px 0}
+.row label{flex:1;font-size:11px;color:var(--ink-70)}
+.row input[type="checkbox"]{width:16px;height:16px;accent-color:var(--signal-active);cursor:pointer}
+.btn{min-width:74px;padding:3px 8px;border:1px solid var(--line-hi);background:var(--surface-2);color:var(--ink-90);font:700 11px inherit;cursor:pointer;box-shadow:inset 1px 1px 0 var(--bevel-light),inset -1px -1px 0 var(--bevel-dark)}
+.btn:hover{border-color:var(--signal-active);color:var(--signal-active)}
+.status{margin-top:8px;padding:6px 8px;border:1px solid var(--line);font-size:11px;color:var(--ink-50)}
+.theme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
+.theme-btn{padding:6px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-70);font:inherit;font-size:10px;cursor:pointer}
+.theme-btn:hover,.theme-btn.active{border-color:var(--signal-active);background:rgba(192,132,252,0.12);color:var(--ink-90)}
+</style>
+</head>
+<body>
+<h1>Control Panel — System Settings</h1>
+
+<div class="section">
+  <h2>Appearance</h2>
+  <div class="row"><label>Show hidden files</label><input type="checkbox" id="showHidden" checked></div>
+  <div class="row"><label>Classic folder view</label><input type="checkbox" id="classicFolders"></div>
+  <div class="row"><label>Show wallpaper grid</label><input type="checkbox" id="showGrid" checked></div>
+  <div class="theme-grid">
+    <button class="theme-btn active" onclick="setTheme('purple', this)">Desktop Plum</button>
+    <button class="theme-btn" onclick="setTheme('dark', this)">Midnight</button>
+    <button class="theme-btn" onclick="setTheme('modern', this)">Modern Light</button>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Desktop</h2>
+  <div class="row"><label>Desktop icons visible</label><input type="checkbox" id="iconsVisible" checked></div>
+  <button class="btn" onclick="applyChanges()">Apply</button>
+  <div class="status" id="status">Ready — changes apply immediately.</div>
+</div>
+
+<div class="section">
+  <h2>About</h2>
+  <p style="font-size:11px;color:var(--ink-50);margin:0">Desktop Shell v0.1 — r3d1bruh · Purple Explorer prototype · Built for the web.</p>
+</div>
+
+<script>
+function applyChanges() {
+  const s = document.getElementById('status');
+  s.textContent = 'Settings applied — desktop shell updated.';
+  s.style.color = 'var(--signal-ok)';
+}
+function setTheme(name, btn) {
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>
