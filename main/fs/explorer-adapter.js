@@ -646,7 +646,7 @@
             // Right click on empty directory space
             const hasPaste = fileClipboard !== null;
             menuHtml += `
-                <button class="menu-item" type="button" role="menuitem" data-action="new-folder"><span class="menu-icon" aria-hidden="true">📁</span>New Folder</button>
+                <button class="menu-item" type="button" role="menuitem" data-action="new-folder"><span class="menu-icon" aria-hidden="true">📁</span>New Folder<span class="menu-shortcut">Ctrl+Alt+N</span></button>
                 <button class="menu-item" type="button" role="menuitem" data-action="new-file"><span class="menu-icon" aria-hidden="true">📄</span>New Text Document</button>
                 <div class="menu-sep" role="separator"></div>
                 <button class="menu-item" type="button" role="menuitem" data-action="paste" ${hasPaste ? '' : 'disabled'}><span class="menu-icon" aria-hidden="true">📋</span>Paste<span class="menu-shortcut">Ctrl+V</span></button>
@@ -1151,68 +1151,163 @@
         });
     }
 
-    /* ── Global Key Shortcuts ───────────────────────────────── */
+    /* ── Keyboard shortcuts (central service) ──────────────── */
 
-    document.addEventListener('keydown', (e) => {
-        if (window.ProfileUI && typeof window.ProfileUI.isLocked === 'function' &&
-            window.ProfileUI.isLocked()) {
-            return;
+    function openSelectedNode() {
+        if (!state.selected) return false;
+        if (state.selected === '__recycle__') {
+            navigate('__recycle__');
+            return true;
         }
+        const vfs = getVfs();
+        if (vfs) openNode(vfs.getNode(state.selected));
+        return true;
+    }
 
-        if (e.key === 'Escape') {
-            hideContextMenu();
-            closeDialog();
-        }
+    if (window.ShortcutService) {
+        const shortcuts = window.ShortcutService;
+        const register = (spec) => shortcuts.register(spec);
 
-        // Explorer specific keybindings
-        const activeWindow = document.body.dataset.activeWindow;
-        if (activeWindow && activeWindow !== 'explorer') return;
-
-        const inInput = e.target instanceof Element && e.target.matches('input, textarea');
-        if (inInput) return;
-
-        if (e.key === 'F2' && state.selected) {
-            e.preventDefault();
-            state.renamingId = state.selected;
-            renderList();
-        } else if (e.key === 'Delete' && state.selected) {
-            e.preventDefault();
-            if (e.shiftKey) {
-                handleFileAction('perm-delete', state.selected);
-            } else {
-                handleFileAction('delete', state.selected);
+        register({
+            id: 'explorer.dismiss',
+            keys: 'Escape',
+            context: 'explorer',
+            priority: 70,
+            description: 'Close Explorer menus/dialogs',
+            handler: () => {
+                hideContextMenu();
+                closeDialog();
             }
-        } else if (e.ctrlKey && e.key.toLowerCase() === 'c' && state.selected) {
-            e.preventDefault();
-            handleFileAction('copy', state.selected);
-        } else if (e.ctrlKey && e.key.toLowerCase() === 'x' && state.selected) {
-            e.preventDefault();
-            handleFileAction('cut', state.selected);
-        } else if (e.ctrlKey && e.key.toLowerCase() === 'v') {
-            e.preventDefault();
-            handleFileAction('paste', null);
-        } else if (e.altKey && e.key === 'ArrowLeft') {
-            e.preventDefault();
-            goBack();
-        } else if (e.altKey && e.key === 'ArrowRight') {
-            e.preventDefault();
-            goForward();
-        } else if (e.key === 'Backspace') {
-            e.preventDefault();
-            goUp();
-        } else if (e.altKey && e.key === 'Enter' && state.selected) {
-            e.preventDefault();
-            handleFileAction('properties', state.selected);
-        } else if (e.key === 'Enter' && state.selected) {
-            e.preventDefault();
-            if (state.selected === '__recycle__') {
-                navigate('__recycle__');
-            } else {
-                const vfs = getVfs();
-                if (vfs) openNode(vfs.getNode(state.selected));
+        });
+
+        register({
+            id: 'explorer.rename',
+            keys: 'F2',
+            context: 'explorer',
+            priority: 60,
+            description: 'Rename selected item',
+            handler: () => {
+                if (!state.selected) return false;
+                state.renamingId = state.selected;
+                renderList();
             }
-        }
-    });
+        });
+
+        register({
+            id: 'explorer.delete',
+            keys: 'Delete',
+            context: 'explorer',
+            priority: 60,
+            description: 'Delete selected item',
+            handler: (event) => {
+                if (!state.selected) return false;
+                handleFileAction(event.shiftKey ? 'perm-delete' : 'delete', state.selected);
+            }
+        });
+
+        register({
+            id: 'explorer.copy',
+            keys: 'Ctrl+C',
+            context: 'explorer',
+            priority: 60,
+            description: 'Copy selected item',
+            handler: () => {
+                if (!state.selected) return false;
+                handleFileAction('copy', state.selected);
+            }
+        });
+
+        register({
+            id: 'explorer.cut',
+            keys: 'Ctrl+X',
+            context: 'explorer',
+            priority: 60,
+            description: 'Cut selected item',
+            handler: () => {
+                if (!state.selected) return false;
+                handleFileAction('cut', state.selected);
+            }
+        });
+
+        register({
+            id: 'explorer.paste',
+            keys: 'Ctrl+V',
+            context: 'explorer',
+            priority: 60,
+            description: 'Paste into current folder',
+            handler: () => {
+                handleFileAction('paste', null);
+            }
+        });
+
+        register({
+            id: 'explorer.back',
+            keys: 'Alt+ArrowLeft',
+            context: 'explorer',
+            priority: 55,
+            description: 'Explorer back',
+            handler: () => {
+                goBack();
+            }
+        });
+
+        register({
+            id: 'explorer.forward',
+            keys: 'Alt+ArrowRight',
+            context: 'explorer',
+            priority: 55,
+            description: 'Explorer forward',
+            handler: () => {
+                goForward();
+            }
+        });
+
+        register({
+            id: 'explorer.up',
+            keys: 'Backspace',
+            context: 'explorer',
+            priority: 55,
+            description: 'Explorer up one folder',
+            handler: () => {
+                goUp();
+            }
+        });
+
+        register({
+            id: 'explorer.properties',
+            keys: 'Alt+Enter',
+            context: 'explorer',
+            priority: 55,
+            description: 'Selected item properties',
+            handler: () => {
+                if (!state.selected) return false;
+                handleFileAction('properties', state.selected);
+            }
+        });
+
+        register({
+            id: 'explorer.open',
+            keys: 'Enter',
+            context: 'explorer',
+            priority: 55,
+            description: 'Open selected item',
+            handler: openSelectedNode
+        });
+
+        register({
+            id: 'explorer.new-folder',
+            keys: 'Ctrl+Alt+N',
+            context: 'explorer',
+            priority: 55,
+            description: 'New folder in current location',
+            handler: () => {
+                if (!state.currentId || state.currentId === 'root' || state.currentId === '__recycle__') {
+                    return false;
+                }
+                handleFileAction('new-folder', null);
+            }
+        });
+    }
 
     document.addEventListener('click', (e) => {
         if (contextMenu && !contextMenu.hidden && !contextMenu.contains(e.target)) {

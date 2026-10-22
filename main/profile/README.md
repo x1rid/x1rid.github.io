@@ -261,8 +261,6 @@ db.putState = original;
 
 ## Remaining work
 
-- The window manager still uses its own localStorage keys for a few window
-  positions; wire them into `state.windows` if geometry persistence is wanted.
 - Control Panel theme buttons are cosmetic; `state.settings.theme` is stored but
   only one theme ships.
 - Multi-tab writes are last-write-wins per profile (documented above).

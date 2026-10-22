@@ -31,6 +31,7 @@ main/               → the retro homepage
     terminal.js     → fake terminal + windows/webpage in-page browsing
     iframe-policy.js→ framing policy for the page pane (known blocked hosts)
     chrome.js       → status rail, public page-view counter, focused-window state
+    shortcuts.js    → centralized context-aware keyboard shortcut service
     mobile.js       → phone shell controller (<=600px): tab bar, pages mirror,
                       terminal key strip, virtual-keyboard geometry
     assets/         → pixel cursor sprites + classic cursor GIFs
@@ -251,6 +252,85 @@ the site's own tokens. They are inspired by, not copied from, these projects:
 No upstream source is vendored. The Programs app files live in `main/apps/` and
 register through the shell's `window.RetroApps` contract; `main/apps.css` holds
 their shared skin.
+
+## Keyboard shortcuts
+
+`main/shortcuts.js` is the single keyboard router for the desktop shell. It
+installs one capture-phase `keydown` listener and exposes
+`window.ShortcutService`; Explorer, the inline terminal, Start, the window
+manager, and the lock screen register their shell shortcuts through it instead
+of adding competing document listeners.
+
+### Shell and windows
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+Escape` | Open or close Start search |
+| `Ctrl+Alt+D` | Show the desktop / restore windows |
+| `Alt+PageDown` / `Alt+PageUp` | Focus the next / previous simulator window |
+| `Alt+W` | Close the active simulator window |
+| `Ctrl+Alt+L` | Lock the desktop (root shell) |
+
+### Start search
+
+| Shortcut | Action |
+| --- | --- |
+| `ArrowDown` / `ArrowUp` | Move through results |
+| `Enter` | Launch the active result |
+| `Escape` | Close search |
+
+### Explorer
+
+| Shortcut | Action |
+| --- | --- |
+| `F2` | Rename the selected item |
+| `Delete` / `Shift+Delete` | Recycle / permanently delete the selected item |
+| `Ctrl+C`, `Ctrl+X`, `Ctrl+V` | Copy, cut, paste |
+| `Alt+Left` / `Alt+Right` | Back / forward |
+| `Backspace` | Up one folder |
+| `Alt+Enter` | Selected item properties |
+| `Enter` | Open the selected item |
+| `Ctrl+Alt+N` | New folder in the current folder |
+
+### Terminal and lock screen
+
+| Shortcut | Action |
+| --- | --- |
+| `ArrowUp` / `ArrowDown` | Previous / next terminal command |
+| `Ctrl+L` | Clear terminal output |
+| `Enter` / `Space` | Unlock the guest desktop |
+
+`Ctrl+Escape`, `Ctrl+Alt+D`, `Ctrl+Alt+L`, and OS-level combinations may be
+captured by the host operating system or browser on some platforms; the
+simulator cannot guarantee delivery. It deliberately does not register global
+`Ctrl+W`, `Ctrl+T`, `Ctrl+L`, `Ctrl+R`, `F5`, `Alt+Tab`, or `Alt+F4`. Explorer's
+`Alt+Left`/`Alt+Right` and `Backspace` are scoped to Explorer and Terminal's
+`Ctrl+L` is scoped to the terminal input. Explorer shortcuts are ignored while a
+text field is focused, and the lock-screen Enter/Space shortcut is ignored while
+the owner password prompt is open.
+
+### Service API
+
+```js
+const remove = ShortcutService.register({
+  id: 'my-app.action',
+  keys: ['Ctrl+Alt+K'],
+  context: ['app'],
+  priority: 50,
+  allowInEditable: false,
+  handler: (event, contexts) => { /* ... */ }
+});
+
+ShortcutService.setContext('app', true);
+ShortcutService.diagnostics(); // registrations, active contexts, conflicts
+remove();
+```
+
+Contexts in use are `global`, `unlocked`, `locked`, `start`, `explorer`,
+`terminal`, `window`, `app`, and `editable`. A registration matches when any of
+its contexts is active. Higher `priority` wins; duplicate key/context
+registrations are reported through `diagnostics()` and a console warning.
+Return `false` from a handler to leave the browser default alone.
 
 ## Development
 

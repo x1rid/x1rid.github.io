@@ -2553,6 +2553,7 @@
     <script src="./fs/init.js?v=20261028"></script>
     <script src="./profile/boot.js?v=20261028"></script>
     <script src="./profile/profile-ui.js?v=20261104"></script>
+    <script src="./shortcuts.js?v=20261105"></script>
 </head>
 <body>
 <div class="desktop" id="desktop" role="main" aria-label="Desktop">
@@ -2811,7 +2812,7 @@
     </div>
 </div>
 
-<script src="./fs/explorer-adapter.js?v=20261102"></script>
+<script src="./fs/explorer-adapter.js?v=20261105"></script>
 <script>
 /* ---------------------------------------------------------------------------
  *  Programs registry for the desktop shell.
@@ -3121,6 +3122,8 @@ window.ProfileReady.then(() => {
     let zCounter = 10;
     let activeWindowId = null;
     let terminalCount = 0;
+    const terminalSessions = new Map();
+    let shellShortcutsRegistered = false;
     let toastTimer = 0;
     let showDesktopState = null;
     let searchItems = [];
@@ -4559,6 +4562,11 @@ window.ProfileReady.then(() => {
             historyIndex: 0
         };
 
+        terminalSessions.set(win.id, { term, input, output, node });
+        win.onClose = function() {
+            terminalSessions.delete(win.id);
+        };
+
         const vfsReady = () => window.VFS;
         const categories = ['all', 'social', 'dev', 'play', 'unavailable'];
 
@@ -5016,25 +5024,7 @@ window.ProfileReady.then(() => {
         });
 
         input.addEventListener('keydown', (event) => {
-            if (event.key === 'ArrowUp') {
-                event.preventDefault();
-                if (!term.history.length) return;
-                term.historyIndex = Math.max(0, term.historyIndex - 1);
-                input.value = term.history[term.historyIndex] || '';
-            } else if (event.key === 'ArrowDown') {
-                event.preventDefault();
-                if (!term.history.length) return;
-                if (term.historyIndex >= term.history.length - 1) {
-                    term.historyIndex = term.history.length;
-                    input.value = '';
-                } else {
-                    term.historyIndex += 1;
-                    input.value = term.history[term.historyIndex] || '';
-                }
-            } else if (event.ctrlKey && event.key.toLowerCase() === 'l') {
-                event.preventDefault();
-                output.textContent = '';
-            } else if (event.ctrlKey && event.key.toLowerCase() === 'c') {
+            if (event.ctrlKey && event.key.toLowerCase() === 'c') {
                 event.preventDefault();
                 printCommand(promptText(), `${input.value}^C`);
                 input.value = '';
@@ -5567,6 +5557,8 @@ window.ProfileReady.then(() => {
     });
 
     startInput.addEventListener('keydown', (event) => {
+        // The central ShortcutService owns these keys when it is available.
+        if (window.ShortcutService) return;
         if (event.key === 'ArrowDown') {
             event.preventDefault();
             event.stopPropagation();
@@ -5593,6 +5585,7 @@ window.ProfileReady.then(() => {
     }, true);
 
     document.addEventListener('keydown', (event) => {
+        if (window.ShortcutService) return;
         if (!startMenu.hidden && event.key === 'Escape') {
             event.preventDefault();
             closeSearch(true);
@@ -5685,6 +5678,207 @@ window.ProfileReady.then(() => {
         wallpaperPaused = true;
         if (wallpaperToggle) wallpaperToggle.setAttribute('aria-pressed', 'true');
     }
+
+    function activeTerminalSession() {
+        const focused = document.activeElement;
+        const node = focused && focused.closest ? focused.closest('.window') : null;
+        if (node && terminalSessions.has(node.id)) return terminalSessions.get(node.id);
+        if (activeWindowId && terminalSessions.has(activeWindowId)) {
+            return terminalSessions.get(activeWindowId);
+        }
+        return null;
+    }
+
+    function cycleWindow(direction) {
+        const ordered = Array.from(windows.values()).filter((win) => !win.closed);
+        if (!ordered.length) return false;
+        ordered.sort((a, b) => Number(a.node.style.zIndex || 0) - Number(b.node.style.zIndex || 0));
+
+        let index = ordered.findIndex((win) => win.id === activeWindowId);
+        if (index === -1) index = direction > 0 ? -1 : 0;
+        const target = ordered[(index + direction + ordered.length) % ordered.length];
+        if (!target) return false;
+        if (target.minimized) restoreWindow(target.id);
+        focusWindow(target.id, true);
+        return true;
+    }
+
+    function registerShellShortcuts() {
+        if (shellShortcutsRegistered || !window.ShortcutService) return;
+        shellShortcutsRegistered = true;
+
+        const shortcuts = window.ShortcutService;
+        const register = (spec) => shortcuts.register(spec);
+
+        register({
+            id: 'shell.start',
+            keys: 'Ctrl+Escape',
+            context: 'global',
+            priority: 80,
+            allowInEditable: true,
+            description: 'Toggle Start search',
+            handler: () => {
+                if (startMenu.hidden) openSearch();
+                else closeSearch(true);
+            }
+        });
+
+        register({
+            id: 'start.previous',
+            keys: 'ArrowUp',
+            context: 'start',
+            priority: 90,
+            allowInEditable: true,
+            repeat: true,
+            description: 'Previous Start result',
+            handler: () => {
+                setActiveSearchIndex(searchActiveIndex - 1);
+            }
+        });
+
+        register({
+            id: 'start.next',
+            keys: 'ArrowDown',
+            context: 'start',
+            priority: 90,
+            allowInEditable: true,
+            repeat: true,
+            description: 'Next Start result',
+            handler: () => {
+                setActiveSearchIndex(searchActiveIndex + 1);
+            }
+        });
+
+        register({
+            id: 'start.launch',
+            keys: 'Enter',
+            context: 'start',
+            priority: 95,
+            allowInEditable: true,
+            description: 'Launch active Start result',
+            handler: () => {
+                if (searchActiveIndex >= 0) launchSearchItem(searchItems[searchActiveIndex]);
+            }
+        });
+
+        register({
+            id: 'start.close',
+            keys: 'Escape',
+            context: 'start',
+            priority: 95,
+            allowInEditable: true,
+            description: 'Close Start search',
+            handler: () => {
+                closeSearch(true);
+            }
+        });
+
+        register({
+            id: 'shell.show-desktop',
+            keys: 'Ctrl+Alt+D',
+            context: 'unlocked',
+            priority: 70,
+            allowInEditable: true,
+            description: 'Show or restore the desktop',
+            handler: () => {
+                toggleShowDesktop();
+            }
+        });
+
+        register({
+            id: 'shell.next-window',
+            keys: 'Alt+PageDown',
+            context: 'unlocked',
+            priority: 65,
+            allowInEditable: true,
+            description: 'Focus next simulator window',
+            handler: () => cycleWindow(1)
+        });
+
+        register({
+            id: 'shell.previous-window',
+            keys: 'Alt+PageUp',
+            context: 'unlocked',
+            priority: 65,
+            allowInEditable: true,
+            description: 'Focus previous simulator window',
+            handler: () => cycleWindow(-1)
+        });
+
+        register({
+            id: 'shell.close-window',
+            keys: 'Alt+W',
+            context: 'window',
+            priority: 65,
+            allowInEditable: true,
+            description: 'Close the active simulator window',
+            handler: () => {
+                if (!activeWindowId) return false;
+                closeWindow(activeWindowId);
+                return true;
+            }
+        });
+
+        register({
+            id: 'terminal.history-previous',
+            keys: 'ArrowUp',
+            context: 'terminal',
+            priority: 80,
+            allowInEditable: true,
+            repeat: true,
+            description: 'Previous terminal command',
+            handler: () => {
+                const session = activeTerminalSession();
+                if (!session || document.activeElement !== session.input) return false;
+                const term = session.term;
+                if (!term.history.length) return true;
+                term.historyIndex = Math.max(0, term.historyIndex - 1);
+                session.input.value = term.history[term.historyIndex] || '';
+                return true;
+            }
+        });
+
+        register({
+            id: 'terminal.history-next',
+            keys: 'ArrowDown',
+            context: 'terminal',
+            priority: 80,
+            allowInEditable: true,
+            repeat: true,
+            description: 'Next terminal command',
+            handler: () => {
+                const session = activeTerminalSession();
+                if (!session || document.activeElement !== session.input) return false;
+                const term = session.term;
+                if (!term.history.length) return true;
+                if (term.historyIndex >= term.history.length - 1) {
+                    term.historyIndex = term.history.length;
+                    session.input.value = '';
+                } else {
+                    term.historyIndex += 1;
+                    session.input.value = term.history[term.historyIndex] || '';
+                }
+                return true;
+            }
+        });
+
+        register({
+            id: 'terminal.clear',
+            keys: 'Ctrl+L',
+            context: 'terminal',
+            priority: 80,
+            allowInEditable: true,
+            description: 'Clear terminal output',
+            handler: () => {
+                const session = activeTerminalSession();
+                if (!session || document.activeElement !== session.input) return false;
+                session.output.textContent = '';
+                return true;
+            }
+        });
+    }
+
+    registerShellShortcuts();
 }).catch(function (error) {
     console.error('[Shell] Boot failed', error);
 });

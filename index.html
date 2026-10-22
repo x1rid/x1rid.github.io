@@ -2688,6 +2688,7 @@
     <script src="./main/fs/init.js?v=20261028"></script>
     <script src="./main/profile/boot.js?v=20261028"></script>
     <script src="./main/profile/profile-ui.js?v=20261104"></script>
+    <script src="./main/shortcuts.js?v=20261105"></script>
 </head>
 <body>
 
@@ -2977,7 +2978,7 @@
     </div>
 </div>
 
-<script src="./main/fs/explorer-adapter.js?v=20261102"></script>
+<script src="./main/fs/explorer-adapter.js?v=20261105"></script>
 <script>
 /* ---------------------------------------------------------------------------
  *  Programs registry for the desktop shell.
@@ -3287,6 +3288,8 @@ window.ProfileReady.then(() => {
     let zCounter = 10;
     let activeWindowId = null;
     let terminalCount = 0;
+    const terminalSessions = new Map();
+    let shellShortcutsRegistered = false;
     let toastTimer = 0;
     let showDesktopState = null;
     let searchItems = [];
@@ -4725,6 +4728,11 @@ window.ProfileReady.then(() => {
             historyIndex: 0
         };
 
+        terminalSessions.set(win.id, { term, input, output, node });
+        win.onClose = function() {
+            terminalSessions.delete(win.id);
+        };
+
         const vfsReady = () => window.VFS;
         const categories = ['all', 'social', 'dev', 'play', 'unavailable'];
 
@@ -5185,25 +5193,7 @@ window.ProfileReady.then(() => {
         });
 
         input.addEventListener('keydown', (event) => {
-            if (event.key === 'ArrowUp') {
-                event.preventDefault();
-                if (!term.history.length) return;
-                term.historyIndex = Math.max(0, term.historyIndex - 1);
-                input.value = term.history[term.historyIndex] || '';
-            } else if (event.key === 'ArrowDown') {
-                event.preventDefault();
-                if (!term.history.length) return;
-                if (term.historyIndex >= term.history.length - 1) {
-                    term.historyIndex = term.history.length;
-                    input.value = '';
-                } else {
-                    term.historyIndex += 1;
-                    input.value = term.history[term.historyIndex] || '';
-                }
-            } else if (event.ctrlKey && event.key.toLowerCase() === 'l') {
-                event.preventDefault();
-                output.textContent = '';
-            } else if (event.ctrlKey && event.key.toLowerCase() === 'c') {
+            if (event.ctrlKey && event.key.toLowerCase() === 'c') {
                 event.preventDefault();
                 printCommand(promptText(), `${input.value}^C`);
                 input.value = '';
@@ -5554,6 +5544,7 @@ window.ProfileReady.then(() => {
         startInput.blur();
         if (restoreFocus) startButton.focus();
     }
+    window.closeDesktopSearch = closeSearch;
 
     /* ── Live wallpaper ─────────────────────────────────────── */
     const wallpaperContext = wallpaperCanvas.getContext('2d');
@@ -5736,6 +5727,8 @@ window.ProfileReady.then(() => {
     });
 
     startInput.addEventListener('keydown', (event) => {
+        // The central ShortcutService owns these keys when it is available.
+        if (window.ShortcutService) return;
         if (event.key === 'ArrowDown') {
             event.preventDefault();
             event.stopPropagation();
@@ -5762,6 +5755,7 @@ window.ProfileReady.then(() => {
     }, true);
 
     document.addEventListener('keydown', (event) => {
+        if (window.ShortcutService) return;
         if (!startMenu.hidden && event.key === 'Escape') {
             event.preventDefault();
             closeSearch(true);
@@ -5795,7 +5789,8 @@ window.ProfileReady.then(() => {
         icon: '▣',
         minWidth: 640,
         minHeight: 340,
-        bounds: defaultExplorerBounds()
+        bounds: defaultExplorerBounds(),
+        startClosed: true
     });
 
     const musicWin = registerWindow(musicNode, {
@@ -5820,9 +5815,7 @@ window.ProfileReady.then(() => {
         restorePersistedWindows(saved);
         focusTopWindow();
     } else {
-        const firstTerminal = openTerminal();
-        minimizeWindow(firstTerminal.id);
-        focusWindow('explorer', true);
+        focusTopWindow();
     }
 
     restoringWindows = false;
@@ -5856,6 +5849,207 @@ window.ProfileReady.then(() => {
         if (wallpaperToggle) wallpaperToggle.setAttribute('aria-pressed', 'true');
     }
 
+    function activeTerminalSession() {
+        const focused = document.activeElement;
+        const node = focused && focused.closest ? focused.closest('.window') : null;
+        if (node && terminalSessions.has(node.id)) return terminalSessions.get(node.id);
+        if (activeWindowId && terminalSessions.has(activeWindowId)) {
+            return terminalSessions.get(activeWindowId);
+        }
+        return null;
+    }
+
+    function cycleWindow(direction) {
+        const ordered = Array.from(windows.values()).filter((win) => !win.closed);
+        if (!ordered.length) return false;
+        ordered.sort((a, b) => Number(a.node.style.zIndex || 0) - Number(b.node.style.zIndex || 0));
+
+        let index = ordered.findIndex((win) => win.id === activeWindowId);
+        if (index === -1) index = direction > 0 ? -1 : 0;
+        const target = ordered[(index + direction + ordered.length) % ordered.length];
+        if (!target) return false;
+        if (target.minimized) restoreWindow(target.id);
+        focusWindow(target.id, true);
+        return true;
+    }
+
+    function registerShellShortcuts() {
+        if (shellShortcutsRegistered || !window.ShortcutService) return;
+        shellShortcutsRegistered = true;
+
+        const shortcuts = window.ShortcutService;
+        const register = (spec) => shortcuts.register(spec);
+
+        register({
+            id: 'shell.start',
+            keys: 'Ctrl+Escape',
+            context: 'global',
+            priority: 80,
+            allowInEditable: true,
+            description: 'Toggle Start search',
+            handler: () => {
+                if (startMenu.hidden) openSearch();
+                else closeSearch(true);
+            }
+        });
+
+        register({
+            id: 'start.previous',
+            keys: 'ArrowUp',
+            context: 'start',
+            priority: 90,
+            allowInEditable: true,
+            repeat: true,
+            description: 'Previous Start result',
+            handler: () => {
+                setActiveSearchIndex(searchActiveIndex - 1);
+            }
+        });
+
+        register({
+            id: 'start.next',
+            keys: 'ArrowDown',
+            context: 'start',
+            priority: 90,
+            allowInEditable: true,
+            repeat: true,
+            description: 'Next Start result',
+            handler: () => {
+                setActiveSearchIndex(searchActiveIndex + 1);
+            }
+        });
+
+        register({
+            id: 'start.launch',
+            keys: 'Enter',
+            context: 'start',
+            priority: 95,
+            allowInEditable: true,
+            description: 'Launch active Start result',
+            handler: () => {
+                if (searchActiveIndex >= 0) launchSearchItem(searchItems[searchActiveIndex]);
+            }
+        });
+
+        register({
+            id: 'start.close',
+            keys: 'Escape',
+            context: 'start',
+            priority: 95,
+            allowInEditable: true,
+            description: 'Close Start search',
+            handler: () => {
+                closeSearch(true);
+            }
+        });
+
+        register({
+            id: 'shell.show-desktop',
+            keys: 'Ctrl+Alt+D',
+            context: 'unlocked',
+            priority: 70,
+            allowInEditable: true,
+            description: 'Show or restore the desktop',
+            handler: () => {
+                toggleShowDesktop();
+            }
+        });
+
+        register({
+            id: 'shell.next-window',
+            keys: 'Alt+PageDown',
+            context: 'unlocked',
+            priority: 65,
+            allowInEditable: true,
+            description: 'Focus next simulator window',
+            handler: () => cycleWindow(1)
+        });
+
+        register({
+            id: 'shell.previous-window',
+            keys: 'Alt+PageUp',
+            context: 'unlocked',
+            priority: 65,
+            allowInEditable: true,
+            description: 'Focus previous simulator window',
+            handler: () => cycleWindow(-1)
+        });
+
+        register({
+            id: 'shell.close-window',
+            keys: 'Alt+W',
+            context: 'window',
+            priority: 65,
+            allowInEditable: true,
+            description: 'Close the active simulator window',
+            handler: () => {
+                if (!activeWindowId) return false;
+                closeWindow(activeWindowId);
+                return true;
+            }
+        });
+
+        register({
+            id: 'terminal.history-previous',
+            keys: 'ArrowUp',
+            context: 'terminal',
+            priority: 80,
+            allowInEditable: true,
+            repeat: true,
+            description: 'Previous terminal command',
+            handler: () => {
+                const session = activeTerminalSession();
+                if (!session || document.activeElement !== session.input) return false;
+                const term = session.term;
+                if (!term.history.length) return true;
+                term.historyIndex = Math.max(0, term.historyIndex - 1);
+                session.input.value = term.history[term.historyIndex] || '';
+                return true;
+            }
+        });
+
+        register({
+            id: 'terminal.history-next',
+            keys: 'ArrowDown',
+            context: 'terminal',
+            priority: 80,
+            allowInEditable: true,
+            repeat: true,
+            description: 'Next terminal command',
+            handler: () => {
+                const session = activeTerminalSession();
+                if (!session || document.activeElement !== session.input) return false;
+                const term = session.term;
+                if (!term.history.length) return true;
+                if (term.historyIndex >= term.history.length - 1) {
+                    term.historyIndex = term.history.length;
+                    session.input.value = '';
+                } else {
+                    term.historyIndex += 1;
+                    session.input.value = term.history[term.historyIndex] || '';
+                }
+                return true;
+            }
+        });
+
+        register({
+            id: 'terminal.clear',
+            keys: 'Ctrl+L',
+            context: 'terminal',
+            priority: 80,
+            allowInEditable: true,
+            description: 'Clear terminal output',
+            handler: () => {
+                const session = activeTerminalSession();
+                if (!session || document.activeElement !== session.input) return false;
+                session.output.textContent = '';
+                return true;
+            }
+        });
+    }
+
+    registerShellShortcuts();
+
     document.addEventListener('profile:state-saved', () => {
         window.__profileLastSavedAt = Date.now();
     });
@@ -5875,6 +6069,13 @@ window.ProfileReady.then(() => {
 
     let isScreenLocked = true;
 
+    function screenIsLocked() {
+        if (window.ProfileUI && typeof window.ProfileUI.isLocked === 'function') {
+            return window.ProfileUI.isLocked();
+        }
+        return isScreenLocked;
+    }
+
     function updateLockClock() {
         if (!lockClock || !lockDate) return;
         const now = new Date();
@@ -5890,7 +6091,7 @@ window.ProfileReady.then(() => {
     setInterval(updateLockClock, 1000);
 
     function unlockScreen() {
-        if (!isScreenLocked) return;
+        if (!screenIsLocked()) return;
         // ProfileUI decides whether a password is required. Guest sessions
         // continue immediately; the owner profile stays gated.
         if (window.ProfileUI) {
@@ -5909,7 +6110,9 @@ window.ProfileReady.then(() => {
         } else {
             lockScreen.classList.remove('is-unlocked');
         }
-        if (typeof closeSearch === 'function') closeSearch(false);
+        if (typeof window.closeDesktopSearch === 'function') {
+            window.closeDesktopSearch(false);
+        }
     }
 
     if (lockSignInBtn) {
@@ -5920,11 +6123,44 @@ window.ProfileReady.then(() => {
         });
     }
 
-    window.addEventListener('keydown', function(e) {
-        if (isScreenLocked && (e.key === 'Enter' || e.key === ' ')) {
-            unlockScreen();
-        }
-    });
+    if (window.ShortcutService) {
+        const shortcuts = window.ShortcutService;
+        shortcuts.register({
+            id: 'lock.lock',
+            keys: 'Ctrl+Alt+L',
+            context: 'unlocked',
+            priority: 90,
+            allowInEditable: true,
+            description: 'Lock the desktop',
+            handler: () => {
+                lockSystem();
+            }
+        });
+        shortcuts.register({
+            id: 'lock.unlock',
+            keys: ['Enter', 'Space'],
+            context: 'locked',
+            priority: 100,
+            allowWhenLocked: true,
+            description: 'Unlock the desktop',
+            when: (event) => {
+                if (!screenIsLocked()) return false;
+                if (event.target instanceof Element && event.target.closest('.profile-prompt')) {
+                    return false;
+                }
+                return true;
+            },
+            handler: () => {
+                unlockScreen();
+            }
+        });
+    } else {
+        window.addEventListener('keydown', function(e) {
+            if (screenIsLocked() && (e.key === 'Enter' || e.key === ' ')) {
+                unlockScreen();
+            }
+        });
+    }
 
     if (startLockBtn) {
         startLockBtn.addEventListener('click', function() {

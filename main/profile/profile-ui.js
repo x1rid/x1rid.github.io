@@ -74,16 +74,9 @@
       this._wireTray();
       this._renderSwitcher();
 
-      // Guests are password-free: continue straight into the session. The
-      // owner profile always requires the password gate (unless already
-      // unlocked for this tab).
-      if (this._profile && this._profile.type === 'guest') {
-        this._setLocked(false);
-      } else if (this._profile && window.ProfileService.isUnlocked(this._profile.id)) {
-        this._setLocked(false);
-      } else {
-        this._setLocked(true);
-      }
+      // Every boot begins with the lockscreen showing for all users.
+      // Guest can unlock immediately without a password prompt; Owner requires authentication.
+      this._setLocked(true);
     },
 
     _lockScreen() {
