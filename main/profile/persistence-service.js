@@ -23,7 +23,7 @@
 (function (window, document) {
   'use strict';
 
-  const STATE_VERSION = 1;
+  const STATE_VERSION = 2;
   const DEBOUNCE_MS = 700;
 
   const LOCAL_KEYS = {
@@ -50,7 +50,10 @@
         soundEnabled: true
       },
       apps: {
-        lastExplorerFolder: null
+        lastExplorerFolder: null,
+        // Distinguishes a fresh profile (use the shell's default layout) from
+        // a profile whose windows were all closed deliberately (restore none).
+        windowsInitialized: false
       },
       windows: {}
     };
@@ -87,6 +90,29 @@
     return trimmed;
   }
 
+  function isWindowKey(value) {
+    return typeof value === 'string' &&
+      value.length > 0 &&
+      value.length <= 64 &&
+      /^[a-z0-9_-]+$/i.test(value);
+  }
+
+  function validateWindowRecord(value) {
+    if (!isPlainObject(value)) return null;
+    const appId = asSafeString(value.appId, 64, '');
+    if (!appId || !/^[a-z0-9_-]+$/i.test(appId)) return null;
+
+    return {
+      appId: appId.toLowerCase(),
+      left: Math.round(clampNumber(value.left, -10000, 100000, 0)),
+      top: Math.round(clampNumber(value.top, -10000, 100000, 0)),
+      width: Math.round(clampNumber(value.width, 120, 10000, 640)),
+      height: Math.round(clampNumber(value.height, 80, 10000, 420)),
+      maximized: asBoolean(value.maximized, false),
+      minimized: asBoolean(value.minimized, false)
+    };
+  }
+
   function validateState(raw) {
     const base = defaultState();
     if (!isPlainObject(raw)) return base;
@@ -117,20 +143,17 @@
       apps.lastExplorerFolder.indexOf('__') !== 0
       ? apps.lastExplorerFolder
       : null;
+    base.apps.windowsInitialized = asBoolean(apps.windowsInitialized, false);
 
-    // Window geometry is accepted as a shallow, JSON-safe record only.
+    // Window records are accepted only when they carry an app identity and
+    // JSON-safe geometry. Legacy geometry-only records are discarded because
+    // the shell cannot know which application they belonged to.
     if (isPlainObject(raw.windows)) {
       const windows = {};
       Object.keys(raw.windows).slice(0, 32).forEach(function (key) {
-        if (key.length > 64) return;
-        const value = raw.windows[key];
-        if (!isPlainObject(value)) return;
-        windows[key] = {
-          left: clampNumber(value.left, -10000, 100000, 0),
-          top: clampNumber(value.top, -10000, 100000, 0),
-          width: clampNumber(value.width, 120, 10000, 640),
-          height: clampNumber(value.height, 80, 10000, 420)
-        };
+        if (!isWindowKey(key)) return;
+        const record = validateWindowRecord(raw.windows[key]);
+        if (record) windows[key] = record;
       });
       base.windows = windows;
     }
@@ -140,10 +163,19 @@
 
   function mergeState(target, partial) {
     if (!isPlainObject(partial)) return target;
-    ['desktop', 'settings', 'apps', 'windows'].forEach(function (section) {
+
+    ['desktop', 'settings', 'apps'].forEach(function (section) {
       if (!isPlainObject(partial[section])) return;
       target[section] = Object.assign({}, target[section], partial[section]);
     });
+
+    // A window snapshot is authoritative for the whole open-window set. It
+    // must replace the map so closing the last window writes `{}` instead of
+    // merging the empty snapshot back into stale records.
+    if (isPlainObject(partial.windows)) {
+      target.windows = Object.assign({}, partial.windows);
+    }
+
     return target;
   }
 
@@ -416,6 +448,29 @@
       if (typeof window.__explorerCurrentId === 'string' &&
           window.__explorerCurrentId.indexOf('__') !== 0) {
         state.apps.lastExplorerFolder = window.__explorerCurrentId;
+      }
+
+      // A full-state save must not erase fields owned by the window bridge or
+      // the initialized marker that distinguishes "fresh" from "all closed".
+      const activeProfile = window.ProfileService &&
+        typeof window.ProfileService.getActiveProfile === 'function'
+        ? window.ProfileService.getActiveProfile()
+        : null;
+      const cached = activeProfile ? this._cache[activeProfile.id] : null;
+
+      if (cached && cached.apps && cached.apps.windowsInitialized) {
+        state.apps.windowsInitialized = true;
+      }
+
+      const windowSnapshot = window.ProfileWindowState &&
+        typeof window.ProfileWindowState.snapshotActive === 'function'
+        ? window.ProfileWindowState.snapshotActive()
+        : null;
+
+      if (windowSnapshot) {
+        state.windows = windowSnapshot;
+      } else if (cached && cached.windows) {
+        state.windows = clone(cached.windows);
       }
 
       return state;

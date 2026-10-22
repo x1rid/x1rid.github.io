@@ -2563,6 +2563,17 @@
         pointer-events: none !important;
     }
 
+    /* The lock overlay is the only interactive surface while locked. */
+    html.profile-locked #desktop,
+    html.profile-locked #taskbar {
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+
+    html.profile-locked #shell-toast {
+        visibility: hidden !important;
+    }
+
     .lock-top {
         margin-top: 10vh;
         text-align: center;
@@ -2665,7 +2676,8 @@
 </style>
     <script src="./main/profile/profile-db.js?v=20261028"></script>
     <script src="./main/profile/profile-service.js?v=20261028"></script>
-    <script src="./main/profile/persistence-service.js?v=20261028"></script>
+    <script src="./main/profile/persistence-service.js?v=20261102"></script>
+    <script src="./main/profile/window-state.js?v=20261104"></script>
     <script src="./main/fs/types.js?v=20261028"></script>
     <script src="./main/fs/node-store.js?v=20261028"></script>
     <script src="./main/fs/content-store.js?v=20261028"></script>
@@ -2675,7 +2687,7 @@
     <script src="./main/fs/migrations.js?v=20261028"></script>
     <script src="./main/fs/init.js?v=20261028"></script>
     <script src="./main/profile/boot.js?v=20261028"></script>
-    <script src="./main/profile/profile-ui.js?v=20261028"></script>
+    <script src="./main/profile/profile-ui.js?v=20261104"></script>
 </head>
 <body>
 
@@ -2965,7 +2977,7 @@
     </div>
 </div>
 
-<script src="./main/fs/explorer-adapter.js?v=20261028"></script>
+<script src="./main/fs/explorer-adapter.js?v=20261102"></script>
 <script>
 /* ---------------------------------------------------------------------------
  *  Programs registry for the desktop shell.
@@ -3259,6 +3271,18 @@ window.ProfileReady.then(() => {
     const musicSource = document.getElementById('music-source');
 
     const windows = new Map();
+    let restoringWindows = true;
+    const windowState = window.ProfileWindowState ? window.ProfileWindowState.create({
+        profileId: (window.ProfileService && window.ProfileService.getActiveProfile() || {}).id,
+        getWindows: () => windows
+    }) : null;
+
+    if (windowState) windowState.setRestoring(true);
+
+    function persistWindowState() {
+        if (windowState && !restoringWindows) windowState.schedule();
+    }
+
     const shellStartedAt = Date.now();
     let zCounter = 10;
     let activeWindowId = null;
@@ -3497,6 +3521,7 @@ window.ProfileReady.then(() => {
         if (win.minimized) {
             win.minimized = false;
             win.node.classList.remove('is-minimized');
+            persistWindowState();
         }
         windows.forEach((other) => {
             other.node.classList.toggle('is-active', other.id === id);
@@ -3549,6 +3574,7 @@ window.ProfileReady.then(() => {
             focusTopWindow();
         }
         syncTaskbar();
+        persistWindowState();
     }
 
     function restoreWindow(id) {
@@ -3557,6 +3583,7 @@ window.ProfileReady.then(() => {
         win.minimized = false;
         win.node.classList.remove('is-minimized');
         focusWindow(id, true);
+        persistWindowState();
     }
 
     function closeWindow(id) {
@@ -3588,6 +3615,7 @@ window.ProfileReady.then(() => {
                 focusTopWindow();
             }
             syncTaskbar();
+            persistWindowState();
             return;
         }
 
@@ -3601,6 +3629,7 @@ window.ProfileReady.then(() => {
             focusTopWindow();
         }
         syncTaskbar();
+        persistWindowState();
     }
 
     function toggleMaximize(id) {
@@ -3643,6 +3672,72 @@ window.ProfileReady.then(() => {
             }
         }
         focusWindow(id, true);
+        persistWindowState();
+    }
+
+    function applyPersistedWindowState(win, record) {
+        if (!win || !record) return;
+        const left = Number(record.left);
+        const top = Number(record.top);
+        const width = Number(record.width);
+        const height = Number(record.height);
+        if (![left, top, width, height].every((value) => isFinite(value))) return;
+
+        win.maximized = false;
+        win.minimized = false;
+        win.node.classList.remove('is-maximized', 'is-minimized');
+        win.previousBounds = null;
+        setBounds(win, { x: left, y: top, width, height });
+
+        if (record.maximized) {
+            win.previousBounds = { x: win.x, y: win.y, width: win.width, height: win.height };
+            toggleMaximize(win.id);
+        }
+        if (record.minimized) {
+            minimizeWindow(win.id);
+        }
+    }
+
+    function restorePersistedWindows(saved) {
+        const ids = Object.keys(saved || {}).sort((a, b) => {
+            const aMatch = /^terminal-(\d+)$/.exec(a);
+            const bMatch = /^terminal-(\d+)$/.exec(b);
+            if (aMatch && bMatch) return Number(aMatch[1]) - Number(bMatch[1]);
+            return a.localeCompare(b);
+        });
+
+        ids.forEach((id) => {
+            const record = saved[id];
+            if (!record || !record.appId) return;
+
+            const left = Number(record.left);
+            const top = Number(record.top);
+            const width = Number(record.width);
+            const height = Number(record.height);
+            if (![left, top, width, height].every((value) => isFinite(value))) return;
+            const bounds = { x: left, y: top, width, height };
+
+            const appId = record.appId === 'program' && id.indexOf('program-') === 0
+                ? id.slice('program-'.length)
+                : record.appId;
+            let win = null;
+
+            if (appId === 'explorer') {
+                win = openExplorer();
+            } else if (appId === 'programs') {
+                win = openPrograms();
+            } else if (appId === 'music') {
+                win = openMusic();
+            } else if (appId === 'terminal') {
+                const terminalOptions = { bounds, focus: false };
+                if (/^terminal-\d+$/.test(id)) terminalOptions.id = id;
+                win = openTerminal(terminalOptions);
+            } else if (programDefinition(appId)) {
+                win = openProgram(appId);
+            }
+
+            if (win) applyPersistedWindowState(win, record);
+        });
     }
 
     function registerWindow(node, opts) {
@@ -3741,6 +3836,7 @@ window.ProfileReady.then(() => {
             addTaskbarButton(win);
             focusWindow(id);
         }
+        persistWindowState();
         return win;
     }
 
@@ -3770,6 +3866,7 @@ window.ProfileReady.then(() => {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
             document.removeEventListener('pointercancel', onUp);
+            persistWindowState();
         };
 
         document.addEventListener('pointermove', onMove);
@@ -3823,6 +3920,7 @@ window.ProfileReady.then(() => {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
             document.removeEventListener('pointercancel', onUp);
+            persistWindowState();
         };
 
         document.addEventListener('pointermove', onMove);
@@ -3841,7 +3939,7 @@ window.ProfileReady.then(() => {
 
     function openExplorer(nodeId) {
         const win = windows.get('explorer');
-        if (!win) return;
+        if (!win) return null;
         clearShowDesktopState();
         if (win.closed) {
             win.closed = false;
@@ -3855,12 +3953,14 @@ window.ProfileReady.then(() => {
         if (nodeId && typeof window.navigateExplorer === 'function') {
             window.navigateExplorer(nodeId);
         }
+        persistWindowState();
+        return win;
     }
     window.openExplorerWindow = openExplorer;
 
     function openMusic() {
         const win = windows.get('music');
-        if (!win) return;
+        if (!win) return null;
         clearShowDesktopState();
         if (win.closed) {
             win.closed = false;
@@ -3869,34 +3969,45 @@ window.ProfileReady.then(() => {
             fitWindowToDesktop(win);
         }
         focusWindow('music', true);
+        persistWindowState();
+        return win;
     }
 
-    function openTerminal() {
+    function openTerminal(options) {
+        options = options || {};
         clearShowDesktopState();
-        terminalCount += 1;
+        let number;
+        if (options.id && /^terminal-(\d+)$/.test(options.id)) {
+            number = Number(options.id.slice('terminal-'.length));
+            terminalCount = Math.max(terminalCount, number);
+        } else {
+            terminalCount += 1;
+            number = terminalCount;
+        }
         const fragment = terminalTemplate.content.cloneNode(true);
         const node = fragment.querySelector('.terminal-window');
-        const id = `terminal-${terminalCount}`;
+        const id = options.id || `terminal-${number}`;
         node.id = id;
-        node.setAttribute('aria-label', `Terminal ${terminalCount}`);
-        node.querySelector('.titlebar-title').textContent = `Terminal ${terminalCount}`;
-        node.querySelector('.tty-cell').textContent = `TTY ${String(terminalCount).padStart(2, '0')}`;
+        node.setAttribute('aria-label', `Terminal ${number}`);
+        node.querySelector('.titlebar-title').textContent = `Terminal ${number}`;
+        node.querySelector('.tty-cell').textContent = `TTY ${String(number).padStart(2, '0')}`;
         desktop.appendChild(node);
 
         const win = registerWindow(node, {
             id,
             appId: 'terminal',
-            title: `Terminal ${terminalCount}`,
-            taskbarTitle: `Terminal ${terminalCount}`,
+            title: `Terminal ${number}`,
+            taskbarTitle: `Terminal ${number}`,
             icon: '>_',
             minWidth: 340,
             minHeight: 220,
-            bounds: nextTerminalBounds(),
+            bounds: options.bounds || nextTerminalBounds(),
             focusTarget: '.terminal-input'
         });
 
         initTerminal(win);
-        focusWindow(id, true);
+        if (options.focus !== false) focusWindow(id, true);
+        persistWindowState();
         return win;
     }
 
@@ -4061,6 +4172,7 @@ window.ProfileReady.then(() => {
             fitWindowToDesktop(win);
         }
         focusWindow('programs', true);
+        persistWindowState();
         return win;
     }
 
@@ -4145,6 +4257,7 @@ window.ProfileReady.then(() => {
 
         if (typeof cleanup === 'function') win.onClose = cleanup;
         focusWindow(win.id, true);
+        persistWindowState();
         return win;
     }
 
@@ -5584,6 +5697,7 @@ window.ProfileReady.then(() => {
             });
             if (restore.length) focusWindow(restore[restore.length - 1], true);
             syncTaskbar();
+            persistWindowState();
             return;
         }
 
@@ -5592,6 +5706,7 @@ window.ProfileReady.then(() => {
         showDesktopState = visible.map((win) => win.id);
         showDesktopButton.setAttribute('aria-pressed', 'true');
         visible.forEach((win) => minimizeWindow(win.id));
+        persistWindowState();
     }
 
     showDesktopButton.addEventListener('click', toggleShowDesktop);
@@ -5697,9 +5812,24 @@ window.ProfileReady.then(() => {
     });
     initMusic(musicWin);
 
-    const firstTerminal = openTerminal();
-    minimizeWindow(firstTerminal.id);
-    focusWindow('explorer', true);
+    if (windowState && windowState.hasSavedState()) {
+        const saved = windowState.savedWindows();
+        Array.from(windows.values()).forEach((win) => {
+            if (!win.closed) closeWindow(win.id);
+        });
+        restorePersistedWindows(saved);
+        focusTopWindow();
+    } else {
+        const firstTerminal = openTerminal();
+        minimizeWindow(firstTerminal.id);
+        focusWindow('explorer', true);
+    }
+
+    restoringWindows = false;
+    if (windowState) {
+        windowState.setRestoring(false);
+        windowState.schedule();
+    }
 
     updateTaskbarClock();
     window.setInterval(updateTaskbarClock, 1000);
@@ -5714,6 +5844,7 @@ window.ProfileReady.then(() => {
         windows.forEach((win) => {
             if (!win.closed) fitWindowToDesktop(win);
         });
+        persistWindowState();
         resizeWallpaper();
         syncWallpaperMotion();
     });

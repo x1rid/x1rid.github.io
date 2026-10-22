@@ -138,6 +138,13 @@
     async selectProfile(profileId) {
       const profile = window.ProfileService.getProfile(profileId);
       if (!profile) return;
+      if (window.ProfileWindowState && typeof window.ProfileWindowState.flushActive === 'function') {
+        try {
+          await window.ProfileWindowState.flushActive();
+        } catch (_error) {
+          // PersistenceService reports its own failures; switching still proceeds.
+        }
+      }
       const active = this._profile;
 
       if (profile.type === 'guest') {
@@ -297,7 +304,43 @@
     _setLocked(locked) {
       this._locked = Boolean(locked);
       const lockScreen = this._lockScreen();
-      if (lockScreen) lockScreen.classList.toggle('is-unlocked', !this._locked);
+      if (lockScreen) {
+        lockScreen.classList.toggle('is-unlocked', !this._locked);
+        if (this._locked) lockScreen.removeAttribute('aria-hidden');
+        else lockScreen.setAttribute('aria-hidden', 'true');
+      }
+
+      const root = document.documentElement;
+      if (root) root.classList.toggle('profile-locked', this._locked);
+
+      [document.getElementById('desktop'), document.getElementById('taskbar')].forEach((node) => {
+        if (!node) return;
+        if (this._locked) {
+          node.setAttribute('inert', '');
+          node.setAttribute('aria-hidden', 'true');
+        } else {
+          node.removeAttribute('inert');
+          node.removeAttribute('aria-hidden');
+        }
+      });
+
+      if (lockScreen && this._locked) {
+        const active = document.activeElement;
+        if (active && typeof active.closest === 'function' &&
+            active.closest('#desktop, #taskbar') && typeof active.blur === 'function') {
+          active.blur();
+        }
+        const signIn = lockScreen.querySelector('#lock-signin-btn');
+        if (signIn && typeof signIn.focus === 'function') {
+          window.setTimeout(function () {
+            signIn.focus({ preventScroll: true });
+          }, 0);
+        }
+      } else if (lockScreen && document.activeElement &&
+                 lockScreen.contains(document.activeElement) &&
+                 typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+      }
     },
 
     isLocked() {
@@ -318,6 +361,9 @@
 
     lock() {
       if (!this._profile) return;
+      if (window.ProfileWindowState && typeof window.ProfileWindowState.flushActive === 'function') {
+        window.ProfileWindowState.flushActive();
+      }
       window.ProfileService.lock(this._profile.id);
       this._setLocked(true);
     },
@@ -332,8 +378,10 @@
         }
         return;
       }
-      lockScreen.classList.remove('is-unlocked');
-      this._locked = true;
+      if (window.ProfileWindowState && typeof window.ProfileWindowState.flushActive === 'function') {
+        window.ProfileWindowState.flushActive();
+      }
+      this._setLocked(true);
       this._renderSwitcher();
       this._augmentLockScreen();
     }

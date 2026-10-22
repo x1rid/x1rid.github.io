@@ -10,6 +10,7 @@ no bundler. Everything is a `window.*` global loaded with `<script>` tags.
 | `profile-db.js` | IndexedDB `profile-db` (stores `profiles`, `profile-state`). Never stores file bytes. |
 | `profile-service.js` | Profile definitions, active profile, owner password gate, events. |
 | `persistence-service.js` | Validate / load / save / reset per-profile state, debounce, diagnostics, shell hooks. |
+| `window-state.js` | Profile-scoped window snapshot bridge; restores through the shell's existing launch paths. |
 | `boot.js` | Deterministic boot: profiles → active profile → VFS → state → apply → emit. |
 | `profile-ui.js` | Lock-screen profile switcher and owner password prompt. |
 
@@ -19,6 +20,7 @@ Load order (in `<head>`, before the VFS scripts):
 <script src="./profile/profile-db.js"></script>
 <script src="./profile/profile-service.js"></script>
 <script src="./profile/persistence-service.js"></script>
+<script src="./profile/window-state.js"></script>
 <script src="./fs/types.js"></script>
 <!-- … other fs scripts … -->
 <script src="./fs/init.js"></script>
@@ -71,6 +73,21 @@ PersistenceService.validateState(state);                     // pure validator
 storage failure rejects **and** emits `profile:state-error`; success is never
 reported early.
 
+### `window.ProfileWindowState`
+
+```js
+ProfileWindowState.create({ profileId, getWindows }); // bridge for one shell
+ProfileWindowState.snapshot(windowsMap);              // serializable window map
+ProfileWindowState.snapshotActive();                  // active bridge snapshot
+await ProfileWindowState.flushActive();                // snapshot + flush now
+```
+
+The shell owns the live `windows` Map; this module only serializes restorable
+fields. It refuses to queue after the active profile changes, so a late timer
+cannot write one profile's geometry into another profile's state. The
+authoritative snapshot replaces `state.windows` (it is not merged), which is
+what makes closing the last window persist as an empty window set.
+
 ### `window.ProfileUI`
 
 ```js
@@ -113,20 +130,36 @@ Dispatched as `CustomEvent` on `document` (also delivered to
   auth: null | { algo, iterations, salt, hash, updatedAt } }
 
 // profile-state
-{ profileId, schemaVersion: 1, revision, updatedAt,
+{ profileId, schemaVersion: 2, revision, updatedAt,
   data: {
-    schemaVersion: 1,
+    schemaVersion: 2,
     desktop: { wallpaper, wallpaperPaused, iconsVisible },
     settings: { theme, musicVolume, clippyVisible, cursorScheme, soundEnabled },
-    apps: { lastExplorerFolder },
-    windows: {} // reserved; validated but not written by the shell yet
+    apps: {
+      lastExplorerFolder,
+      windowsInitialized // false = fresh profile; true = restore exact set
+    },
+    windows: {
+      "explorer": {
+        appId: "explorer",
+        left: 18, top: 12, width: 754, height: 462,
+        maximized: false, minimized: false
+      },
+      "terminal-1": {
+        appId: "terminal",
+        left: 403, top: 237, width: 363, height: 239,
+        maximized: false, minimized: true
+      }
+    }
   } }
 ```
 
 State is validated on every read and write. Unknown keys, wrong types,
 out-of-range numbers, functions, DOM nodes, and circular objects are dropped.
 A newer `schemaVersion` only reads known fields; malformed data falls back to
-defaults without throwing.
+defaults without throwing. Version 1 records still load; legacy geometry-only
+window entries are discarded because they have no app identity. The shell then
+boots its default layout and writes a version 2 record on the next save.
 
 ### Persisted today
 
@@ -135,10 +168,13 @@ defaults without throwing.
 - Music volume, Clippy visibility, cursor scheme, sound toggle.
 - Theme id (stored; the shell currently only ships the plum theme).
 - Last Explorer folder.
+- Open windows per profile: app identity, restore bounds, maximized/minimized
+  flags, and whether the profile has initialized its window set.
 - Profile metadata, timestamps, and owner auth verifier.
 
-Explicitly **not** persisted (transient by design): hover/focus, open context
-menus, toasts, window z-order, selected icon, and per-app scratch state.
+Explicitly **not** persisted (transient by design): window focus, z-order,
+in-progress drag/resize, hover, open context menus, toasts, selected icon, and
+per-app scratch state. Window geometry is persisted; focus order is not.
 
 ## Profile isolation
 

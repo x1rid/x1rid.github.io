@@ -1154,6 +1154,11 @@
     /* ── Global Key Shortcuts ───────────────────────────────── */
 
     document.addEventListener('keydown', (e) => {
+        if (window.ProfileUI && typeof window.ProfileUI.isLocked === 'function' &&
+            window.ProfileUI.isLocked()) {
+            return;
+        }
+
         if (e.key === 'Escape') {
             hideContextMenu();
             closeDialog();
