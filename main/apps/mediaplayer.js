@@ -354,7 +354,13 @@
             }
         }
 
+        let endPointerDrag = null;
+        function stopPointerDrag() {
+            if (typeof endPointerDrag === 'function') endPointerDrag();
+        }
+
         trackOuter.addEventListener('pointerdown', (e) => {
+            stopPointerDrag();
             isDraggingThumb = true;
             seekFromPointer(e.clientX);
             const onPointerMove = (moveEvt) => seekFromPointer(moveEvt.clientX);
@@ -362,15 +368,20 @@
                 isDraggingThumb = false;
                 window.removeEventListener('pointermove', onPointerMove);
                 window.removeEventListener('pointerup', onPointerUp);
+                window.removeEventListener('pointercancel', onPointerUp);
+                endPointerDrag = null;
             };
+            endPointerDrag = onPointerUp;
             window.addEventListener('pointermove', onPointerMove);
             window.addEventListener('pointerup', onPointerUp);
+            window.addEventListener('pointercancel', onPointerUp);
         });
 
         /* Start with the classic video */
         loadMedia(playlist[0], false);
 
         return function cleanup() {
+            stopPointerDrag();
             media.pause();
             media.src = '';
         };

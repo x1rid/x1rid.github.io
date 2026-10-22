@@ -853,7 +853,12 @@
                 openDialog('Error Reading File', `<div class="prop-grid"><div class="prop-key">Error</div><div class="prop-value">${escapeHtml(err.message)}</div></div>`);
             });
         } else if (['mp3', 'opus', 'wav', 'ogg', 'mp4', 'webm', 'flac', 'aac', 'm4a'].includes(ext)) {
-            if (typeof window.openProgram === 'function') {
+            const handlers = window.AppRegistry && typeof window.AppRegistry.findByFileType === 'function'
+                ? window.AppRegistry.findByFileType(ext)
+                : [];
+            if (handlers.length && typeof window.AppRegistry.launch === 'function') {
+                window.AppRegistry.launch(handlers[0].id, { node: node });
+            } else if (typeof window.openProgram === 'function') {
                 window.openProgram('mediaplayer');
             }
         } else {

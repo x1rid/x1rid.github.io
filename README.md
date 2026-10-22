@@ -32,6 +32,7 @@ main/               → the retro homepage
     iframe-policy.js→ framing policy for the page pane (known blocked hosts)
     chrome.js       → status rail, public page-view counter, focused-window state
     shortcuts.js    → centralized context-aware keyboard shortcut service
+    app-registry.js → application definitions, launch policy, and lifecycle
     mobile.js       → phone shell controller (<=600px): tab bar, pages mirror,
                       terminal key strip, virtual-keyboard geometry
     assets/         → pixel cursor sprites + classic cursor GIFs
@@ -252,6 +253,51 @@ the site's own tokens. They are inspired by, not copied from, these projects:
 No upstream source is vendored. The Programs app files live in `main/apps/` and
 register through the shell's `window.RetroApps` contract; `main/apps.css` holds
 their shared skin.
+
+## Application registry and lifecycle
+
+`main/app-registry.js` is the logical application layer. It owns definitions,
+launch policy, and the running-instance list; the shell still owns window DOM
+nodes and persistence.
+
+```js
+AppRegistry.register({
+  id: 'my-app',
+  name: 'My App',
+  tagline: 'One line for the Programs shelf',
+  meta: 'UTILITY · IN-HOUSE',
+  icon: '<svg>…</svg>',
+  source: 'IN-HOUSE',
+  kind: 'program',
+  fileTypes: ['txt'],
+  multiple: false, // default: singleton
+  launch(context, options) {
+    // context: { profile, profileId, owner, guest, vfs, username }
+    return openMyAppWindow(options);
+  }
+});
+
+AppRegistry.launch('my-app');
+AppRegistry.focus('my-app');
+AppRegistry.minimize('my-app');
+AppRegistry.restore('my-app');
+AppRegistry.close('my-app');
+AppRegistry.running();       // logical instances, not a second window list
+AppRegistry.context();       // active profile + active VFS
+AppRegistry.findByFileType('txt');
+```
+
+Applications are singletons by default: launching an already-running app
+focuses or restores its window instead of creating a duplicate. `Terminal`
+explicitly sets `multiple: true`, so each launch creates a new instance.
+Unknown IDs return `null` and log a warning, including during window restore.
+
+Program mounts receive the existing `app`, `setMeta()`, and `close()` contract
+plus `profile`, `profileId`, `vfs`, `registry`, and `instanceId`. Mounts return
+their cleanup function as before; the registry wraps window close so timers,
+listeners, media, and iframe sources are released before the instance is
+removed. Window restoration now asks the registry to launch each saved
+`appId`; it no longer contains app-specific branches.
 
 ## Keyboard shortcuts
 

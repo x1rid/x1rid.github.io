@@ -2689,6 +2689,7 @@
     <script src="./main/profile/boot.js?v=20261028"></script>
     <script src="./main/profile/profile-ui.js?v=20261104"></script>
     <script src="./main/shortcuts.js?v=20261105"></script>
+    <script src="./main/app-registry.js?v=20261105"></script>
 </head>
 <body>
 
@@ -3702,6 +3703,12 @@ window.ProfileReady.then(() => {
     }
 
     function restorePersistedWindows(saved) {
+        const registry = window.AppRegistry;
+        if (!registry) {
+            console.warn('[Shell] Application registry unavailable; skipping window restore.');
+            return;
+        }
+
         const ids = Object.keys(saved || {}).sort((a, b) => {
             const aMatch = /^terminal-(\d+)$/.exec(a);
             const bMatch = /^terminal-(\d+)$/.exec(b);
@@ -3720,24 +3727,19 @@ window.ProfileReady.then(() => {
             if (![left, top, width, height].every((value) => isFinite(value))) return;
             const bounds = { x: left, y: top, width, height };
 
+            /* Older saves used the generic "program" app id. The registry
+               addresses program apps by their logical id. */
             const appId = record.appId === 'program' && id.indexOf('program-') === 0
                 ? id.slice('program-'.length)
                 : record.appId;
-            let win = null;
 
-            if (appId === 'explorer') {
-                win = openExplorer();
-            } else if (appId === 'programs') {
-                win = openPrograms();
-            } else if (appId === 'music') {
-                win = openMusic();
-            } else if (appId === 'terminal') {
-                const terminalOptions = { bounds, focus: false };
-                if (/^terminal-\d+$/.test(id)) terminalOptions.id = id;
-                win = openTerminal(terminalOptions);
-            } else if (programDefinition(appId)) {
-                win = openProgram(appId);
-            }
+            const win = registry.launch(appId, {
+                windowId: id,
+                bounds: bounds,
+                focus: false,
+                restoring: true,
+                record: record
+            });
 
             if (win) applyPersistedWindowState(win, record);
         });
@@ -3940,7 +3942,8 @@ window.ProfileReady.then(() => {
         else focusWindow(id, true);
     }
 
-    function openExplorer(nodeId) {
+    function openExplorer(target) {
+        const options = typeof target === 'string' ? { nodeId: target } : (target || {});
         const win = windows.get('explorer');
         if (!win) return null;
         clearShowDesktopState();
@@ -3952,16 +3955,18 @@ window.ProfileReady.then(() => {
         } else if (win.minimized) {
             restoreWindow('explorer');
         }
-        focusWindow('explorer', true);
-        if (nodeId && typeof window.navigateExplorer === 'function') {
-            window.navigateExplorer(nodeId);
+        if (options.focus !== false) focusWindow('explorer', true);
+        if (window.AppRegistry) window.AppRegistry.attachWindow('explorer', win);
+        if (options.nodeId && typeof window.navigateExplorer === 'function') {
+            window.navigateExplorer(options.nodeId);
         }
         persistWindowState();
         return win;
     }
     window.openExplorerWindow = openExplorer;
 
-    function openMusic() {
+    function openMusic(options) {
+        options = options || {};
         const win = windows.get('music');
         if (!win) return null;
         clearShowDesktopState();
@@ -3971,7 +3976,8 @@ window.ProfileReady.then(() => {
             if (!win.taskbarButton) addTaskbarButton(win);
             fitWindowToDesktop(win);
         }
-        focusWindow('music', true);
+        if (options.focus !== false) focusWindow('music', true);
+        if (window.AppRegistry) window.AppRegistry.attachWindow('music', win);
         persistWindowState();
         return win;
     }
@@ -3979,9 +3985,10 @@ window.ProfileReady.then(() => {
     function openTerminal(options) {
         options = options || {};
         clearShowDesktopState();
+        const requestedId = options.windowId || options.id;
         let number;
-        if (options.id && /^terminal-(\d+)$/.test(options.id)) {
-            number = Number(options.id.slice('terminal-'.length));
+        if (requestedId && /^terminal-(\d+)$/.test(requestedId)) {
+            number = Number(requestedId.slice('terminal-'.length));
             terminalCount = Math.max(terminalCount, number);
         } else {
             terminalCount += 1;
@@ -3989,7 +3996,7 @@ window.ProfileReady.then(() => {
         }
         const fragment = terminalTemplate.content.cloneNode(true);
         const node = fragment.querySelector('.terminal-window');
-        const id = options.id || `terminal-${number}`;
+        const id = requestedId || `terminal-${number}`;
         node.id = id;
         node.setAttribute('aria-label', `Terminal ${number}`);
         node.querySelector('.titlebar-title').textContent = `Terminal ${number}`;
@@ -4009,6 +4016,7 @@ window.ProfileReady.then(() => {
         });
 
         initTerminal(win);
+        if (window.AppRegistry) window.AppRegistry.attachWindow('terminal', win, { windowId: id });
         if (options.focus !== false) focusWindow(id, true);
         persistWindowState();
         return win;
@@ -4043,6 +4051,13 @@ window.ProfileReady.then(() => {
         pipes: { width: 780, height: 620, minWidth: 520, minHeight: 420 },
         soundrecorder: { width: 640, height: 540, minWidth: 460, minHeight: 400 },
         winamp: { width: 340, height: 520, minWidth: 300, minHeight: 380 }
+    };
+
+    /* File types the shell already knows how to route to an application.
+       Phase 3 publishes the metadata; the association UI is still owned by
+       Explorer until the shared services phase. */
+    const PROGRAM_FILE_TYPES = {
+        mediaplayer: ['mp3', 'opus', 'wav', 'ogg', 'mp4', 'webm', 'flac', 'aac', 'm4a']
     };
 
     function programDefinition(id) {
@@ -4164,7 +4179,8 @@ window.ProfileReady.then(() => {
 
     window.openPrograms = openPrograms;
 
-    function openPrograms() {
+    function openPrograms(options) {
+        options = options || {};
         const win = windows.get('programs');
         if (!win) return null;
         clearShowDesktopState();
@@ -4174,24 +4190,26 @@ window.ProfileReady.then(() => {
             if (!win.taskbarButton) addTaskbarButton(win);
             fitWindowToDesktop(win);
         }
-        focusWindow('programs', true);
+        if (options.focus !== false) focusWindow('programs', true);
+        if (window.AppRegistry) window.AppRegistry.attachWindow('programs', win);
         persistWindowState();
         return win;
     }
 
-    function openProgram(id) {
+    function openProgram(id, options) {
+        options = options || {};
         const def = programDefinition(id);
         if (!def) {
             toast(`PROGRAM NOT FOUND \u2014 ${String(id).toUpperCase()}`, 2600);
             return null;
         }
 
-        const winId = `program-${def.id}`;
+        const winId = options.windowId || `program-${def.id}`;
         const existing = windows.get(winId);
         if (existing && !existing.closed) {
             clearShowDesktopState();
             if (existing.minimized) restoreWindow(winId);
-            else focusWindow(winId, true);
+            else if (options.focus !== false) focusWindow(winId, true);
             return existing;
         }
 
@@ -4226,16 +4244,24 @@ window.ProfileReady.then(() => {
             icon: PROGRAM_GLYPHS[def.id] || '\u25A6',
             minWidth: size.minWidth || 340,
             minHeight: size.minHeight || 320,
-            bounds: nextProgramBounds(def.id, index),
+            bounds: options.bounds || nextProgramBounds(def.id, index),
             focusTarget: '.program-app-body'
         });
 
         const body = node.querySelector('.program-app-body');
         const meta = node.querySelector('.program-meta');
         let cleanup = null;
+        const appContext = window.AppRegistry
+            ? window.AppRegistry.context()
+            : { profile: null, profileId: null, vfs: window.VFS || null };
 
         const api = {
             app: def,
+            profile: appContext.profile,
+            profileId: appContext.profileId,
+            vfs: appContext.vfs,
+            registry: window.AppRegistry || null,
+            instanceId: winId,
             setMeta(value) {
                 const text = String(value == null ? '' : value).trim();
                 meta.textContent = text || def.meta || '';
@@ -4259,10 +4285,12 @@ window.ProfileReady.then(() => {
         }
 
         if (typeof cleanup === 'function') win.onClose = cleanup;
-        focusWindow(win.id, true);
+        if (window.AppRegistry) window.AppRegistry.attachWindow(def.id, win, { windowId: winId });
+        if (options.focus !== false) focusWindow(win.id, true);
         persistWindowState();
         return win;
     }
+    window.openProgram = openProgram;
 
     if (programsButton) {
         programsButton.addEventListener('click', () => {
@@ -5765,6 +5793,115 @@ window.ProfileReady.then(() => {
     taskbar.addEventListener('focusin', () => {
         if (startMenu.hidden) setActiveWindowMarker('none');
     });
+
+    /* ── Application registry ───────────────────────────────── */
+    function registerApplications() {
+        const registry = window.AppRegistry;
+        if (!registry) {
+            console.warn('[Shell] Application registry unavailable.');
+            return;
+        }
+
+        registry.configure({
+            windowManager: {
+                focus(windowId, focusTarget) {
+                    focusWindow(windowId, focusTarget !== false);
+                    return true;
+                },
+                minimize(windowId) {
+                    minimizeWindow(windowId);
+                    return true;
+                },
+                restore(windowId) {
+                    restoreWindow(windowId);
+                    return true;
+                },
+                close(windowId) {
+                    closeWindow(windowId);
+                    return true;
+                },
+                exists(windowId) {
+                    const win = windows.get(windowId);
+                    return Boolean(win && !win.closed);
+                }
+            }
+        });
+
+        registry.register({
+            id: 'explorer',
+            name: 'Explorer',
+            tagline: 'Browse the active profile virtual filesystem.',
+            meta: 'FILES \u00B7 VFS',
+            icon: '\u25A3',
+            source: 'IN-HOUSE',
+            kind: 'system',
+            launch(context, options) {
+                return openExplorer(options);
+            }
+        });
+
+        registry.register({
+            id: 'programs',
+            name: 'Programs',
+            tagline: 'The installed application shelf.',
+            meta: 'LAUNCHER \u00B7 IN-HOUSE',
+            icon: '\u25A6',
+            source: 'IN-HOUSE',
+            kind: 'system',
+            launch(context, options) {
+                return openPrograms(options);
+            }
+        });
+
+        registry.register({
+            id: 'music',
+            name: 'Music',
+            tagline: 'Play the local playlist.',
+            meta: 'AUDIO \u00B7 LOCAL',
+            icon: '\u266A',
+            source: 'IN-HOUSE',
+            kind: 'system',
+            launch(context, options) {
+                return openMusic(options);
+            }
+        });
+
+        registry.register({
+            id: 'terminal',
+            name: 'Terminal',
+            tagline: 'Open a new r3sh terminal window.',
+            meta: 'TTY \u00B7 R3SH',
+            icon: '>_',
+            source: 'IN-HOUSE',
+            kind: 'system',
+            multiple: true,
+            launch(context, options) {
+                return openTerminal(options);
+            }
+        });
+
+        const programs = window.RetroApps ? window.RetroApps.list() : [];
+        programs.forEach((program) => {
+            const definition = window.RetroApps.get(program.id);
+            if (!definition) return;
+            registry.register({
+                id: definition.id,
+                name: definition.name,
+                tagline: definition.tagline,
+                meta: definition.meta,
+                icon: definition.icon,
+                source: definition.source || 'IN-HOUSE',
+                frame: Boolean(definition.frame),
+                kind: 'program',
+                fileTypes: PROGRAM_FILE_TYPES[definition.id] || [],
+                launch(context, options) {
+                    return openProgram(definition.id, options);
+                }
+            });
+        });
+    }
+
+    registerApplications();
 
     /* ── Boot the shell ─────────────────────────────────────── */
     const programsWin = registerWindow(programsNode, {
