@@ -2690,6 +2690,7 @@
     <script src="./main/profile/profile-ui.js?v=20261104"></script>
     <script src="./main/shortcuts.js?v=20261105"></script>
     <script src="./main/app-registry.js?v=20261105"></script>
+    <script src="./main/system-services.js?v=20261106"></script>
 </head>
 <body>
 
@@ -3335,6 +3336,13 @@ window.ProfileReady.then(() => {
         toastTimer = window.setTimeout(() => {
             shellToast.hidden = true;
         }, duration);
+    }
+
+    // Keep the legacy `window.toast` hook working for persistence diagnostics
+    // and hand the same renderer to the shared notification service.
+    window.toast = toast;
+    if (window.SystemServices) {
+        window.SystemServices.notifications.configure({ renderer: toast });
     }
 
     /* ── Desktop assistant — local Clippy.js port ─────────────── */
@@ -4262,6 +4270,7 @@ window.ProfileReady.then(() => {
             vfs: appContext.vfs,
             registry: window.AppRegistry || null,
             instanceId: winId,
+            initialNode: options.node || null,
             setMeta(value) {
                 const text = String(value == null ? '' : value).trim();
                 meta.textContent = text || def.meta || '';

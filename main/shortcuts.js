@@ -20,6 +20,7 @@
  *   priority    higher wins when more than one registration matches
  *   allowInEditable  allow while an input/textarea/contenteditable has focus
  *   allowWhenLocked  allow while ProfileUI reports the desktop is locked
+ *   allowInDialog    allow while a [data-system-modal] dialog is open
  *   when        optional predicate (event, contexts) => boolean
  *   handler     function (event, contexts) => false to permit browser default
  *   description human-readable label for diagnostics
@@ -33,7 +34,7 @@
 (function (window, document) {
   'use strict';
 
-  const VERSION = '20261105';
+  const VERSION = '20261106';
   const MODIFIER_NAMES = ['ctrl', 'alt', 'shift', 'meta'];
   const registrations = new Map();
   const conflicts = [];
@@ -263,6 +264,7 @@
       priority: Number.isFinite(Number(spec.priority)) ? Number(spec.priority) : 0,
       allowInEditable: spec.allowInEditable === true,
       allowWhenLocked: spec.allowWhenLocked === true,
+      allowInDialog: spec.allowInDialog === true,
       repeat: spec.repeat === true,
       when: typeof spec.when === 'function' ? spec.when : null,
       handler: spec.handler,
@@ -323,6 +325,7 @@
         priority: registration.priority,
         allowInEditable: registration.allowInEditable,
         allowWhenLocked: registration.allowWhenLocked,
+        allowInDialog: registration.allowInDialog,
         repeat: registration.repeat,
         description: registration.description
       })),
@@ -346,10 +349,12 @@
     const contexts = collectContexts(event);
     const locked = contexts.has('locked');
     const editable = contexts.has('editable');
+    const modal = document.querySelector('[data-system-modal="true"]:not([hidden])');
     const matches = [];
 
     registrations.forEach((registration) => {
       if (locked && !registration.allowWhenLocked) return;
+      if (modal && !registration.allowInDialog) return;
       if (editable && !registration.allowInEditable) return;
       if (!registration.contexts.some((name) => contexts.has(name))) return;
       if (registration.when) {

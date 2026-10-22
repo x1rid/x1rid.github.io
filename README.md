@@ -33,6 +33,8 @@ main/               → the retro homepage
     chrome.js       → status rail, public page-view counter, focused-window state
     shortcuts.js    → centralized context-aware keyboard shortcut service
     app-registry.js → application definitions, launch policy, and lifecycle
+    system-services.js → shared clipboard, Open/Save dialogs, file
+                      associations, notifications, settings, and events
     mobile.js       → phone shell controller (<=600px): tab bar, pages mirror,
                       terminal key strip, virtual-keyboard geometry
     assets/         → pixel cursor sprites + classic cursor GIFs
@@ -297,7 +299,88 @@ plus `profile`, `profileId`, `vfs`, `registry`, and `instanceId`. Mounts return
 their cleanup function as before; the registry wraps window close so timers,
 listeners, media, and iframe sources are released before the instance is
 removed. Window restoration now asks the registry to launch each saved
-`appId`; it no longer contains app-specific branches.
+`appId`; it no longer contains app-specific branches. A launch may pass an
+optional `node`; mounts receive it as `initialNode` and should validate it
+against the active VFS before using it.
+
+## Shared system services
+
+`main/system-services.js` is the Phase 4 service layer between the shell, VFS,
+and applications. It exposes `window.SystemServices` and is loaded after the
+profile/VFS and application registry, before Explorer and program consumers.
+
+```js
+await SystemServices.ready; // profile + VFS boot has completed
+
+SystemServices.clipboard.writeText('copied text');
+SystemServices.clipboard.copyFiles([nodeId]); // or cutFiles(...)
+await SystemServices.clipboard.paste(folderId);
+
+const open = await SystemServices.dialogs.open({ extensions: ['txt'] });
+const save = await SystemServices.dialogs.save({
+  startId: folderId,
+  suggestedName: 'notes.txt',
+  extensions: ['txt']
+});
+
+SystemServices.files.register({
+  id: 'my-viewer',
+  label: 'My Viewer',
+  extensions: ['txt'],
+  open(node, context) { return openMyViewer(node, context); }
+});
+SystemServices.files.open(nodeId); // explicit handler, then AppRegistry lookup
+
+SystemServices.notifications.notify('FILE SAVED');
+SystemServices.notifications.error('SAVE FAILED', error);
+
+SystemServices.settings.get('musicVolume');
+await SystemServices.settings.set('musicVolume', 45);
+```
+
+Everything is profile-scoped. Clipboard entries store VFS node IDs plus the
+active profile database and VFS-instance token; switching profiles or replacing
+the VFS invalidates them, and stale entries are cleared instead of returning a
+handle from another profile. Open/Save dialogs bind to the VFS that was active
+when they opened and fail with `PROFILE_CHANGED` rather than resolving against a
+different profile. Dialog cancellation resolves
+`{ ok: false, cancelled: true, code: 'CANCELLED' }`; a save name conflict stays
+open with an inline error and never reports success.
+
+File associations prefer an explicit handler registered through
+`SystemServices.files.register()`, then fall back to
+`AppRegistry.findByFileType()`. The built-in text editor and image viewer are
+registered by Explorer; media extensions resolve to the Media Player. Text
+files can be edited, saved in place, saved through the shared Save dialog, and
+copy/pasted through the shared clipboard. Media Player opens VFS media through
+the shared Open dialog and releases its blob URLs on close.
+
+### Standard events
+
+Services emit namespaced events on `document` and through
+`SystemServices.events.on(type, listener)`. Every detail includes `type`,
+`profileId`, `emittedAt`, and a monotonically increasing `sequence`. Services
+change their own state first, emit synchronously, then resolve any caller
+promise.
+
+| Event | Detail fields |
+| --- | --- |
+| `system:clipboard-changed` | `kind`, `op`, `count`, `nodeIds`, `reason` |
+| `system:clipboard-pasted` | `op`, `count`, `targetId`, `completedNodeIds` |
+| `system:dialog-open` | `mode`, `title`, `folderId`, `path` |
+| `system:dialog-close` | `mode`, `reason`, `resultCode` |
+| `system:file-opened` | `nodeId`, `path`, `extension`, plus `handlerId` or `appId` |
+| `system:file-saved` | `nodeId`, `path`, `extension`, `appId` |
+| `system:app-file-open` | `appId`, `nodeId`, `path`, `extension` |
+| `system:notification` | `level`, `title`, `message`, `duration` |
+| `system:error` | `operation`, `code`, `message` |
+| `system:settings-changed` | `key`, `value`, `committed` |
+| `system:services-ready` | `version`, `vfsDb`, `hasVfs` |
+
+Existing `node-*` VFS events, `profile:*` events, and `site:app*` registry
+events keep their previous contracts. While a shared dialog is open, the
+keyboard service blocks unrelated shell shortcuts; Escape and Enter are
+registered by the dialog itself.
 
 ## Keyboard shortcuts
 

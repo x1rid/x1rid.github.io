@@ -34,6 +34,31 @@
         let playlist = [...DEFAULT_PLAYLIST];
         let currentIdx = 0;
         let isPlaying = false;
+        const objectUrls = new Set();
+
+        function notify(message, duration, level) {
+            const services = window.SystemServices;
+            if (services) {
+                services.notifications.notify(message, { duration: duration || 2200, level: level || 'info' });
+            } else if (typeof window.toast === 'function') {
+                window.toast(message, duration || 2200);
+            }
+        }
+
+        function reportError(operation, error) {
+            const services = window.SystemServices;
+            if (services) {
+                const detail = services.notifications.error(operation, error, { notify: false });
+                notify(`${String(operation).toUpperCase()}: ${detail.message}`, 3200, 'error');
+            } else if (typeof window.toast === 'function') {
+                window.toast(`${String(operation).toUpperCase()} FAILED`, 3200);
+            }
+        }
+
+        function trackObjectUrl(url) {
+            if (url) objectUrls.add(url);
+            return url;
+        }
 
         root.innerHTML = `
             <div class="w95-player-app">
@@ -247,8 +272,8 @@
         btnPause.addEventListener('click', pause);
         btnStop.addEventListener('click', stop);
 
-        btnEject.addEventListener('click', () => fileInput.click());
-        menuOpen.addEventListener('click', () => fileInput.click());
+        btnEject.addEventListener('click', () => openFromSystemDialog());
+        menuOpen.addEventListener('click', () => openFromSystemDialog());
 
         btnPrev.addEventListener('click', () => {
             currentIdx = (currentIdx - 1 + playlist.length) % playlist.length;
@@ -283,7 +308,15 @@
 
         menuCopy.addEventListener('click', () => {
             if (playlist[currentIdx]) {
-                navigator.clipboard?.writeText(playlist[currentIdx].title);
+                const services = window.SystemServices;
+                if (services) {
+                    services.clipboard.writeText(playlist[currentIdx].title, {
+                        source: 'mediaplayer'
+                    });
+                    notify('TRACK TITLE COPIED', 1400);
+                } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(playlist[currentIdx].title).catch(() => {});
+                }
             }
         });
 
@@ -292,9 +325,119 @@
         });
 
         /* ── File Drag and Drop Support ───────────────────────────── */
+        const MEDIA_EXTENSIONS = ['mp3', 'opus', 'wav', 'ogg', 'oga', 'mp4', 'webm', 'ogv', 'm4a', 'flac', 'aac'];
+
+        function mediaMimeType(node) {
+            if (node && node.mimeType) return node.mimeType;
+            const ext = String(node && node.extension || '').toLowerCase();
+            return {
+                mp3: 'audio/mpeg',
+                opus: 'audio/ogg',
+                ogg: 'audio/ogg',
+                oga: 'audio/ogg',
+                wav: 'audio/wav',
+                m4a: 'audio/mp4',
+                flac: 'audio/flac',
+                aac: 'audio/aac',
+                mp4: 'video/mp4',
+                webm: 'video/webm',
+                ogv: 'video/ogg'
+            }[ext] || 'application/octet-stream';
+        }
+
+        async function openVfsNode(node, autoplay, reportOpened) {
+            const vfs = api && api.vfs ? api.vfs : window.VFS;
+            if (!vfs || !node || !node.id) return { ok: false, code: 'VFS_UNAVAILABLE' };
+            const liveNode = vfs.getNode(node.id);
+            if (!liveNode) return { ok: false, code: 'NOT_FOUND' };
+
+            try {
+                const content = await vfs.readFile(liveNode.id);
+                let src = '';
+                if (content && content.kind === 'dataUrl') {
+                    src = content.value;
+                } else if (content && content.kind === 'blob') {
+                    src = trackObjectUrl(URL.createObjectURL(content.value));
+                } else if (content && content.value instanceof Uint8Array) {
+                    src = trackObjectUrl(URL.createObjectURL(new Blob([content.value], {
+                        type: mediaMimeType(liveNode)
+                    })));
+                } else if (content && typeof content.value === 'string') {
+                    src = trackObjectUrl(URL.createObjectURL(new Blob([content.value], {
+                        type: mediaMimeType(liveNode)
+                    })));
+                }
+                if (!src) throw new Error('The selected virtual file has no readable media content.');
+
+                const item = {
+                    title: liveNode.name,
+                    src: src,
+                    isVideo: /\.(mp4|webm|ogv|mov|mkv|avi)$/i.test(liveNode.name),
+                    vfsNodeId: liveNode.id
+                };
+                playlist.unshift(item);
+                currentIdx = 0;
+                loadMedia(item, Boolean(autoplay));
+                notify(`OPENED "${liveNode.name}"`, 1600);
+
+                const services = window.SystemServices;
+                if (services && reportOpened) {
+                    services.events.emit(services.events.EVENTS.FILE_OPENED, {
+                        nodeId: liveNode.id,
+                        path: vfs.getPath(liveNode.id),
+                        extension: (liveNode.extension || '').toLowerCase(),
+                        appId: 'mediaplayer'
+                    });
+                }
+                return { ok: true, nodeId: liveNode.id };
+            } catch (error) {
+                reportError('Open Media File', error);
+                return { ok: false, code: error && error.code ? error.code : 'READ_FAILED', message: error && error.message };
+            }
+        }
+
+        async function openFromSystemDialog() {
+            const services = window.SystemServices;
+            if (!services || !services.dialogs) {
+                fileInput.click();
+                return;
+            }
+            const vfs = api && api.vfs ? api.vfs : window.VFS;
+            if (!vfs) {
+                reportError('Open Media File', { message: 'The active virtual filesystem is unavailable.' });
+                return;
+            }
+            const startId = vfs.getKnownFolder ? vfs.getKnownFolder('music') : null;
+            const result = await services.dialogs.open({
+                title: 'Open Media File',
+                startId: startId,
+                extensions: MEDIA_EXTENSIONS,
+                appId: 'mediaplayer'
+            });
+            if (!result.ok) {
+                if (!result.cancelled) reportError('Open Media File', result);
+                return;
+            }
+            const node = vfs.getNode(result.nodeId);
+            if (!node) {
+                reportError('Open Media File', { message: 'The selected file is no longer available.' });
+                return;
+            }
+            await openVfsNode(node, true, true);
+        }
+
+        function handleAppFileOpen(event) {
+            const detail = event && event.detail ? event.detail : {};
+            if (detail.appId !== 'mediaplayer' || !detail.nodeId) return;
+            const vfs = api && api.vfs ? api.vfs : window.VFS;
+            const node = vfs ? vfs.getNode(detail.nodeId) : null;
+            if (node) openVfsNode(node, true);
+        }
+        document.addEventListener('system:app-file-open', handleAppFileOpen);
+
         function handleFile(file) {
             if (!file) return;
-            const objectUrl = URL.createObjectURL(file);
+            const objectUrl = trackObjectUrl(URL.createObjectURL(file));
             const isVid = file.type.startsWith('video/') || file.name.match(/\.(mp4|webm|mkv|mov|avi)$/i);
             const newItem = {
                 title: file.name,
@@ -377,13 +520,23 @@
             window.addEventListener('pointercancel', onPointerUp);
         });
 
-        /* Start with the classic video */
-        loadMedia(playlist[0], false);
+        /* Start with the file passed by Explorer, or the classic playlist. */
+        const initialNode = api && api.initialNode ? api.initialNode : null;
+        if (initialNode) {
+            openVfsNode(initialNode, false);
+        } else {
+            loadMedia(playlist[0], false);
+        }
 
         return function cleanup() {
+            document.removeEventListener('system:app-file-open', handleAppFileOpen);
             stopPointerDrag();
             media.pause();
             media.src = '';
+            objectUrls.forEach(function (url) {
+                try { URL.revokeObjectURL(url); } catch (_error) { /* already released */ }
+            });
+            objectUrls.clear();
         };
     }
 

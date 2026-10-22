@@ -7,9 +7,6 @@
 (function (window) {
     'use strict';
 
-    // Clipboard for file operations
-    let fileClipboard = null; // { op: 'copy' | 'cut', nodeId: string, parentId: string }
-
     const state = {
         currentId: null, // string nodeId
         selected: null,  // selected nodeId
@@ -24,6 +21,22 @@
         renamingId: null,
         expanded: { root: true, 'c-drive': true }
     };
+
+    let activeObjectUrl = null;
+
+    function setActiveObjectUrl(url) {
+        if (activeObjectUrl && activeObjectUrl !== url) {
+            URL.revokeObjectURL(activeObjectUrl);
+        }
+        activeObjectUrl = url || null;
+    }
+
+    function clearActiveObjectUrl() {
+        if (activeObjectUrl) {
+            URL.revokeObjectURL(activeObjectUrl);
+            activeObjectUrl = null;
+        }
+    }
 
     // DOM Elements
     const explorer = document.getElementById('explorer');
@@ -55,6 +68,41 @@
         '"': '&quot;',
         "'": '&#39;'
     }[ch]));
+
+    function systemServices() {
+        return window.SystemServices || null;
+    }
+
+    function notify(message, duration, level) {
+        const services = systemServices();
+        if (services) {
+            services.notifications.notify(message, {
+                duration: duration || 2200,
+                level: level || 'info'
+            });
+            return;
+        }
+        if (typeof window.toast === 'function') {
+            window.toast(message, duration || 2200);
+        }
+    }
+
+    function showError(title, error) {
+        const services = systemServices();
+        if (services && !(error && error.reported)) {
+            services.notifications.error(title, error, { notify: false });
+        }
+        const message = error && error.message
+            ? error.message
+            : String(error == null ? 'Unknown error' : error);
+        const shown = openDialog(title, `<div class="prop-grid"><div class="prop-key">Error</div><div class="prop-value">${escapeHtml(message)}</div></div>`);
+        if (!shown) notify(`${String(title).toUpperCase()}: ${message}`, 3200, 'error');
+    }
+
+    function clipboardFilesAvailable() {
+        const services = systemServices();
+        return Boolean(services && services.clipboard.getState().kind === 'files');
+    }
 
     function formatSize(bytes) {
         if (bytes == null || isNaN(bytes)) return '--';
@@ -402,6 +450,9 @@
             return;
         }
 
+        const services = systemServices();
+        const clipboardState = services ? services.clipboard.getState() : { kind: null, op: null, nodeIds: [] };
+
         // Ordered columns: Name | Type | Size | Modified | Status
         fileRows.innerHTML = items.map((item, index) => {
             const selected = item.id === state.selected;
@@ -409,7 +460,9 @@
             const tabindex = selected || (!state.selected && index === 0) ? '0' : '-1';
             const classes = [
                 selected ? 'is-selected' : '',
-                fileClipboard && fileClipboard.nodeId === item.id && fileClipboard.op === 'cut' ? 'is-pending' : ''
+                clipboardState.kind === 'files' &&
+                    clipboardState.op === 'cut' &&
+                    clipboardState.nodeIds.indexOf(item.id) !== -1 ? 'is-pending' : ''
             ].filter(Boolean).join(' ');
 
             let nameHtml;
@@ -644,7 +697,7 @@
                 <button class="menu-item" type="button" role="menuitem" data-action="empty-bin"><span class="menu-icon" aria-hidden="true">🗑</span>Empty Recycle Bin</button>`;
         } else {
             // Right click on empty directory space
-            const hasPaste = fileClipboard !== null;
+            const hasPaste = clipboardFilesAvailable();
             menuHtml += `
                 <button class="menu-item" type="button" role="menuitem" data-action="new-folder"><span class="menu-icon" aria-hidden="true">📁</span>New Folder<span class="menu-shortcut">Ctrl+Alt+N</span></button>
                 <button class="menu-item" type="button" role="menuitem" data-action="new-file"><span class="menu-icon" aria-hidden="true">📄</span>New Text Document</button>
@@ -679,15 +732,9 @@
         }
         try {
             await vfs.rename(id, trimmed);
-            if (typeof window.toast === 'function') {
-                window.toast(`RENAMED TO "${trimmed}"`, 1800);
-            }
+            notify(`RENAMED TO "${trimmed}"`, 1800);
         } catch (err) {
-            if (typeof window.toast === 'function') {
-                window.toast(`RENAME FAILED: ${err.message}`, 3000);
-            } else {
-                openDialog('Rename Error', `<div class="prop-grid"><div class="prop-key">Error</div><div class="prop-value">${escapeHtml(err.message)}</div></div>`);
-            }
+            showError('Rename Error', err);
         }
         renderList();
     }
@@ -705,34 +752,49 @@
                 openNode(vfs.getNode(itemId));
             }
         } else if (action === 'cut') {
-            fileClipboard = { op: 'cut', nodeId: itemId, parentId: state.currentId };
+            const services = systemServices();
+            const result = services
+                ? services.clipboard.cutFiles([itemId], { source: 'explorer' })
+                : { ok: false, code: 'SERVICES_UNAVAILABLE', message: 'Shared system services are unavailable.' };
+            if (!result.ok) {
+                showError('Cut Error', result);
+                return;
+            }
             renderList();
-            if (typeof window.toast === 'function') window.toast('ITEM CUT TO CLIPBOARD', 1400);
+            notify('ITEM CUT TO CLIPBOARD', 1400);
         } else if (action === 'copy') {
-            fileClipboard = { op: 'copy', nodeId: itemId, parentId: state.currentId };
-            if (typeof window.toast === 'function') window.toast('ITEM COPIED TO CLIPBOARD', 1400);
+            const services = systemServices();
+            const result = services
+                ? services.clipboard.copyFiles([itemId], { source: 'explorer' })
+                : { ok: false, code: 'SERVICES_UNAVAILABLE', message: 'Shared system services are unavailable.' };
+            if (!result.ok) {
+                showError('Copy Error', result);
+                return;
+            }
+            notify('ITEM COPIED TO CLIPBOARD', 1400);
         } else if (action === 'paste') {
-            if (fileClipboard && state.currentId && state.currentId !== '__recycle__' && state.currentId !== 'root') {
-                try {
-                    if (fileClipboard.op === 'cut') {
-                        await vfs.move(fileClipboard.nodeId, state.currentId);
-                        fileClipboard = null;
-                        if (typeof window.toast === 'function') window.toast('ITEM MOVED', 1400);
-                    } else if (fileClipboard.op === 'copy') {
-                        await vfs.copy(fileClipboard.nodeId, state.currentId);
-                        if (typeof window.toast === 'function') window.toast('ITEM COPIED', 1400);
-                    }
-                } catch (err) {
-                    openDialog('Paste Error', `<div class="prop-grid"><div class="prop-key">Error</div><div class="prop-value">${escapeHtml(err.message)}</div></div>`);
+            if (state.currentId && state.currentId !== '__recycle__' && state.currentId !== 'root') {
+                const services = systemServices();
+                if (!services) {
+                    showError('Paste Error', { message: 'Shared system services are unavailable.' });
+                    return;
                 }
+                const result = await services.clipboard.paste(state.currentId);
+                if (!result.ok) {
+                    if (result.code === 'EMPTY_CLIPBOARD') return;
+                    showError('Paste Error', result);
+                    return;
+                }
+                renderList();
+                notify(result.op === 'cut' ? 'ITEM MOVED' : 'ITEM COPIED', 1400);
             }
         } else if (action === 'delete') {
             if (itemId) {
                 try {
                     await vfs.delete(itemId);
-                    if (typeof window.toast === 'function') window.toast('SENT TO RECYCLE BIN', 1600);
+                    notify('SENT TO RECYCLE BIN', 1600);
                 } catch (err) {
-                    openDialog('Delete Error', `<div class="prop-grid"><div class="prop-key">Error</div><div class="prop-value">${escapeHtml(err.message)}</div></div>`);
+                    showError('Delete Error', err);
                 }
             }
         } else if (action === 'perm-delete') {
@@ -740,9 +802,9 @@
                 try {
                     await vfs.permanentlyDelete(itemId);
                     render();
-                    if (typeof window.toast === 'function') window.toast('PERMANENTLY DELETED', 1600);
+                    notify('PERMANENTLY DELETED', 1600);
                 } catch (err) {
-                    openDialog('Permanent Delete Error', `<div class="prop-grid"><div class="prop-key">Error</div><div class="prop-value">${escapeHtml(err.message)}</div></div>`);
+                    showError('Permanent Delete Error', err);
                 }
             }
         } else if (action === 'restore') {
@@ -750,18 +812,18 @@
                 try {
                     await vfs.restore(itemId);
                     render();
-                    if (typeof window.toast === 'function') window.toast('RESTORED ITEM', 1600);
+                    notify('RESTORED ITEM', 1600);
                 } catch (err) {
-                    openDialog('Restore Error', `<div class="prop-grid"><div class="prop-key">Error</div><div class="prop-value">${escapeHtml(err.message)}</div></div>`);
+                    showError('Restore Error', err);
                 }
             }
         } else if (action === 'empty-bin') {
             try {
                 await vfs.emptyRecycleBin();
                 render();
-                if (typeof window.toast === 'function') window.toast('RECYCLE BIN EMPTIED', 1600);
+                notify('RECYCLE BIN EMPTIED', 1600);
             } catch (err) {
-                openDialog('Recycle Bin Error', `<div class="prop-grid"><div class="prop-key">Error</div><div class="prop-value">${escapeHtml(err.message)}</div></div>`);
+                showError('Recycle Bin Error', err);
             }
         } else if (action === 'rename') {
             state.renamingId = itemId;
@@ -784,7 +846,7 @@
                     state.renamingId = newDir.id;
                     renderList();
                 } catch (err) {
-                    openDialog('Create Folder Error', `<div class="prop-grid"><div class="prop-key">Error</div><div class="prop-value">${escapeHtml(err.message)}</div></div>`);
+                    showError('Create Folder Error', err);
                 }
             }
         } else if (action === 'new-file') {
@@ -803,7 +865,7 @@
                     state.renamingId = newFile.id;
                     renderList();
                 } catch (err) {
-                    openDialog('Create File Error', `<div class="prop-grid"><div class="prop-key">Error</div><div class="prop-value">${escapeHtml(err.message)}</div></div>`);
+                    showError('Create File Error', err);
                 }
             }
         } else if (action === 'refresh') {
@@ -829,41 +891,207 @@
             return;
         }
 
-        // File Node - check association
-        const ext = (node.extension || '').toLowerCase();
-        if (['txt', 'md', 'json', 'js', 'css', 'html', 'log', 'ini', 'xml', 'yml'].includes(ext)) {
-            const vfs = getVfs();
-            vfs.readFile(node.id).then(content => {
-                const text = content && content.kind === 'text' ? content.value : (content ? String(content.value) : '');
-                openDialog(`${node.name} — Notepad`, `<textarea readonly style="width:100%;height:320px;background:var(--well-bg);color:var(--ink-90);font-family:monospace;font-size:12px;padding:8px;border:1px solid var(--bevel-dark);resize:vertical;box-sizing:border-box;">${escapeHtml(text)}</textarea>`);
-            }).catch(err => {
-                openDialog('Error Reading File', `<div class="prop-grid"><div class="prop-key">Error</div><div class="prop-value">${escapeHtml(err.message)}</div></div>`);
-            });
-        } else if (['png', 'jpg', 'jpeg', 'svg', 'gif', 'webp', 'ico', 'bmp'].includes(ext)) {
-            const vfs = getVfs();
-            vfs.readFile(node.id).then(content => {
-                let src = '';
-                if (!content) src = '';
-                else if (content.kind === 'dataUrl') src = content.value;
-                else if (content.kind === 'text' && ext === 'svg') src = 'data:image/svg+xml;utf8,' + encodeURIComponent(content.value);
-                else if (content.kind === 'blob') src = URL.createObjectURL(content.value);
-                else if (typeof content.value === 'string') src = content.value;
-                openDialog(`${node.name} — Image Viewer`, `<div style="text-align:center;padding:12px;background:#000;"><img src="${escapeHtml(src)}" alt="${escapeHtml(node.name)}" style="max-width:100%;max-height:380px;object-fit:contain;image-rendering:pixelated;border:1px solid var(--line-hi);" /></div>`);
-            }).catch(err => {
-                openDialog('Error Reading File', `<div class="prop-grid"><div class="prop-key">Error</div><div class="prop-value">${escapeHtml(err.message)}</div></div>`);
-            });
-        } else if (['mp3', 'opus', 'wav', 'ogg', 'mp4', 'webm', 'flac', 'aac', 'm4a'].includes(ext)) {
-            const handlers = window.AppRegistry && typeof window.AppRegistry.findByFileType === 'function'
-                ? window.AppRegistry.findByFileType(ext)
-                : [];
-            if (handlers.length && typeof window.AppRegistry.launch === 'function') {
-                window.AppRegistry.launch(handlers[0].id, { node: node });
-            } else if (typeof window.openProgram === 'function') {
-                window.openProgram('mediaplayer');
-            }
-        } else {
-            openDialog('Open With', `<div class="prop-grid"><div class="prop-key">File</div><div class="prop-value">${escapeHtml(node.name)}</div><div class="prop-key">Status</div><div class="prop-value">No application associated with .${escapeHtml(ext)} files.</div></div>`);
+        const services = systemServices();
+        if (!services || !services.files) {
+            showError('Open Error', { message: 'Shared file associations are unavailable.' });
+            return;
         }
+
+        services.files.open(node, { source: 'explorer' }).then((result) => {
+            if (result.ok) return;
+            if (result.code === 'NO_ASSOCIATION') {
+                const ext = (node.extension || '').toLowerCase();
+                openDialog('Open With', `<div class="prop-grid"><div class="prop-key">File</div><div class="prop-value">${escapeHtml(node.name)}</div><div class="prop-key">Status</div><div class="prop-value">No application associated with .${escapeHtml(ext)} files.</div></div>`);
+                return;
+            }
+            showError('Open Error', result);
+        });
+    }
+
+    function emitFileSaved(node) {
+        const services = systemServices();
+        const vfs = getVfs();
+        if (!services) return;
+        services.events.emit(services.events.EVENTS.FILE_SAVED, {
+            nodeId: node.id,
+            path: vfs ? vfs.getPath(node.id) : null,
+            extension: (node.extension || '').toLowerCase(),
+            appId: 'explorer'
+        });
+    }
+
+    async function openTextNode(node) {
+        const vfs = getVfs();
+        if (!vfs) throw new Error('The active virtual filesystem is unavailable.');
+        const content = await vfs.readFile(node.id);
+        const text = content && content.kind === 'text'
+            ? content.value
+            : (content && typeof content.value === 'string' ? content.value : '');
+        const html = `
+            <div class="text-viewer-toolbar">
+                <button type="button" class="dialog-btn" data-viewer-action="save">Save</button>
+                <button type="button" class="dialog-btn" data-viewer-action="save-as">Save As…</button>
+                <button type="button" class="dialog-btn" data-viewer-action="copy">Copy All</button>
+                <button type="button" class="dialog-btn" data-viewer-action="paste">Paste</button>
+                <span class="text-viewer-status" data-viewer-status>READY</span>
+            </div>
+            <textarea id="vfs-text-viewer-editor" style="width:100%;height:310px;background:var(--well-bg);color:var(--ink-90);font-family:monospace;font-size:12px;padding:8px;border:1px solid var(--bevel-dark);resize:vertical;box-sizing:border-box;">${escapeHtml(text)}</textarea>`;
+        if (!openDialog(`${node.name} — Notepad`, html)) {
+            throw new Error('The text viewer dialog could not be opened.');
+        }
+
+        const editor = dialogBody.querySelector('#vfs-text-viewer-editor');
+        const status = dialogBody.querySelector('[data-viewer-status]');
+        let currentNode = node;
+
+        function setStatus(value) {
+            if (status) status.textContent = value;
+        }
+
+        async function saveCurrent() {
+            try {
+                const saved = await vfs.writeFile(currentNode.id, {
+                    kind: 'text',
+                    value: editor ? editor.value : ''
+                });
+                emitFileSaved(saved);
+                setStatus('SAVED');
+                notify(`SAVED "${saved.name}"`, 1600);
+            } catch (error) {
+                setStatus('SAVE FAILED');
+                showError('Save Error', error);
+            }
+        }
+
+        async function saveAs() {
+            const services = systemServices();
+            if (!services) {
+                showError('Save As Error', { message: 'Shared system services are unavailable.' });
+                return;
+            }
+            const result = await services.dialogs.save({
+                title: 'Save Text File As',
+                startId: currentNode.parentId,
+                suggestedName: currentNode.name,
+                extensions: TEXT_EXTENSIONS,
+                appId: 'explorer'
+            });
+            if (!result.ok) {
+                if (!result.cancelled) showError('Save As Error', result);
+                return;
+            }
+            try {
+                const created = await vfs.createFile(result.folderId, result.name, {
+                    kind: 'text',
+                    value: editor ? editor.value : ''
+                });
+                currentNode = created;
+                emitFileSaved(created);
+                dialogTitle.textContent = `${created.name} — Notepad`;
+                setStatus('SAVED AS');
+                notify(`SAVED AS "${created.name}"`, 1800);
+                renderList();
+            } catch (error) {
+                setStatus('SAVE FAILED');
+                showError('Save As Error', error);
+            }
+        }
+
+        dialogBody.querySelectorAll('[data-viewer-action]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const action = button.dataset.viewerAction;
+                if (action === 'save') saveCurrent();
+                else if (action === 'save-as') saveAs();
+                else if (action === 'copy') {
+                    const services = systemServices();
+                    if (!services) {
+                        showError('Copy Error', { message: 'Shared system services are unavailable.' });
+                        return;
+                    }
+                    services.clipboard.writeText(editor ? editor.value : '', {
+                        source: 'explorer-text-viewer'
+                    });
+                    setStatus('COPIED');
+                    notify('TEXT COPIED TO CLIPBOARD', 1400);
+                } else if (action === 'paste') {
+                    const services = systemServices();
+                    const clipboardText = services ? services.clipboard.readText() : null;
+                    if (clipboardText == null) {
+                        notify('CLIPBOARD HAS NO TEXT', 1800);
+                        return;
+                    }
+                    if (!editor) return;
+                    const start = typeof editor.selectionStart === 'number'
+                        ? editor.selectionStart
+                        : editor.value.length;
+                    const end = typeof editor.selectionEnd === 'number'
+                        ? editor.selectionEnd
+                        : start;
+                    if (typeof editor.setRangeText === 'function') {
+                        editor.setRangeText(clipboardText, start, end, 'end');
+                    } else {
+                        editor.value = editor.value.slice(0, start) + clipboardText + editor.value.slice(end);
+                    }
+                    editor.focus();
+                    setStatus('PASTED');
+                }
+            });
+        });
+
+        return { ok: true, handlerId: 'builtin.text-viewer' };
+    }
+
+    async function openImageNode(node) {
+        const vfs = getVfs();
+        if (!vfs) throw new Error('The active virtual filesystem is unavailable.');
+        const content = await vfs.readFile(node.id);
+        const ext = (node.extension || '').toLowerCase();
+        let src = '';
+        let objectUrl = null;
+
+        if (!content) {
+            src = '';
+        } else if (content.kind === 'dataUrl') {
+            src = content.value;
+        } else if (content.kind === 'text' && ext === 'svg') {
+            src = 'data:image/svg+xml;utf8,' + encodeURIComponent(content.value);
+        } else if (content.kind === 'blob' || (typeof Blob !== 'undefined' && content.value instanceof Blob)) {
+            objectUrl = URL.createObjectURL(content.value);
+            src = objectUrl;
+        } else if (content.value instanceof Uint8Array) {
+            objectUrl = URL.createObjectURL(new Blob([content.value], {
+                type: node.mimeType || 'application/octet-stream'
+            }));
+            src = objectUrl;
+        } else if (typeof content.value === 'string') {
+            src = content.value;
+        }
+
+        if (!openDialog(`${node.name} — Image Viewer`, `<div style="text-align:center;padding:12px;background:#000;"><img src="${escapeHtml(src)}" alt="${escapeHtml(node.name)}" style="max-width:100%;max-height:380px;object-fit:contain;image-rendering:pixelated;border:1px solid var(--line-hi);" /></div>`)) {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+            throw new Error('The image viewer dialog could not be opened.');
+        }
+        if (objectUrl) setActiveObjectUrl(objectUrl);
+        return { ok: true, handlerId: 'builtin.image-viewer' };
+    }
+
+    const TEXT_EXTENSIONS = ['txt', 'md', 'json', 'js', 'css', 'html', 'htm', 'log', 'ini', 'xml', 'yml', 'yaml', 'csv'];
+    const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'gif', 'webp', 'ico', 'bmp'];
+
+    const fileServices = systemServices();
+    if (fileServices) {
+        fileServices.files.register({
+            id: 'builtin.text-viewer',
+            label: 'Text Editor',
+            extensions: TEXT_EXTENSIONS,
+            open: openTextNode
+        });
+        fileServices.files.register({
+            id: 'builtin.image-viewer',
+            label: 'Image Viewer',
+            extensions: IMAGE_EXTENSIONS,
+            open: openImageNode
+        });
     }
 
     function openProperties(node) {
@@ -891,11 +1119,13 @@
     }
 
     function openDialog(title, html) {
-        if (!dialogTitle || !dialogBody || !dialogOverlay) return;
+        if (!dialogTitle || !dialogBody || !dialogOverlay) return false;
+        clearActiveObjectUrl();
         dialogTitle.textContent = title;
         dialogBody.innerHTML = html;
         dialogOverlay.hidden = false;
         if (dialogOk) dialogOk.focus();
+        return true;
     }
 
     function closeDialog() {
@@ -903,6 +1133,7 @@
             dialogOverlay.hidden = true;
             if (dialogBody) dialogBody.innerHTML = '';
         }
+        clearActiveObjectUrl();
     }
 
     if (dialogOk) dialogOk.addEventListener('click', closeDialog);
