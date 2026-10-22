@@ -7,12 +7,13 @@ no bundler. Everything is a `window.*` global loaded with `<script>` tags.
 
 | File | Responsibility |
 | --- | --- |
-| `profile-db.js` | IndexedDB `profile-db` (stores `profiles`, `profile-state`). Never stores file bytes. |
+| `profile-db.js` | IndexedDB `profile-db` v2 (stores `profiles`, `profile-state`, `system-config`). Never stores file bytes. |
 | `profile-service.js` | Profile definitions, active profile, owner password gate, events. |
 | `persistence-service.js` | Validate / load / save / reset per-profile state, debounce, diagnostics, shell hooks. |
 | `window-state.js` | Profile-scoped window snapshot bridge; restores through the shell's existing launch paths. |
 | `boot.js` | Deterministic boot: profiles → active profile → VFS → state → apply → emit. |
 | `profile-ui.js` | Lock-screen profile switcher and owner password prompt. |
+| `../system-config.js` | Profile-scoped virtual users/groups/permissions, startup/service metadata, audit, reset, rollback. |
 
 Load order (in `<head>`, before the VFS scripts):
 
@@ -26,9 +27,12 @@ Load order (in `<head>`, before the VFS scripts):
 <script src="./fs/init.js"></script>
 <script src="./profile/boot.js"></script>
 <script src="./profile/profile-ui.js"></script>
+<script src="./system-services.js"></script>
+<script src="./system-config.js"></script>
 ```
 
-The desktop shell's boot block waits on `window.ProfileReady` before it queries
+`system-config.js` waits on `window.ProfileReady`, then loads only the active
+profile's configuration. The desktop shell's boot block waits on `window.ProfileReady` before it queries
 the DOM or renders windows.
 
 ## Public API
@@ -72,6 +76,33 @@ PersistenceService.validateState(state);                     // pure validator
 `saveProfileState` only resolves after the IndexedDB transaction commits. A
 storage failure rejects **and** emits `profile:state-error`; success is never
 reported early.
+
+### `window.SystemConfig`
+
+`main/system-config.js` is the Phase 5 virtual configuration layer. It is a
+simulation only; it never touches real Windows configuration.
+
+```js
+await SystemConfig.ready;                       // active profile's config loaded
+SystemConfig.get();                             // config + revision/currentUser
+SystemConfig.defaults();                        // immutable code-level defaults
+SystemConfig.validate(raw, { strict: true });   // pure validator
+await SystemConfig.replace(raw);                // full replacement
+await SystemConfig.patch(partial);              // shallow section merge
+await SystemConfig.setSection('users', users);
+await SystemConfig.reset();                     // all sections
+await SystemConfig.reset({ section: 'startup' });
+await SystemConfig.rollback();                  // one-step undo
+SystemConfig.check({ action: 'read', resource: 'vfs:documents' });
+SystemConfig.can('configure', 'config:system');
+SystemConfig.audit(20);
+```
+
+The active profile's simulated principal is `owner` or `guest`. Permission
+checks use the user and its direct groups; any matching `deny` rule wins,
+otherwise an `allow` rule allows, otherwise the result is default-deny.
+`SystemConfig` rejects any attempt to load or write another profile's record
+with `code === 'PROFILE_SCOPE'`.
 
 ### `window.ProfileWindowState`
 
@@ -121,7 +152,8 @@ Dispatched as `CustomEvent` on `document` (also delivered to
 
 ## Storage schema
 
-`profile-db` v1:
+`profile-db` v2 (v1 records are preserved; the upgrade only adds the
+`system-config` store):
 
 ```js
 // profiles
@@ -152,9 +184,24 @@ Dispatched as `CustomEvent` on `document` (also delivered to
       }
     }
   } }
+
+// system-config
+{ profileId, schemaVersion: 1, revision, updatedAt,
+  data: {
+    schemaVersion: 1,
+    users: [{ id, displayName, enabled, groups }],
+    groups: [{ id, displayName }],
+    permissions: [{
+      id, principalType, principalId, actions, resource, effect
+    }],
+    startup: [{ id, label, target, enabled, scope }],
+    services: [{ id, label, startMode, status }]
+  },
+  previous: null | <previous validated data> // one-step rollback snapshot
+}
 ```
 
-State is validated on every read and write. Unknown keys, wrong types,
+State and system configuration are validated on every read and write. Unknown keys, wrong types,
 out-of-range numbers, functions, DOM nodes, and circular objects are dropped.
 A newer `schemaVersion` only reads known fields; malformed data falls back to
 defaults without throwing. Version 1 records still load; legacy geometry-only
@@ -171,6 +218,8 @@ boots its default layout and writes a version 2 record on the next save.
 - Open windows per profile: app identity, restore bounds, maximized/minimized
   flags, and whether the profile has initialized its window set.
 - Profile metadata, timestamps, and owner auth verifier.
+- Per-profile virtual system configuration, rollback snapshot, simulated
+  users/groups/permissions, and startup/service metadata (`SystemConfig`).
 
 Explicitly **not** persisted (transient by design): window focus, z-order,
 in-progress drag/resize, hover, open context menus, toasts, selected icon, and
@@ -230,6 +279,12 @@ between profiles and that the incoming profile's state is applied before render.
 record. It never touches VFS nodes, file contents, or the recycle bin. Full
 profile deletion is intentionally not implemented.
 
+`SystemConfig.reset()` is separate: it restores the virtual configuration
+(users, groups, permissions, startup entries, and service metadata) for the
+active profile only. It does not change files, shell settings, windows, or the
+profile record, and its previous snapshot remains available to
+`SystemConfig.rollback()`.
+
 ## Manual test checklist
 
 Run from the repo root with `python -m http.server 8899`, then open
@@ -247,6 +302,9 @@ Run from the repo root with `python -m http.server 8899`, then open
 10. Reset settings → virtual files and recycle bin remain intact.
 11. Simulate a failed write (see below) → `profile:state-error` fires and save rejects.
 12. Open `main/desktop-shell.html` → profile layer works without the lock screen.
+13. `await SystemConfig.ready` → the active profile config loads; `get()` reports revision and current user.
+14. `await SystemConfig.patch({...})` → reload → the configuration persists; reset and rollback restore the expected virtual config without changing files.
+15. Switch Guest ↔ Owner → each profile reads its own `system-config` record; a cross-profile load/write rejects with `PROFILE_SCOPE`.
 
 Simulated failure:
 

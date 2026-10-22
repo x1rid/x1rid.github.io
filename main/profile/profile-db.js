@@ -5,18 +5,24 @@
  * Virtual File System (vfs-db / vfs-db-guest) remains the single source of
  * truth for virtual files.
  *
- * Database: profile-db (version 1)
+ * Database: profile-db (version 2)
  *   - profiles       (keyPath: 'id')         → profile metadata + auth verifier
  *   - profile-state  (keyPath: 'profileId')  → validated UI/simulator state
+ *   - system-config  (keyPath: 'profileId')  → profile-scoped virtual system
+ *                                              configuration and rollback snapshot
+ *
+ * Version 2 is an additive migration: existing profile metadata and state are
+ * untouched, and only the new object store is created.
  */
 
 (function (window) {
   'use strict';
 
   const DB_NAME = 'profile-db';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const STORE_PROFILES = 'profiles';
   const STORE_STATE = 'profile-state';
+  const STORE_SYSTEM_CONFIG = 'system-config';
 
   function promisify(request) {
     return new Promise(function (resolve, reject) {
@@ -61,6 +67,9 @@
           }
           if (!db.objectStoreNames.contains(STORE_STATE)) {
             db.createObjectStore(STORE_STATE, { keyPath: 'profileId' });
+          }
+          if (!db.objectStoreNames.contains(STORE_SYSTEM_CONFIG)) {
+            db.createObjectStore(STORE_SYSTEM_CONFIG, { keyPath: 'profileId' });
           }
         };
 
@@ -155,9 +164,40 @@
       await txDone(tx);
       return true;
     }
+
+    /* ── Per-profile virtual system configuration ─────────────── */
+
+    async getSystemConfig(profileId) {
+      this._ensureDb();
+      if (!profileId) return null;
+      const tx = this.db.transaction(STORE_SYSTEM_CONFIG, 'readonly');
+      const record = await promisify(tx.objectStore(STORE_SYSTEM_CONFIG).get(profileId));
+      return record || null;
+    }
+
+    async putSystemConfig(record) {
+      this._ensureDb();
+      if (!record || !record.profileId) {
+        throw new Error('putSystemConfig requires a record with a profileId');
+      }
+      const tx = this.db.transaction(STORE_SYSTEM_CONFIG, 'readwrite');
+      tx.objectStore(STORE_SYSTEM_CONFIG).put(record);
+      await txDone(tx);
+      return record;
+    }
+
+    async deleteSystemConfig(profileId) {
+      this._ensureDb();
+      if (!profileId) return false;
+      const tx = this.db.transaction(STORE_SYSTEM_CONFIG, 'readwrite');
+      tx.objectStore(STORE_SYSTEM_CONFIG).delete(profileId);
+      await txDone(tx);
+      return true;
+    }
   }
 
   window.ProfileDB = ProfileDB;
   window.PROFILE_DB_NAME = DB_NAME;
+  window.PROFILE_DB_VERSION = DB_VERSION;
 
 })(typeof window !== 'undefined' ? window : globalThis);

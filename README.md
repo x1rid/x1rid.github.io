@@ -35,6 +35,8 @@ main/               → the retro homepage
     app-registry.js → application definitions, launch policy, and lifecycle
     system-services.js → shared clipboard, Open/Save dialogs, file
                       associations, notifications, settings, and events
+    system-config.js → profile-scoped virtual users, groups, permissions,
+                      startup/service metadata, audit, reset, and rollback
     mobile.js       → phone shell controller (<=600px): tab bar, pages mirror,
                       terminal key strip, virtual-keyboard geometry
     assets/         → pixel cursor sprites + classic cursor GIFs
@@ -376,11 +378,116 @@ promise.
 | `system:error` | `operation`, `code`, `message` |
 | `system:settings-changed` | `key`, `value`, `committed` |
 | `system:services-ready` | `version`, `vfsDb`, `hasVfs` |
+| `system:config-loaded` | `revision`, `restored`, `warnings` |
+| `system:config-changed` | `revision`, `updatedAt`, `reason`, `warnings` |
+| `system:config-reset` | `revision`, `updatedAt`, `section`, `reason` |
+| `system:config-rollback` | `revision`, `updatedAt`, `reason` |
+| `system:config-error` | `operation`, `code`, `message` |
+| `system:audit` | `id`, `action`, `result`, `actor`, `resource`, `reason`, `detail` |
 
 Existing `node-*` VFS events, `profile:*` events, and `site:app*` registry
 events keep their previous contracts. While a shared dialog is open, the
 keyboard service blocks unrelated shell shortcuts; Escape and Enter are
 registered by the dialog itself.
+
+## Virtual system configuration and permissions
+
+`main/system-config.js` exposes `window.SystemConfig` (also reachable as
+`SystemServices.config`). It is a **simulation model**, not a Windows security
+implementation: it never reads or writes the real registry, services, startup
+folders, host users, host files, or host ACLs. It does not contain attack
+scenarios or privilege-escalation behavior.
+
+The code-level defaults (simulated users `system`, `owner`, and `guest`;
+groups; baseline rules; startup entries; service metadata) are immutable and
+shared by the simulator. Every profile gets its own validated record in
+`profile-db` → `system-config`. Guest and Owner therefore read and write
+separate configuration records, just like their separate VFS databases. No API
+accepts a different profile id while a profile is active.
+
+```js
+await SystemConfig.ready;
+const config = SystemConfig.get();      // active profile + revision + sections
+
+SystemConfig.validate(raw, { strict: true }); // { ok, value, errors, warnings }
+await SystemConfig.replace(nextConfig);       // full validated replacement
+await SystemConfig.patch({ startup: entries });
+await SystemConfig.setSection('services', services);
+await SystemConfig.reset();                   // all sections
+await SystemConfig.reset({ section: 'startup' });
+await SystemConfig.rollback();                // one-step undo of the last commit
+
+SystemConfig.currentUser();                   // simulated user for this profile
+SystemConfig.check({ action: 'read', resource: 'vfs:documents' });
+SystemConfig.can('configure', 'config:system');
+SystemConfig.audit(20);                       // newest structured audit entries
+```
+
+### Schema and validation
+
+```js
+{
+  schemaVersion: 1,
+  users:       [{ id, displayName, enabled, groups: [groupId] }],
+  groups:      [{ id, displayName }],
+  permissions: [{
+    id, principalType: 'user'|'group', principalId,
+    actions: ['read'|'write'|'delete'|'list'|'execute'|'configure'|'manage'|'*'],
+    resource: '*' | 'vfs:*' | 'app:explorer' | 'config:system',
+    effect: 'allow'|'deny'
+  }],
+  startup:  [{ id, label, target, enabled, scope: 'user'|'system' }],
+  services: [{ id, label, startMode: 'auto'|'manual'|'disabled',
+               status: 'running'|'stopped'|'disabled' }]
+}
+```
+
+Ids are lowercase safe tokens. Resource tokens are `namespace:value` and may
+end with `*` for a prefix match. Startup targets are metadata only; nothing is
+executed. Service status is metadata only; no host service is changed.
+
+Validation is deterministic and boundary-safe. Unknown fields and invalid
+entries are discarded with warnings; `strict: true` additionally rejects the
+whole value with structured errors. Missing sections fall back to the global
+defaults, counts are capped, duplicate ids and unknown user/group references
+are dropped, and a newer `schemaVersion` keeps only known fields. Writes
+resolve only after the IndexedDB transaction commits; failures reject and
+emit `system:config-error` plus `system:error`.
+
+### Permission model
+
+Checks are deterministic and explicitly **deny-overrides**:
+
+1. An invalid request, unknown or disabled principal, or missing current user
+   is denied.
+2. The user's own rules and its direct groups' rules are matched.
+3. Any matching `deny` rule wins.
+4. Otherwise any matching `allow` rule allows.
+5. Otherwise the result is default-deny.
+
+The result includes `allowed`, `effect`, `reason`, `principalId`, `groups`,
+`action`, `resource`, and sorted `matchedRuleIds`. Baseline behavior: Owner is
+in `administrators` and can configure the virtual system; Guest can read/list
+virtual files and launch apps but cannot configure. These checks do not yet
+gate VFS calls or app launches; the VFS/profile isolation from Phases 2–4
+remains the actual data boundary.
+
+### Reset and rollback
+
+Each committed record keeps the previous validated configuration in
+`profile-db`. `reset()` restores code defaults (or one section) and remains
+rollback-able. `rollback()` restores that previous snapshot and keeps the
+current one available as the next rollback target. Virtual files, recycle-bin
+contents, app windows, and shell preferences are never touched by either
+operation.
+
+### Audit
+
+Configuration changes and permission checks append structured entries:
+`{ id, action, result, actor, resource, reason, detail }`. The in-memory log is
+bounded to the newest 200 entries per tab and is exposed with
+`SystemConfig.audit()`; each entry is also emitted as `system:audit`. Audit
+entries are diagnostic telemetry, not tamper-proof records.
 
 ## Keyboard shortcuts
 

@@ -31,6 +31,12 @@
  *   system:error             { operation, code, message }
  *   system:settings-changed  { key, value, committed: true }
  *   system:services-ready    { version, vfsDb, hasVfs }
+ *   system:config-loaded     { revision, restored, warnings }
+ *   system:config-changed    { revision, updatedAt, reason, warnings }
+ *   system:config-reset      { revision, updatedAt, section, reason }
+ *   system:config-rollback   { revision, updatedAt, reason }
+ *   system:config-error      { operation, code, message }
+ *   system:audit             { id, action, result, actor, resource, reason, detail }
  *
  * Existing VFS (`node-*`), profile (`profile:*`), registry (`site:app*`), and
  * shell (`site:*`) events keep their previous contracts. This file does not
@@ -40,7 +46,7 @@
 (function (window, document) {
     'use strict';
 
-    const VERSION = '20261106';
+    const VERSION = '20261107';
 
     const EVENTS = Object.freeze({
         CLIPBOARD_CHANGED: 'system:clipboard-changed',
@@ -53,7 +59,13 @@
         NOTIFICATION: 'system:notification',
         ERROR: 'system:error',
         SETTINGS_CHANGED: 'system:settings-changed',
-        SERVICES_READY: 'system:services-ready'
+        SERVICES_READY: 'system:services-ready',
+        CONFIG_LOADED: 'system:config-loaded',
+        CONFIG_CHANGED: 'system:config-changed',
+        CONFIG_RESET: 'system:config-reset',
+        CONFIG_ROLLBACK: 'system:config-rollback',
+        CONFIG_ERROR: 'system:config-error',
+        AUDIT: 'system:audit'
     });
 
     let sequence = 0;
@@ -1368,6 +1380,10 @@
         notifications: notifications,
         settings: settings,
 
+        get config() {
+            return window.SystemConfig || null;
+        },
+
         diagnostics() {
             const vfs = activeVfs();
             return {
@@ -1379,6 +1395,10 @@
                 dialogOpen: dialog.isOpen(),
                 notificationsConfigured: typeof notifications._renderer === 'function',
                 associations: files.list(),
+                config: window.SystemConfig &&
+                    typeof window.SystemConfig.diagnostics === 'function'
+                    ? window.SystemConfig.diagnostics()
+                    : null,
                 eventSequence: sequence
             };
         }
