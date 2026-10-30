@@ -801,7 +801,8 @@ document.addEventListener('DOMContentLoaded', () => {
             currentEditor = {
                 overlay,
                 textarea,
-                filename
+                filename,
+                path: options.path || null
             };
 
             // keyboard interactions
@@ -1778,10 +1779,11 @@ document.addEventListener('DOMContentLoaded', () => {
         function openWebpage(url, title) {
             if (!webpagePane || !webpageIframe) return;
 
-            /* Sites that send X-Frame-Options / CSP frame-ancestors cannot
-               render inside the pane. Never show their error screen: hand the
-               destination to a real browser tab instead. */
-            if (window.SiteIframes && !window.SiteIframes.canEmbed(url)) {
+            const isLocalObjectUrl = typeof url === 'string' && (
+                url.startsWith('blob:') || url.startsWith('data:')
+            );
+
+            if (!isLocalObjectUrl && window.SiteIframes && !window.SiteIframes.canEmbed(url)) {
                 const policy = window.SiteIframes.embedPolicy(url);
                 appendTextLine(`${policy.host || url} refuses to be embedded — opened in a new tab.`, 'terminal-muted');
                 try { window.open(url, '_blank', 'noopener'); } catch (e) {}

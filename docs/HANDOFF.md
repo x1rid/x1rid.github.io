@@ -166,6 +166,28 @@ node tests/run-tests.js
 - [x] Task 001 complete: `main/data/site-config.json` with `schemaVersion: 1`, `migrations.js` validation, `terminal.js` no longer hardcodes identities.
 - [x] `kernel/platform/errors.js` exports `OsError` and `FsError` with UPPER_SNAKE registry codes.
 
+---
+
+## 2026-10-31 | Antigravity | Phase 2.1 Complete
+
+### What was done
+- **Task 008 / Phase 2.1** — Eliminated Gap G3:
+  - Removed the inline hardcoded fake `vfs` dictionary from `main/terminal.js`.
+  - Removed the external fake-tree fetch loader (`./data/vfs.json`).
+  - Removed legacy fake tree traversal functions (`getNode`, `isRepoPath`).
+  - Wired terminal filesystem operations (`ls`, `dir`, `cd`, `touch`, `cat`, `rm`, `rmdir`, `cp`, `save`, `load`) directly to `KernelSyscalls` / `Kernel.syscall` (`fs.stat`, `fs.list`, `fs.read`, `fs.write`, `fs.remove`).
+  - Added real VFS commands: `touch`, `cat`.
+  - Added support for structured errors: `OsError`, `FsError` normalized via `normalizeFsError`, with zero bare string throws.
+  - Updated auto-completion `getCompletions` to asynchronously list real VFS directory contents.
+  - Updated editor integration in `openTextEditor` to track real file path (`path: options.path || null`).
+  - Patched `openWebpage` to safely bypass iframe embed restrictions for `blob:` and `data:` URLs.
+  - Created `tests/terminal-vfs.test.js` verifying removal of fake VFS and adoption of syscalls and structured error handling.
+- **Verification**: `node tests/terminal-vfs.test.js` passes; `node tests/run-tests.js` passes all 300 tests across 15 test suites.
+
+### Exact next step
+Proceed to **Phase 2.2**: Wire Explorer file operations (`New Folder`, `New File`, `Delete`, `Rename`, `Cut/Copy/Paste`) through `Kernel.syscall` and real VFS event bus listeners.
+
+
 
 ### Exact next step
 Begin **Phase 2: One truth for storage and shells**.
