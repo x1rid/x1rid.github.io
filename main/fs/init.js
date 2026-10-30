@@ -48,7 +48,11 @@
     const nodeStore = new window.VfsNodeStore({ dbName: dbName });
     const contentStore = new window.VfsContentStore({ dbName: dbName });
     const events = new window.VfsEvents();
-    const pathResolver = new window.VfsPathResolver(nodeStore);
+    const username = usernameFor(profile);
+
+    const pathResolver = new window.VfsPathResolver(nodeStore, {
+      username: username
+    });
 
     await nodeStore.init();
     await contentStore.init();
@@ -62,7 +66,7 @@
       contentStore: contentStore,
       pathResolver: pathResolver,
       events: events,
-      username: usernameFor(profile)
+      username: username
     });
 
     await fs.init();

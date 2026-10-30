@@ -203,3 +203,13 @@ First task card: **Phase 2.1 â€” Wire Terminal to the real VFS via syscalls** (k
 
 
 
+
+## Session 2026-10-31 (Phases 2.2 & 2.3)
+
+### Completed
+- **Phase 2.2**: POSIX/Windows path dialects, mount table, /dev, /proc, /tmp virtual overlays in main/fs/path-resolver.js. Task card docs/tasks/009-path-dialect-resolver.md. Tests in 	ests/path-resolver.test.js.
+- **Phase 2.3**: VFS schema v2 with uid, gid, mode, ccessedAt in main/fs/types.js, migration migrate_v1_to_v2 in main/fs/migrations.js, stamping in main/fs/filesystem-service.js. Task card docs/tasks/010-vfs-schema-v2.md. Tests in 	ests/vfs-schema-v2.test.js.
+- Full test suite: 336 tests passing across 17 test suites, 0 failures.
+
+### Next step
+Phase 2.4 — Split shells (cmd.exe / ash) per roadmap and llm-phase2/2.4-split-shells/.

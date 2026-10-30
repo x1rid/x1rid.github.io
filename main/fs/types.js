@@ -2,6 +2,9 @@
  * @file main/fs/types.js
  * @description Virtual File System (VFS) Types, Error Classes, and Constants.
  * Compatible with vanilla browser environments (ES5/ES6, no bundler/modules).
+ *
+ * Phase 2.3: Added VFS_SCHEMA_VERSION constant; extended FsNode typedef with
+ * uid, gid, mode, accessedAt for POSIX-style ownership/permission support.
  */
 
 (function (window) {
@@ -45,6 +48,24 @@
     TEXT: 'text',
     BLOB: 'blob',
     BYTES: 'bytes'
+  });
+
+  /**
+   * Current VFS node schema version.
+   * Increment when the persisted node shape gains new required fields.
+   * @readonly
+   * @type {number}
+   */
+  const VFS_SCHEMA_VERSION = 2;
+
+  /**
+   * Default POSIX permission mode bits.
+   * @readonly
+   */
+  const DefaultMode = Object.freeze({
+    FILE:      0o644,  // rw-r--r--
+    DIRECTORY: 0o755,  // rwxr-xr-x
+    SYSTEM:    0o444   // r--r--r--
   });
 
   /**
@@ -96,6 +117,10 @@
    * @property {string|null} parentId - Parent directory UUID, or null for root ('root')
    * @property {number} createdAt - Creation epoch timestamp (ms)
    * @property {number} modifiedAt - Last modified epoch timestamp (ms)
+   * @property {number} accessedAt - Last read/access epoch timestamp (ms) [schema v2]
+   * @property {number} uid - Owner user ID (0 = system/root, 1 = owner) [schema v2]
+   * @property {number} gid - Owner group ID [schema v2]
+   * @property {number} mode - POSIX permission bits (octal, e.g. 0o644) [schema v2]
    * @property {NodeAttributes} attributes - File attributes
    * @property {string} [mimeType] - MIME type for file nodes
    * @property {string} [extension] - Normalized extension without dot
@@ -135,6 +160,8 @@
     NodeType: NodeType,
     ErrorCode: ErrorCode,
     ContentKind: ContentKind,
+    DefaultMode: DefaultMode,
+    VFS_SCHEMA_VERSION: VFS_SCHEMA_VERSION,
     FsError: FsError,
     generateId: generateId
   });

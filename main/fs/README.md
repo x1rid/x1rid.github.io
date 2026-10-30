@@ -29,7 +29,7 @@ When embedding the Virtual Filesystem in an HTML document (such as `desktop-shel
 | [`types.js`](./types.js) | `window.VFS_TYPES`<br>`window.FsError` | Defines constants (`NodeType`, `ErrorCode`, `ContentKind`), JSDoc typedefs (`FsNode`, `FileContentRecord`), UUID v4 fallback, and the structured `FsError` class. |
 | [`node-store.js`](./node-store.js) | `window.VfsNodeStore` | IndexedDB metadata store (`vfs-db` / `nodes` & `recycle-bin`). Provides CRUD operations, parent-child queries, and case-insensitive lookups. |
 | [`content-store.js`](./content-store.js) | `window.VfsContentStore` | IndexedDB binary and text content store (`vfs-db` / `file-contents`). Efficiently persists text strings, `Uint8Array`, and `Blob` payloads. |
-| [`path-resolver.js`](./path-resolver.js) | `window.VfsPathResolver` | Normalizes and parses Windows paths (e.g., `C:\Users\r3d1\Desktop\file.txt`), handles `.` / `..` traversal prevention above root, and validates Windows filename restrictions. |
+| [path-resolver.js](./path-resolver.js) | window.VfsPathResolver | Normalizes and parses Windows and POSIX paths. Windows is the default GUI dialect. POSIX paths resolved via VfsPathResolver.PathDialect.posix. C: mounted at /mnt/c; C:\\Users\\<user> exposed as /home/<user>. /dev, /proc, /tmp are in-memory virtual overlays (not persisted). |
 | [`events.js`](./events.js) | `window.VfsEvents` | Pub/sub event broker broadcasting lifecycle events (`node-created`, `node-updated`, `node-renamed`, `node-moved`, `node-recycled`, `node-restored`, `node-deleted`). |
 | [`filesystem-service.js`](./filesystem-service.js) | `window.VirtualFS` | Central filesystem facade. Maintains in-memory node cache, enforces directory tree constraints, circular move checks, known folders registry, and Recycle Bin operations. |
 | [`migrations.js`](./migrations.js) | `window.VfsMigrations` | Handles schema versioning (`localStorage['vfs-schema-version']`), checks tree acyclicity, and repairs orphaned nodes. |
@@ -140,3 +140,40 @@ await fs.restore(newFile.id);
 // Or permanently purge
 // await fs.permanentlyDelete(newFile.id);
 ```
+
+## Path dialects
+
+`VfsPathResolver` (Phase 2.2 / G6) now supports both Windows and POSIX path dialects.
+
+- Windows remains the default GUI dialect.
+- POSIX paths are resolved through `VfsPathResolver.PathDialect.posix`.
+- `C:` is mounted at `/mnt/c`.
+- `C:\Users\<user>` is exposed as `/home/<user>`.
+- `/dev`, `/proc`, and `/tmp` are in-memory virtual overlays (not persisted to IndexedDB).
+
+### Mount table (read via `VfsPathResolver.mounts`)
+
+| Mount point | fsType  | Notes                                  |
+|-------------|---------|----------------------------------------|
+| `/`         | vfs     | POSIX root (virtual, read-only)        |
+| `/mnt/c`    | vfs     | Maps to VFS `c-drive` node             |
+| `/home`     | vfs     | Maps to `C:\Users`                     |
+| `/dev`      | devfs   | Virtual device nodes (in-memory)       |
+| `/proc`     | procfs  | Virtual process table view (in-memory) |
+| `/tmp`      | tmpfs   | In-memory writable scratch space       |
+| `/etc`      | ramfs   | Virtual config overlay (read-only)     |
+| `/usr`      | ramfs   | Virtual usr overlay (read-only)        |
+| `/var`      | ramfs   | Virtual var overlay (read-only)        |
+
+### New globals (attached to existing export only)
+
+```js
+window.VfsPathResolver.PathDialect   // { windows, posix }
+window.VfsPathResolver.DialectId     // { windows: 'windows', posix: 'posix' }
+window.VfsPathResolver.MountTable    // VfsMountTable class
+window.VfsPathResolver.VirtualFS     // VfsVirtualFS class
+window.VfsPathResolver.mounts        // frozen mount table array
+window.VfsPathResolver.diagnostics() // static diagnostics (plain JSON)
+```
+
+No new top-level browser globals are created.

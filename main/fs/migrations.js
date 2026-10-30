@@ -1,13 +1,16 @@
 /**
  * @file main/fs/migrations.js
  * @description Schema version manager, integrity checker, and database migrator.
+ *
+ * Phase 2.3: Added migrate_v1_to_v2 which back-fills uid, gid, mode, accessedAt
+ * on every persisted VFS node. TARGET_VERSION bumped to 2.
  */
 
 (function (window) {
   'use strict';
 
   const SCHEMA_KEY = 'vfs-schema-version';
-  const TARGET_VERSION = 1;
+  const TARGET_VERSION = 2;
 
   /**
    * VfsMigrations manager.
@@ -35,7 +38,12 @@
       }
 
       if (currentVersion < TARGET_VERSION) {
-        await this.migrate_v0_to_v1(nodeStore, contentStore);
+        if (currentVersion < 1) {
+          await this.migrate_v0_to_v1(nodeStore, contentStore);
+        }
+        if (currentVersion < 2) {
+          await this.migrate_v1_to_v2(nodeStore);
+        }
         try {
           if (typeof localStorage !== 'undefined') {
             localStorage.setItem(versionKey, String(TARGET_VERSION));
@@ -125,6 +133,64 @@
           node.modifiedAt = Date.now();
           await nodeStore.putNode(node);
         }
+      }
+    },
+
+    /**
+     * Migrates VFS nodes from schema v1 to v2.
+     *
+     * Back-fills every persisted node with:
+     *   uid        — owner user ID (0 = system, 1 = owner)
+     *   gid        — group ID
+     *   mode       — POSIX permission bits (octal)
+     *   accessedAt — last access epoch ms (seeded from modifiedAt or createdAt)
+     *
+     * Nodes that already carry all four fields are left untouched.
+     *
+     * @param {import('./node-store.js').VfsNodeStore} nodeStore
+     * @returns {Promise<void>}
+     */
+    async migrate_v1_to_v2(nodeStore) {
+      const allNodes = await nodeStore.getAllNodes();
+      if (!allNodes || allNodes.length === 0) {
+        return;
+      }
+
+      for (let i = 0; i < allNodes.length; i++) {
+        const node = allNodes[i];
+
+        const needsUpdate =
+          node.uid === undefined ||
+          node.gid === undefined ||
+          node.mode === undefined ||
+          node.accessedAt === undefined;
+
+        if (!needsUpdate) {
+          continue;
+        }
+
+        const isSystem = node.attributes && (node.attributes.system || node.attributes.readOnly);
+
+        if (node.uid === undefined) {
+          node.uid = isSystem ? 0 : 1;
+        }
+        if (node.gid === undefined) {
+          node.gid = isSystem ? 0 : 1;
+        }
+        if (node.mode === undefined) {
+          if (isSystem) {
+            node.mode = 0o444; // r--r--r--
+          } else if (node.type === 'directory') {
+            node.mode = 0o755; // rwxr-xr-x
+          } else {
+            node.mode = 0o644; // rw-r--r--
+          }
+        }
+        if (node.accessedAt === undefined) {
+          node.accessedAt = node.modifiedAt || node.createdAt || Date.now();
+        }
+
+        await nodeStore.putNode(node);
       }
     },
 

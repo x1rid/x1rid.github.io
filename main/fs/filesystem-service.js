@@ -65,7 +65,11 @@
       this.contentStore = options.contentStore;
       this.pathResolver = options.pathResolver;
       this.events = options.events;
-      this.username = options.username || 'r3d1';
+      this.username = options.username || 'user';
+
+      // POSIX owner uid: 0 = system, 1 = owner (future: resolved from user registry)
+      this._ownerUid = options.ownerUid !== undefined ? options.ownerUid : 1;
+      this._ownerGid = options.ownerGid !== undefined ? options.ownerGid : 1;
 
       /** @type {Map<string, import('./types.js').FsNode>} */
       this.nodes = new Map();
@@ -116,6 +120,8 @@
        * Helper to create and store initial directory nodes.
        */
       const makeDir = async (id, name, parentId, attributes) => {
+        const attrs = Object.assign({ hidden: false, readOnly: false, system: false }, attributes);
+        const isSystem = attrs.system || attrs.readOnly;
         const node = {
           id: id || generateId(),
           name: name,
@@ -123,7 +129,11 @@
           parentId: parentId,
           createdAt: now,
           modifiedAt: now,
-          attributes: Object.assign({ hidden: false, readOnly: false, system: false }, attributes)
+          accessedAt: now,
+          uid: isSystem ? 0 : this._ownerUid,
+          gid: isSystem ? 0 : this._ownerGid,
+          mode: isSystem ? 0o444 : 0o755,
+          attributes: attrs
         };
         await this.nodeStore.putNode(node);
         this.nodes.set(node.id, node);
@@ -390,6 +400,10 @@
         parentId: parentId,
         createdAt: now,
         modifiedAt: now,
+        accessedAt: now,
+        uid: this._ownerUid,
+        gid: this._ownerGid,
+        mode: 0o644,
         attributes: { hidden: false, readOnly: false, system: false },
         contentId: contentId,
         size: writeResult.size,
@@ -454,6 +468,10 @@
         parentId: parentId,
         createdAt: now,
         modifiedAt: now,
+        accessedAt: now,
+        uid: this._ownerUid,
+        gid: this._ownerGid,
+        mode: 0o755,
         attributes: { hidden: false, readOnly: false, system: false }
       };
 
@@ -503,6 +521,10 @@
         parentId: parentId,
         createdAt: now,
         modifiedAt: now,
+        accessedAt: now,
+        uid: this._ownerUid,
+        gid: this._ownerGid,
+        mode: 0o644,
         attributes: { hidden: false, readOnly: false, system: false },
         targetId: targetId,
         iconOverride: iconOverride
@@ -885,6 +907,11 @@
       if (!content) {
         return { kind: 'text', value: '' };
       }
+
+      // Phase 2.3: update accessedAt timestamp (best-effort, non-blocking)
+      node.accessedAt = Date.now();
+      this.nodeStore.putNode(node).catch(function () {});
+
       return content;
     }
 
