@@ -370,7 +370,12 @@
 
       const contentId = generateId();
       const payload = content !== undefined ? content : '';
-      const writeResult = await this.contentStore.write(contentId, payload);
+      let writeResult;
+      try {
+        writeResult = await this.contentStore.write(contentId, payload);
+      } catch (err) {
+        throw new FsError('STORAGE_FULL', 'Failed to write content: ' + (err && err.message ? err.message : err));
+      }
 
       const dotIdx = cleanName.lastIndexOf('.');
       const extension = dotIdx > 0 ? cleanName.slice(dotIdx + 1).toLowerCase() : '';
@@ -392,7 +397,15 @@
         mimeType: mimeType
       };
 
-      await this.nodeStore.putNode(node);
+      try {
+        await this.nodeStore.putNode(node);
+      } catch (err) {
+        // Rollback content write if metadata persistence fails
+        try {
+          await this.contentStore.delete(contentId);
+        } catch (_) {}
+        throw err;
+      }
       this.nodes.set(node.id, node);
 
       this.events.publish({

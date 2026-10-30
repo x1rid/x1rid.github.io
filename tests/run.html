@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Desktop Simulator - Smoke Test Runner</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #111;
+      color: #eee;
+      padding: 20px;
+    }
+    h1 { color: #88c0d0; }
+    .status { margin: 10px 0; font-size: 14px; }
+    .pass { color: #a3be8c; }
+    .fail { color: #bf616a; }
+    iframe {
+      width: 800px;
+      height: 480px;
+      border: 1px solid #444;
+      margin-top: 15px;
+      background: #000;
+    }
+    ul { list-style: none; padding-left: 0; }
+    li { margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <h1>OS Simulator: Browser Smoke Test</h1>
+  <div class="status" id="runner-status">Booting test shell frame...</div>
+  <ul id="test-log"></ul>
+  <iframe id="test-frame" src="../main/index.html?test=1"></iframe>
+
+  <script>
+    (function () {
+      const logEl = document.getElementById('test-log');
+      const statusEl = document.getElementById('runner-status');
+      const iframe = document.getElementById('test-frame');
+
+      function log(msg, ok) {
+        const li = document.createElement('li');
+        li.className = ok ? 'pass' : 'fail';
+        li.textContent = (ok ? '✅ ' : '❌ ') + msg;
+        logEl.appendChild(li);
+      }
+
+      let checksRemaining = 3;
+      let anyFailed = false;
+
+      function finish() {
+        if (anyFailed) {
+          statusEl.textContent = 'SMOKE TEST FAILED';
+          statusEl.className = 'status fail';
+        } else {
+          statusEl.textContent = 'ALL SMOKE CHECKS PASSED ✅';
+          statusEl.className = 'status pass';
+        }
+      }
+
+      iframe.addEventListener('load', () => {
+        const win = iframe.contentWindow;
+        if (!win) {
+          log('Unable to access iframe contentWindow', false);
+          anyFailed = true;
+          finish();
+          return;
+        }
+
+        log('Frame loaded', true);
+
+        // Check 1: ProfileReady promise exists and resolves
+        if (win.ProfileReady && typeof win.ProfileReady.then === 'function') {
+          win.ProfileReady.then(() => {
+            log('ProfileReady resolved', true);
+          }).catch(err => {
+            log('ProfileReady rejected: ' + err.message, false);
+            anyFailed = true;
+          }).finally(() => {
+            if (--checksRemaining === 0) finish();
+          });
+        } else {
+          log('window.ProfileReady not defined on frame window', false);
+          anyFailed = true;
+          if (--checksRemaining === 0) finish();
+        }
+
+        // Check 2: VirtualFSReady promise exists and resolves
+        if (win.VirtualFSReady && typeof win.VirtualFSReady.then === 'function') {
+          win.VirtualFSReady.then(() => {
+            log('VirtualFSReady resolved and window.VFS available', Boolean(win.VFS));
+          }).catch(err => {
+            log('VirtualFSReady rejected: ' + err.message, false);
+            anyFailed = true;
+          }).finally(() => {
+            if (--checksRemaining === 0) finish();
+          });
+        } else {
+          log('window.VirtualFSReady not defined on frame window', false);
+          anyFailed = true;
+          if (--checksRemaining === 0) finish();
+        }
+
+        // Check 3: Essential core services exported
+        setTimeout(() => {
+          const services = ['AppRegistry', 'SystemServices', 'SystemConfig', 'ShellWM'];
+          let allPresent = true;
+          services.forEach(name => {
+            const ok = Boolean(win[name]);
+            if (!ok) allPresent = false;
+            log('Service check: window.' + name, ok);
+          });
+          if (!allPresent) anyFailed = true;
+          if (--checksRemaining === 0) finish();
+        }, 1500);
+      });
+    })();
+  </script>
+</body>
+</html>

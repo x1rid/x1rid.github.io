@@ -9,6 +9,8 @@
 <link href="https://fonts.cdnfonts.com/css/cascadia-mono" rel="stylesheet">
 <link rel="stylesheet" href="./main/css/variables.css">
 <link rel="stylesheet" href="./main/apps.css">
+<link rel="stylesheet" href="./main/window-manager.css">
+<link rel="stylesheet" href="./main/desktop-environment.css">
 <link rel="stylesheet" href="./main/vendor/clippy/clippy.css">
 <link rel="stylesheet" href="./main/clippy-shell.css">
 <style>
@@ -2674,6 +2676,7 @@
     }
 
 </style>
+    <link rel="stylesheet" href="./main/lock-screen/lock-screen.css?v=20261022">
     <script src="./main/profile/profile-db.js?v=20261028"></script>
     <script src="./main/profile/profile-service.js?v=20261028"></script>
     <script src="./main/profile/persistence-service.js?v=20261102"></script>
@@ -2690,30 +2693,147 @@
     <script src="./main/profile/profile-ui.js?v=20261104"></script>
     <script src="./main/shortcuts.js?v=20261105"></script>
     <script src="./main/app-registry.js?v=20261105"></script>
+<script src="./main/window-manager-core.js?v=20261022"></script>
+<script src="./main/window-manager.js?v=20261022"></script>
     <script src="./main/system-services.js?v=20261107"></script>
     <script src="./main/system-config.js?v=20261107"></script>
+    <script src="./main/lock-screen/lock-animations.js?v=20261022"></script>
+    <script src="./main/lock-screen/lock-widgets.js?v=20261022"></script>
+    <script src="./main/lock-screen/lock-arg.js?v=20261022"></script>
+    <script src="./main/lock-screen/lock-screen.js?v=20261022"></script>
 </head>
 <body>
 
-<!-- Windows-Style Lock Screen -->
-<div class="lock-screen" id="lock-screen" role="dialog" aria-modal="true" aria-label="Windows Lock Screen">
+<!-- Immersive lock screen (LockScreenV2) -->
+<div class="lock-screen" id="lock-screen" data-lock-v2="true" role="dialog" aria-modal="true" aria-label="Sign in to the desktop">
+    <canvas class="lock-stars" id="lock-stars" aria-hidden="true"></canvas>
+    <div class="lock-aurora" aria-hidden="true"></div>
+    <div class="lock-scanlines" aria-hidden="true"></div>
+    <div class="lock-vignette" aria-hidden="true"></div>
+
     <div class="lock-top">
-        <div class="lock-clock" id="lock-clock">12:00</div>
-        <div class="lock-date" id="lock-date">Monday, October 22</div>
-    </div>
-    <div class="lock-middle">
-        <div class="lock-avatar-wrapper">
-            <img class="lock-avatar" src="./main/socials/pfp.webp" alt="User Avatar" width="110" height="110">
+        <div class="lock-clock-wrap">
+            <div class="lock-clock" id="lock-clock" aria-live="off">12:00</div>
+            <div class="lock-date" id="lock-date">Monday, October 22</div>
         </div>
-        <div class="lock-user">r3d1bruh</div>
-        <button class="lock-action-btn" id="lock-signin-btn" type="button">
-            <span>SIGN IN</span>
-            <span aria-hidden="true">&#10140;</span>
-        </button>
-        <div class="lock-hint">Press any key or click Sign In to unlock</div>
+        <div class="lock-widgets" id="lock-widgets" role="region" aria-label="Lock screen bulletin" tabindex="0"></div>
     </div>
+
+    <div class="lock-middle">
+        <section class="lock-signin" aria-labelledby="lock-user-heading">
+            <div class="lock-avatar-wrapper">
+                <img class="lock-avatar" id="lock-avatar-img" src="./main/socials/pfp.webp" alt="Profile picture" width="104" height="104">
+            </div>
+            <div class="lock-user" id="lock-user-heading">Sign in</div>
+
+            <div class="lock-accounts" id="lock-accounts" role="list" aria-label="Accounts"></div>
+
+            <div class="lock-accounts-foot">
+                <button class="lock-text-btn" type="button" data-lock-action="custom">Use another account</button>
+            </div>
+
+            <form class="lock-credentials" id="lock-credentials-form" novalidate hidden>
+                <h2 class="lock-credentials-title" id="lock-credentials-title">Enter credentials</h2>
+                <label class="lock-field">
+                    <span>Username</span>
+                    <input id="lock-username" name="username" type="text" autocomplete="username" spellcheck="false" autocapitalize="none" aria-label="Username">
+                </label>
+                <label class="lock-field">
+                    <span>Password</span>
+                    <input id="lock-password" name="password" type="password" autocomplete="current-password" aria-label="Password">
+                </label>
+                <label class="lock-field" id="lock-password-confirm-wrap" hidden>
+                    <span>Confirm password</span>
+                    <input id="lock-password-confirm" name="password-confirm" type="password" autocomplete="new-password" aria-label="Confirm password">
+                </label>
+                <p class="lock-error" id="lock-error" role="alert" hidden></p>
+                <div class="lock-form-actions">
+                    <button class="lock-text-btn" type="button" data-lock-action="back">Back</button>
+                    <button class="lock-action-btn" type="submit" id="lock-signin-btn">Sign in</button>
+                </div>
+                <div class="lock-status" id="lock-status" aria-live="polite"></div>
+            </form>
+
+            <div class="lock-guest-note" id="lock-guest-note" hidden>Guest sessions do not require a password.</div>
+            <div class="lock-hint">Choose an account, or use another account to enter a custom username.</div>
+            <div class="lock-settings-open">
+                <button class="lock-icon-btn" type="button" data-lock-action="settings" aria-expanded="false" aria-controls="lock-settings-panel" title="Lock screen settings" aria-label="Lock screen settings">⚙</button>
+            </div>
+        </section>
+
+        <aside class="lock-settings-panel" id="lock-settings-panel" aria-label="Lock screen settings" hidden>
+            <div class="lock-settings-head">
+                <h2>Lock screen settings</h2>
+                <button class="lock-icon-btn" type="button" data-lock-action="close-settings" aria-label="Close settings">×</button>
+            </div>
+
+            <fieldset class="lock-settings-section">
+                <legend>Clock</legend>
+                <label class="lock-setting-row"><span>Show clock</span><input type="checkbox" data-lock-setting="clock.enabled"></label>
+                <label class="lock-setting-row"><span>Show seconds</span><input type="checkbox" data-lock-setting="clock.showSeconds"></label>
+                <label class="lock-setting-row"><span>Show date</span><input type="checkbox" data-lock-setting="clock.showDate"></label>
+                <label class="lock-setting-row"><span>Format</span>
+                    <select data-lock-setting="clock.format">
+                        <option value="24h">24-hour</option>
+                        <option value="12h">12-hour</option>
+                    </select>
+                </label>
+            </fieldset>
+
+            <fieldset class="lock-settings-section">
+                <legend>Animation</legend>
+                <label class="lock-setting-row"><span>Intensity</span>
+                    <select data-lock-setting="animation.intensity">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </label>
+                <label class="lock-setting-row"><span>Pointer parallax</span><input type="checkbox" data-lock-setting="animation.parallax"></label>
+                <label class="lock-setting-row"><span>Star particles</span><input type="checkbox" data-lock-setting="animation.particles"></label>
+                <label class="lock-setting-row"><span>Respect reduced motion</span><input type="checkbox" data-lock-setting="animation.respectReducedMotion"></label>
+            </fieldset>
+
+            <fieldset class="lock-settings-section">
+                <legend>Widgets</legend>
+                <label class="lock-setting-row"><span>Show widgets</span><input type="checkbox" data-lock-setting="widgets.enabled"></label>
+                <label class="lock-setting-row"><span>Rotation</span>
+                    <select data-lock-setting="widgets.rotation">
+                        <option value="on-interaction">On interaction</option>
+                        <option value="interval">Every 12s</option>
+                        <option value="off">Off</option>
+                    </select>
+                </label>
+            </fieldset>
+
+            <fieldset class="lock-settings-section">
+                <legend>Audio</legend>
+                <label class="lock-setting-row"><span>Enable audio</span><input type="checkbox" data-lock-setting="audio.enabled"></label>
+                <label class="lock-setting-row"><span>Interface cues</span><input type="checkbox" data-lock-setting="audio.effectsEnabled"></label>
+                <label class="lock-setting-row"><span>Volume</span>
+                    <input type="number" min="0" max="1" step="0.05" data-lock-setting="audio.volume">
+                </label>
+            </fieldset>
+
+            <fieldset class="lock-settings-section">
+                <legend>Profile</legend>
+                <div class="lock-avatar-picker" id="lock-avatar-presets"></div>
+                <img id="lock-avatar-preview" class="lock-avatar-settings-preview" src="./main/socials/pfp.webp" alt="Current profile picture" width="56" height="56">
+                <label class="lock-avatar-upload">
+                    <span>Upload picture (PNG/JPEG/WebP, max 512 KB)</span>
+                    <input type="file" id="lock-avatar-file" accept="image/png,image/jpeg,image/webp">
+                </label>
+                <label class="lock-setting-row"><span>Display name</span><input type="text" maxlength="40" data-lock-setting="profile.displayName"></label>
+                <label class="lock-setting-row"><span>Username</span><input type="text" maxlength="32" data-lock-setting="profile.username"></label>
+                <p class="lock-profile-note" id="lock-profile-note"></p>
+            </fieldset>
+
+            <button class="lock-text-btn" type="button" data-lock-action="logout">Sign out of this profile</button>
+        </aside>
+    </div>
+
     <div class="lock-footer-info">
-        WINDOWS DESKTOP EMULATOR · AUTHORITATIVE VFS EDITION
+        WINDOWS DESKTOP EMULATOR · SIMULATED SIGN-IN · BROWSER ONLY
     </div>
 </div>
 
@@ -3038,6 +3158,9 @@ window.RetroApps = (() => {
 <script src="./main/apps/solitaire.js"></script>
 <script src="./main/apps/calculator.js"></script>
 <script src="./main/apps/mediaplayer.js"></script>
+<link rel="stylesheet" href="./main/retro-browser.css" />
+<script src="./main/retro-browser.js"></script>
+<script src="./main/apps/retro-browser.js"></script>
 <script>
 /* ---------------------------------------------------------------------------
  *  Vendored 98.js programs.
@@ -3278,7 +3401,8 @@ window.ProfileReady.then(() => {
     let restoringWindows = true;
     const windowState = window.ProfileWindowState ? window.ProfileWindowState.create({
         profileId: (window.ProfileService && window.ProfileService.getActiveProfile() || {}).id,
-        getWindows: () => windows
+        getWindows: () => windows,
+        getWMState: () => (window.ShellWM ? window.ShellWM.snapshotState() : null)
     }) : null;
 
     if (windowState) windowState.setRestoring(true);
@@ -3421,13 +3545,35 @@ window.ProfileReady.then(() => {
     }
 
     /* ── Window manager ─────────────────────────────────────── */
-    function setBounds(win, bounds) {
-        const maxWidth = Math.max(1, desktop.clientWidth);
-        const maxHeight = Math.max(1, desktop.clientHeight);
-        const width = clamp(bounds.width, Math.min(win.minWidth, maxWidth), maxWidth);
-        const height = clamp(bounds.height, Math.min(win.minHeight, maxHeight), maxHeight);
-        const x = clamp(bounds.x, 0, Math.max(0, maxWidth - width));
-        const y = clamp(bounds.y, 0, Math.max(0, maxHeight - height));
+    function windowWorkArea() {
+        if (window.WindowManagerCore) {
+            const desktopRect = desktop.getBoundingClientRect();
+            const taskbarRect = taskbar ? taskbar.getBoundingClientRect() : null;
+            return window.WindowManagerCore.workArea(
+                { x: 0, y: 0, width: desktop.clientWidth, height: desktop.clientHeight },
+                taskbarRect ? {
+                    x: taskbarRect.left - desktopRect.left,
+                    y: taskbarRect.top - desktopRect.top,
+                    width: taskbarRect.width,
+                    height: taskbarRect.height
+                } : null
+            );
+        }
+        return { x: 0, y: 0, width: desktop.clientWidth, height: desktop.clientHeight };
+    }
+
+    function setBounds(win, bounds, limits) {
+        const area = windowWorkArea();
+        const maxWidth = Math.max(1, area.width);
+        const maxHeight = Math.max(1, area.height);
+        const hardMaxWidth = Math.min(maxWidth, Number.isFinite(win.maxWidth) ? win.maxWidth : maxWidth);
+        const hardMaxHeight = Math.min(maxHeight, Number.isFinite(win.maxHeight) ? win.maxHeight : maxHeight);
+        const minWidth = Math.min(limits && Number.isFinite(limits.minWidth) ? limits.minWidth : win.minWidth, hardMaxWidth);
+        const minHeight = Math.min(limits && Number.isFinite(limits.minHeight) ? limits.minHeight : win.minHeight, hardMaxHeight);
+        const width = clamp(bounds.width, minWidth, hardMaxWidth);
+        const height = clamp(bounds.height, minHeight, hardMaxHeight);
+        const x = clamp(bounds.x, area.x, Math.max(area.x, area.x + area.width - width));
+        const y = clamp(bounds.y, area.y, Math.max(area.y, area.y + area.height - height));
         win.x = Math.round(x);
         win.y = Math.round(y);
         win.width = Math.round(width);
@@ -3439,23 +3585,24 @@ window.ProfileReady.then(() => {
     }
 
     function fitWindowToDesktop(win) {
+        const area = windowWorkArea();
         if (win.maximized) {
             setBounds(win, {
-                x: 0,
-                y: 0,
-                width: desktop.clientWidth,
-                height: desktop.clientHeight
+                x: area.x,
+                y: area.y,
+                width: area.width,
+                height: area.height
             });
             return;
         }
         const pad = 12;
-        const maxWidth = Math.max(win.minWidth, desktop.clientWidth - pad * 2);
-        const maxHeight = Math.max(win.minHeight, desktop.clientHeight - pad * 2);
+        const maxWidth = Math.max(win.minWidth, area.width - pad * 2);
+        const maxHeight = Math.max(win.minHeight, area.height - pad * 2);
         const width = Math.min(win.width, maxWidth);
         const height = Math.min(win.height, maxHeight);
         setBounds(win, {
-            x: Math.min(win.x, Math.max(pad, desktop.clientWidth - width - pad)),
-            y: Math.min(win.y, Math.max(pad, desktop.clientHeight - height - pad)),
+            x: Math.min(win.x, Math.max(area.x + pad, area.x + area.width - width - pad)),
+            y: Math.min(win.y, Math.max(area.y + pad, area.y + area.height - height - pad)),
             width,
             height
         });
@@ -3518,7 +3665,9 @@ window.ProfileReady.then(() => {
     function syncTaskbar() {
         windows.forEach((win) => {
             if (!win.taskbarButton) return;
-            const active = win.id === activeWindowId && !win.minimized && !win.closed;
+            const onWorkspace = !window.ShellWM || workspaceOfWindow(win) === window.ShellWM.state.activeWorkspace;
+            win.taskbarButton.hidden = !onWorkspace;
+            const active = win.id === activeWindowId && !win.minimized && !win.closed && onWorkspace;
             const label = win.minimized ? `${win.taskbarTitle} (minimized)` : win.taskbarTitle;
             win.taskbarButton.classList.toggle('is-active', active);
             win.taskbarButton.classList.toggle('is-minimized', win.minimized);
@@ -3528,9 +3677,14 @@ window.ProfileReady.then(() => {
         });
     }
 
+    function workspaceOfWindow(win) {
+        return Number.isFinite(Number(win.workspace)) ? Number(win.workspace) : 0;
+    }
+
     function focusWindow(id, focus = false) {
         const win = windows.get(id);
         if (!win || win.closed) return;
+        if (window.ShellWM) window.ShellWM.ensureVisible(win);
         if (win.minimized) {
             win.minimized = false;
             win.node.classList.remove('is-minimized');
@@ -3540,10 +3694,11 @@ window.ProfileReady.then(() => {
             other.node.classList.toggle('is-active', other.id === id);
             other.node.classList.toggle('is-inactive', other.id !== id);
         });
-        win.node.style.zIndex = String(++zCounter);
+        win.node.style.zIndex = String(window.ShellWM ? window.ShellWM.nextZ(win) : ++zCounter);
         activeWindowId = id;
         setActiveWindowMarker(id);
         syncTaskbar();
+        if (window.ShellWM) window.ShellWM.refreshDividers();
 
         if (focus) {
             const target = win.focusTarget ? win.node.querySelector(win.focusTarget) : win.node;
@@ -3556,8 +3711,10 @@ window.ProfileReady.then(() => {
     }
 
     function focusTopWindow() {
+        const workspace = window.ShellWM ? window.ShellWM.state.activeWorkspace : 0;
         const visible = Array.from(windows.values())
-            .filter((win) => !win.closed && !win.minimized);
+            .filter((win) => !win.closed && !win.minimized &&
+                (!window.ShellWM || workspaceOfWindow(win) === workspace));
         if (!visible.length) {
             activeWindowId = null;
             setActiveWindowMarker('none');
@@ -3588,6 +3745,7 @@ window.ProfileReady.then(() => {
         }
         syncTaskbar();
         persistWindowState();
+        if (window.ShellWM) window.ShellWM.refreshDividers();
     }
 
     function restoreWindow(id) {
@@ -3597,6 +3755,8 @@ window.ProfileReady.then(() => {
         win.node.classList.remove('is-minimized');
         focusWindow(id, true);
         persistWindowState();
+        if (window.ShellWM) window.ShellWM.refreshDividers();
+        if (window.ShellWM) window.ShellWM.onWindowShown(win);
     }
 
     function closeWindow(id) {
@@ -3629,6 +3789,7 @@ window.ProfileReady.then(() => {
             }
             syncTaskbar();
             persistWindowState();
+            if (window.ShellWM) window.ShellWM.refreshDividers();
             return;
         }
 
@@ -3643,11 +3804,17 @@ window.ProfileReady.then(() => {
         }
         syncTaskbar();
         persistWindowState();
+        if (window.ShellWM) window.ShellWM.refreshDividers();
     }
 
     function toggleMaximize(id) {
         const win = windows.get(id);
         if (!win || win.closed || win.minimized) return;
+        if (window.ShellWM && window.ShellWM.ready) {
+            window.ShellWM.toggleMaximize(win, { animate: true });
+            persistWindowState();
+            return;
+        }
         const button = win.titlebar.querySelector('[data-action="maximize"]');
         if (win.maximized) {
             win.maximized = false;
@@ -3700,7 +3867,14 @@ window.ProfileReady.then(() => {
         win.minimized = false;
         win.node.classList.remove('is-maximized', 'is-minimized');
         win.previousBounds = null;
+        win.snap = null;
+        if (Number.isFinite(Number(record.workspace))) win.workspace = Number(record.workspace);
+        win.alwaysOnTop = Boolean(record.alwaysOnTop);
+        win.tiling = Boolean(record.tiling);
+        win.userOverride = Boolean(record.userOverride);
         setBounds(win, { x: left, y: top, width, height });
+
+        if (window.ShellWM) window.ShellWM.restoreWindowState(win, record);
 
         if (record.maximized) {
             win.previousBounds = { x: win.x, y: win.y, width: win.width, height: win.height };
@@ -3709,6 +3883,7 @@ window.ProfileReady.then(() => {
         if (record.minimized) {
             minimizeWindow(win.id);
         }
+        if (window.ShellWM) window.ShellWM.updateWindow(win);
     }
 
     function restorePersistedWindows(saved) {
@@ -3792,6 +3967,8 @@ window.ProfileReady.then(() => {
             icon: opts.icon || '▣',
             minWidth: opts.minWidth || 320,
             minHeight: opts.minHeight || 200,
+            maxWidth: Number.isFinite(opts.maxWidth) ? opts.maxWidth : Infinity,
+            maxHeight: Number.isFinite(opts.maxHeight) ? opts.maxHeight : Infinity,
             focusTarget: opts.focusTarget || null,
             onFocus: opts.onFocus || null,
             x: 0,
@@ -3802,11 +3979,18 @@ window.ProfileReady.then(() => {
             maximized: false,
             closed: false,
             previousBounds: null,
+            snap: null,
+            workspace: 0,
+            alwaysOnTop: false,
+            tiling: false,
+            userOverride: false,
             taskbarButton: null
         };
 
         windows.set(id, win);
         setBounds(win, opts.bounds);
+
+        if (window.ShellWM) window.ShellWM.onWindowRegistered(win, opts);
 
         node.addEventListener('pointerdown', () => {
             if (!win.closed) focusWindow(id);
@@ -3855,8 +4039,13 @@ window.ProfileReady.then(() => {
     }
 
     function startDrag(event, win) {
-        if (event.button !== 0 || win.maximized || win.closed) return;
+        if (event.button !== 0 || win.closed) return;
         if (event.target.closest('.window-controls, button, input, textarea, select, a, .resize-handle')) return;
+        if (window.ShellWM && window.ShellWM.ready) {
+            window.ShellWM.beginDrag(event, win);
+            return;
+        }
+        if (win.maximized) return;
         event.preventDefault();
         focusWindow(win.id);
 
@@ -3890,6 +4079,10 @@ window.ProfileReady.then(() => {
 
     function startResize(event, win, dir) {
         if (event.button !== 0 || win.maximized || win.closed) return;
+        if (window.ShellWM && window.ShellWM.ready) {
+            window.ShellWM.beginResize(event, win, dir);
+            return;
+        }
         event.preventDefault();
         event.stopPropagation();
         focusWindow(win.id, true);
@@ -3946,8 +4139,13 @@ window.ProfileReady.then(() => {
         const win = windows.get(id);
         if (!win || win.closed) return;
         clearShowDesktopState();
-        if (win.minimized) restoreWindow(id);
-        else if (activeWindowId === id) minimizeWindow(id);
+        if (win.minimized) {
+            if (window.ShellWM && window.ShellWM.restoreGroupFor(win)) {
+                persistWindowState();
+                return;
+            }
+            restoreWindow(id);
+        } else if (activeWindowId === id) minimizeWindow(id);
         else focusWindow(id, true);
     }
 
@@ -3959,6 +4157,7 @@ window.ProfileReady.then(() => {
         if (win.closed) {
             win.closed = false;
             win.node.classList.remove('is-closed');
+            if (window.ShellWM) win.workspace = window.ShellWM.state.activeWorkspace;
             if (!win.taskbarButton) addTaskbarButton(win);
             fitWindowToDesktop(win);
         } else if (win.minimized) {
@@ -3982,6 +4181,7 @@ window.ProfileReady.then(() => {
         if (win.closed) {
             win.closed = false;
             win.node.classList.remove('is-closed');
+            if (window.ShellWM) win.workspace = window.ShellWM.state.activeWorkspace;
             if (!win.taskbarButton) addTaskbarButton(win);
             fitWindowToDesktop(win);
         }
@@ -4196,6 +4396,7 @@ window.ProfileReady.then(() => {
         if (win.closed) {
             win.closed = false;
             win.node.classList.remove('is-closed');
+            if (window.ShellWM) win.workspace = window.ShellWM.state.activeWorkspace;
             if (!win.taskbarButton) addTaskbarButton(win);
             fitWindowToDesktop(win);
         }
@@ -5914,6 +6115,37 @@ window.ProfileReady.then(() => {
     registerApplications();
 
     /* ── Boot the shell ─────────────────────────────────────── */
+    if (window.ShellWM && typeof window.ShellWM.init === 'function') {
+        window.ShellWM.init({
+            desktop,
+            taskbar,
+            windows,
+            setBounds,
+            focusWindow,
+            minimizeWindow,
+            restoreWindow,
+            closeWindow,
+            toggleMaximize,
+            focusTopWindow,
+            cycleWindow,
+            persist: persistWindowState,
+            toast,
+            getActiveId: () => activeWindowId,
+            savedState: window.ProfileState && window.ProfileState.windowManager,
+            clearActive: () => {
+                activeWindowId = null;
+                setActiveWindowMarker('none');
+                if (document.activeElement instanceof HTMLElement && document.activeElement.closest('.window')) {
+                    document.activeElement.blur();
+                }
+                windows.forEach((win) => {
+                    win.node.classList.remove('is-active');
+                    win.node.classList.add('is-inactive');
+                });
+                syncTaskbar();
+            }
+        });
+    }
     const programsWin = registerWindow(programsNode, {
         id: 'programs',
         appId: 'programs',
@@ -5970,6 +6202,7 @@ window.ProfileReady.then(() => {
         windowState.setRestoring(false);
         windowState.schedule();
     }
+    if (window.ShellWM) window.ShellWM.applyWorkspaceVisibility();
 
     updateTaskbarClock();
     window.setInterval(updateTaskbarClock, 1000);
@@ -5981,9 +6214,13 @@ window.ProfileReady.then(() => {
     }
 
     window.addEventListener('resize', () => {
-        windows.forEach((win) => {
-            if (!win.closed) fitWindowToDesktop(win);
-        });
+        if (window.ShellWM && window.ShellWM.ready) {
+            window.ShellWM.onDesktopResize();
+        } else {
+            windows.forEach((win) => {
+                if (!win.closed) fitWindowToDesktop(win);
+            });
+        }
         persistWindowState();
         resizeWallpaper();
         syncWallpaperMotion();
@@ -6103,40 +6340,6 @@ window.ProfileReady.then(() => {
         });
 
         register({
-            id: 'shell.next-window',
-            keys: 'Alt+PageDown',
-            context: 'unlocked',
-            priority: 65,
-            allowInEditable: true,
-            description: 'Focus next simulator window',
-            handler: () => cycleWindow(1)
-        });
-
-        register({
-            id: 'shell.previous-window',
-            keys: 'Alt+PageUp',
-            context: 'unlocked',
-            priority: 65,
-            allowInEditable: true,
-            description: 'Focus previous simulator window',
-            handler: () => cycleWindow(-1)
-        });
-
-        register({
-            id: 'shell.close-window',
-            keys: 'Alt+W',
-            context: 'window',
-            priority: 65,
-            allowInEditable: true,
-            description: 'Close the active simulator window',
-            handler: () => {
-                if (!activeWindowId) return false;
-                closeWindow(activeWindowId);
-                return true;
-            }
-        });
-
-        register({
             id: 'terminal.history-previous',
             keys: 'ArrowUp',
             context: 'terminal',
@@ -6215,6 +6418,7 @@ window.ProfileReady.then(() => {
     const startLockBtn = document.getElementById('start-lock-btn');
 
     let isScreenLocked = true;
+    const lockV2 = Boolean(lockScreen && lockScreen.dataset && lockScreen.dataset.lockV2 === 'true');
 
     function screenIsLocked() {
         if (window.ProfileUI && typeof window.ProfileUI.isLocked === 'function') {
@@ -6224,6 +6428,7 @@ window.ProfileReady.then(() => {
     }
 
     function updateLockClock() {
+        if (lockV2) return; // LockScreenV2 owns the immersive clock
         if (!lockClock || !lockDate) return;
         const now = new Date();
         const hours = String(now.getHours()).padStart(2, '0');
@@ -6238,6 +6443,10 @@ window.ProfileReady.then(() => {
     setInterval(updateLockClock, 1000);
 
     function unlockScreen() {
+        if (lockV2 && window.LockScreenV2) {
+            window.LockScreenV2.focusSignIn();
+            return;
+        }
         if (!screenIsLocked()) return;
         // ProfileUI decides whether a password is required. Guest sessions
         // continue immediately; the owner profile stays gated.
@@ -6251,6 +6460,10 @@ window.ProfileReady.then(() => {
 
     function lockSystem() {
         if (!lockScreen) return;
+        if (lockV2 && window.LockScreenV2) {
+            window.LockScreenV2.lock();
+            return;
+        }
         isScreenLocked = true;
         if (window.ProfileUI) {
             window.ProfileUI.lock();
@@ -6262,7 +6475,7 @@ window.ProfileReady.then(() => {
         }
     }
 
-    if (lockSignInBtn) {
+    if (lockSignInBtn && !lockV2) {
         lockSignInBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
@@ -6283,25 +6496,27 @@ window.ProfileReady.then(() => {
                 lockSystem();
             }
         });
-        shortcuts.register({
-            id: 'lock.unlock',
-            keys: ['Enter', 'Space'],
-            context: 'locked',
-            priority: 100,
-            allowWhenLocked: true,
-            description: 'Unlock the desktop',
-            when: (event) => {
-                if (!screenIsLocked()) return false;
-                if (event.target instanceof Element && event.target.closest('.profile-prompt')) {
-                    return false;
+        if (!lockV2) {
+            shortcuts.register({
+                id: 'lock.unlock',
+                keys: ['Enter', 'Space'],
+                context: 'locked',
+                priority: 100,
+                allowWhenLocked: true,
+                description: 'Unlock the desktop',
+                when: (event) => {
+                    if (!screenIsLocked()) return false;
+                    if (event.target instanceof Element && event.target.closest('.profile-prompt')) {
+                        return false;
+                    }
+                    return true;
+                },
+                handler: () => {
+                    unlockScreen();
                 }
-                return true;
-            },
-            handler: () => {
-                unlockScreen();
-            }
-        });
-    } else {
+            });
+        }
+    } else if (!lockV2) {
         window.addEventListener('keydown', function(e) {
             if (screenIsLocked() && (e.key === 'Enter' || e.key === ' ')) {
                 unlockScreen();

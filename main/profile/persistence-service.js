@@ -23,8 +23,14 @@
 (function (window, document) {
   'use strict';
 
-  const STATE_VERSION = 2;
+  const STATE_VERSION = 4;
+  const MAX_WORKSPACES = 9;
+  const MAX_CUSTOM_LAYOUTS = 12;
   const DEBOUNCE_MS = 700;
+  const BUILTIN_AVATAR_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
+  const CUSTOM_AVATAR_RE = /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i;
+  const MAX_CUSTOM_AVATAR_LENGTH = 600000;
+  const LOCK_WIDGET_IDS = ['fun-fact', 'system-message', 'daily-quote', 'mini-calendar', 'signal-check'];
 
   const LOCAL_KEYS = {
     musicVolume: 'desktopShellMusicVolume',
@@ -55,7 +61,105 @@
         // a profile whose windows were all closed deliberately (restore none).
         windowsInitialized: false
       },
-      windows: {}
+      windows: {},
+      // Desktop-environment preferences (Stage 2+ of the shell revamp). Pins,
+      // taskbar layout, tray state and simulated network/sound preferences are
+      // profile-scoped. This is an additive section: older profiles receive the
+      // defaults below and invalid values fall back per field in validation.
+      shell: {
+        pins: {
+          taskbar: ['explorer', 'terminal', 'music', 'controlpanel'],
+          start: ['explorer', 'terminal', 'music', 'controlpanel', 'paint', 'notepad']
+        },
+        recentApps: [],
+        taskbar: {
+          position: 'bottom',
+          align: 'left',
+          grouping: true,
+          labels: false,
+          iconSize: 'normal',
+          autoHide: false,
+          showWorkspaces: true,
+          showClockDate: true
+        },
+        clock: {
+          format: '24h',
+          showSeconds: false,
+          showDate: true
+        },
+        sound: {
+          volume: 45,
+          muted: false,
+          output: 'desktop-speakers'
+        },
+        network: {
+          connected: true,
+          adapter: 'SIM-ETH0',
+          name: 'Simulated Ethernet',
+          ip: '10.0.0.42'
+        },
+        notifications: {
+          quiet: false,
+          history: []
+        }
+      },
+      // Window-manager state is separate from per-window geometry. It covers
+      // virtual desktops, tiling, user layouts, app rules and overrides for the
+      // central shortcut registry. Unknown/corrupt fields are dropped on load.
+      windowManager: {
+        version: 1,
+        activeWorkspace: 0,
+        tilingEnabled: false,
+        workspaces: [
+          { id: 0, name: 'Desktop 1' },
+          { id: 1, name: 'Desktop 2' },
+          { id: 2, name: 'Desktop 3' },
+          { id: 3, name: 'Desktop 4' }
+        ],
+        workspaceLayouts: {},
+        customLayouts: [],
+        rules: {},
+        shortcuts: {},
+        reduceMotion: false
+      },
+      // Lock-screen preferences are profile-scoped. Passwords and other
+      // transient credentials are intentionally absent from this schema.
+      lockScreen: {
+        clock: {
+          enabled: true,
+          showSeconds: false,
+          format: '24h',
+          showDate: true
+        },
+        animation: {
+          intensity: 'high',
+          parallax: true,
+          particles: true,
+          respectReducedMotion: true,
+          pauseWhenHidden: true
+        },
+        widgets: {
+          enabled: true,
+          enabledIds: ['fun-fact', 'system-message'],
+          rotation: 'on-interaction'
+        },
+        audio: {
+          enabled: false,
+          ambientEnabled: false,
+          effectsEnabled: true,
+          volume: 0.25
+        },
+        accounts: {
+          showOwner: true,
+          showGuest: true,
+          showHiddenAccounts: false,
+          allowAccountCreation: false
+        },
+        avatar: {
+          kind: 'builtin',
+          value: 'default-purple'
+        }
+      }
     };
   }
 
@@ -67,7 +171,7 @@
     if (!value || typeof value !== 'object') return false;
     if (Array.isArray(value)) return false;
     const proto = Object.getPrototypeOf(value);
-    return proto === Object.prototype || proto === null;
+    return proto === Object.prototype || proto === null || Object.prototype.toString.call(value) === '[object Object]';
   }
 
   function clampNumber(value, min, max, fallback) {
@@ -97,6 +201,31 @@
       /^[a-z0-9_-]+$/i.test(value);
   }
 
+  function validateSnapRecord(value) {
+    if (!isPlainObject(value)) return null;
+    const layout = asSafeString(value.layout, 48, '');
+    const zone = asSafeString(value.zone, 32, '');
+    if (!layout || !/^[a-z0-9_-]+$/i.test(layout)) return null;
+    if (!zone || !/^[a-z0-9_-]+$/i.test(zone)) return null;
+    const snap = {
+      layout: layout.toLowerCase(),
+      zone: zone.toLowerCase(),
+      groupId: typeof value.groupId === 'string' && /^[a-z0-9_-]{1,64}$/i.test(value.groupId)
+        ? value.groupId
+        : null,
+      bounds: null
+    };
+    if (isPlainObject(value.bounds)) {
+      snap.bounds = {
+        left: Math.round(clampNumber(value.bounds.left, -10000, 100000, 0)),
+        top: Math.round(clampNumber(value.bounds.top, -10000, 100000, 0)),
+        width: Math.round(clampNumber(value.bounds.width, 120, 10000, 640)),
+        height: Math.round(clampNumber(value.bounds.height, 80, 10000, 420))
+      };
+    }
+    return snap;
+  }
+
   function validateWindowRecord(value) {
     if (!isPlainObject(value)) return null;
     const appId = asSafeString(value.appId, 64, '');
@@ -109,8 +238,267 @@
       width: Math.round(clampNumber(value.width, 120, 10000, 640)),
       height: Math.round(clampNumber(value.height, 80, 10000, 420)),
       maximized: asBoolean(value.maximized, false),
-      minimized: asBoolean(value.minimized, false)
+      minimized: asBoolean(value.minimized, false),
+      workspace: Math.round(clampNumber(value.workspace, 0, MAX_WORKSPACES - 1, 0)),
+      alwaysOnTop: asBoolean(value.alwaysOnTop, false),
+      tiling: asBoolean(value.tiling, false),
+      userOverride: asBoolean(value.userOverride, false),
+      snap: validateSnapRecord(value.snap)
     };
+  }
+
+  function validateWorkspaces(value) {
+    const fallback = defaultState().windowManager.workspaces;
+    if (!Array.isArray(value) || !value.length) return fallback;
+    const list = value.slice(0, MAX_WORKSPACES).map(function (item, index) {
+      const name = isPlainObject(item) ? asSafeString(item.name, 32, '') : '';
+      return { id: index, name: name || ('Desktop ' + (index + 1)) };
+    });
+    return list;
+  }
+
+  function validateLayoutZones(value) {
+    if (!Array.isArray(value) || !value.length) return null;
+    const zones = [];
+    value.slice(0, 12).forEach(function (item, index) {
+      if (!isPlainObject(item)) return;
+      const x = clampNumber(item.x, 0, 1, 0);
+      const y = clampNumber(item.y, 0, 1, 0);
+      const width = clampNumber(item.width, 0.001, 1 - x, 0.5);
+      const height = clampNumber(item.height, 0.001, 1 - y, 0.5);
+      zones.push({
+        id: /^[a-z0-9_-]{1,40}$/i.test(item.id || '') ? item.id : 'zone-' + index,
+        label: asSafeString(item.label, 48, ''),
+        x: x,
+        y: y,
+        width: width,
+        height: height
+      });
+    });
+    return zones.length ? zones : null;
+  }
+
+  function validateCustomLayouts(value) {
+    if (!Array.isArray(value)) return [];
+    const layouts = [];
+    value.slice(0, MAX_CUSTOM_LAYOUTS).forEach(function (item, index) {
+      if (!isPlainObject(item)) return;
+      const id = asSafeString(item.id, 48, '');
+      const zones = validateLayoutZones(item.zones);
+      if (!id || !/^[a-z0-9_-]+$/i.test(id) || !zones) return;
+      layouts.push({
+        id: id.toLowerCase(),
+        name: asSafeString(item.name, 48, 'Custom ' + (index + 1)),
+        custom: true,
+        zones: zones
+      });
+    });
+    return layouts;
+  }
+
+  function validateWorkspaceLayouts(value) {
+    const result = {};
+    if (!isPlainObject(value)) return result;
+    Object.keys(value).slice(0, MAX_WORKSPACES).forEach(function (key) {
+      const index = Number(key);
+      if (!isFinite(index) || index < 0 || index >= MAX_WORKSPACES) return;
+      const layout = asSafeString(value[key], 48, '');
+      if (layout && /^[a-z0-9_-]+$/i.test(layout)) result[String(index)] = layout;
+    });
+    return result;
+  }
+
+  function validateWMState(value) {
+    const base = defaultState().windowManager;
+    if (!isPlainObject(value)) return base;
+
+    base.workspaces = validateWorkspaces(value.workspaces);
+    base.activeWorkspace = Math.round(
+      clampNumber(value.activeWorkspace, 0, base.workspaces.length - 1, 0)
+    );
+    base.tilingEnabled = asBoolean(value.tilingEnabled, false);
+    base.workspaceLayouts = validateWorkspaceLayouts(value.workspaceLayouts);
+    base.customLayouts = validateCustomLayouts(value.customLayouts);
+    base.reduceMotion = asBoolean(value.reduceMotion, false);
+
+    if (isPlainObject(value.rules)) {
+      const rules = {};
+      Object.keys(value.rules).slice(0, 48).forEach(function (appId) {
+        if (!/^[a-z0-9_-]{1,64}$/i.test(appId)) return;
+        const rule = value.rules[appId];
+        if (!isPlainObject(rule)) return;
+        rules[appId] = {
+          floating: asBoolean(rule.floating, false),
+          alwaysOnTop: asBoolean(rule.alwaysOnTop, false),
+          workspace: rule.workspace == null
+            ? null
+            : Math.round(clampNumber(rule.workspace, 0, MAX_WORKSPACES - 1, 0))
+        };
+      });
+      base.rules = rules;
+    }
+
+    if (isPlainObject(value.shortcuts)) {
+      const shortcuts = {};
+      Object.keys(value.shortcuts).slice(0, 64).forEach(function (action) {
+        if (!/^[a-z0-9_-]{1,48}$/i.test(action)) return;
+        const keys = asSafeString(value.shortcuts[action], 40, '');
+        if (keys) shortcuts[action] = keys;
+      });
+      base.shortcuts = shortcuts;
+    }
+
+    return base;
+  }
+
+  function validateAvatar(raw) {
+    if (!isPlainObject(raw)) {
+      return { kind: 'builtin', value: 'default-purple' };
+    }
+    if (raw.kind === 'builtin' && typeof raw.value === 'string' &&
+        BUILTIN_AVATAR_RE.test(raw.value)) {
+      return { kind: 'builtin', value: raw.value };
+    }
+    if (raw.kind === 'custom' && typeof raw.value === 'string' &&
+        raw.value.length <= MAX_CUSTOM_AVATAR_LENGTH && CUSTOM_AVATAR_RE.test(raw.value)) {
+      return { kind: 'custom', value: raw.value };
+    }
+    return { kind: 'builtin', value: 'default-purple' };
+  }
+
+  function validateWidgetIds(value) {
+    if (!Array.isArray(value)) return ['fun-fact', 'system-message'];
+    const seen = Object.create(null);
+    return value.filter(function (id) {
+      if (typeof id !== 'string' || LOCK_WIDGET_IDS.indexOf(id) === -1) return false;
+      if (seen[id]) return false;
+      seen[id] = true;
+      return true;
+    }).slice(0, 5);
+  }
+
+  function oneOf(value, allowed, fallback) {
+    return allowed.indexOf(value) === -1 ? fallback : value;
+  }
+
+  function validateLockScreen(raw) {
+    const base = defaultState().lockScreen;
+    if (!isPlainObject(raw)) return base;
+
+    const clock = isPlainObject(raw.clock) ? raw.clock : {};
+    base.clock.enabled = asBoolean(clock.enabled, base.clock.enabled);
+    base.clock.showSeconds = asBoolean(clock.showSeconds, base.clock.showSeconds);
+    base.clock.format = oneOf(clock.format, ['24h', '12h'], base.clock.format);
+    base.clock.showDate = asBoolean(clock.showDate, base.clock.showDate);
+
+    const animation = isPlainObject(raw.animation) ? raw.animation : {};
+    base.animation.intensity = oneOf(animation.intensity, ['low', 'medium', 'high'], base.animation.intensity);
+    base.animation.parallax = asBoolean(animation.parallax, base.animation.parallax);
+    base.animation.particles = asBoolean(animation.particles, base.animation.particles);
+    base.animation.respectReducedMotion = asBoolean(
+      animation.respectReducedMotion, base.animation.respectReducedMotion
+    );
+    base.animation.pauseWhenHidden = asBoolean(
+      animation.pauseWhenHidden, base.animation.pauseWhenHidden
+    );
+
+    const widgets = isPlainObject(raw.widgets) ? raw.widgets : {};
+    base.widgets.enabled = asBoolean(widgets.enabled, base.widgets.enabled);
+    base.widgets.enabledIds = validateWidgetIds(widgets.enabledIds);
+    base.widgets.rotation = oneOf(
+      widgets.rotation, ['on-interaction', 'interval', 'off'], base.widgets.rotation
+    );
+
+    const audio = isPlainObject(raw.audio) ? raw.audio : {};
+    base.audio.enabled = asBoolean(audio.enabled, base.audio.enabled);
+    base.audio.ambientEnabled = asBoolean(audio.ambientEnabled, base.audio.ambientEnabled);
+    base.audio.effectsEnabled = asBoolean(audio.effectsEnabled, base.audio.effectsEnabled);
+    base.audio.volume = clampNumber(audio.volume, 0, 1, base.audio.volume);
+
+    const accounts = isPlainObject(raw.accounts) ? raw.accounts : {};
+    base.accounts.showOwner = asBoolean(accounts.showOwner, base.accounts.showOwner);
+    base.accounts.showGuest = asBoolean(accounts.showGuest, base.accounts.showGuest);
+    base.accounts.showHiddenAccounts = false; // hidden accounts are never a UI setting
+    base.accounts.allowAccountCreation = asBoolean(
+      accounts.allowAccountCreation, base.accounts.allowAccountCreation
+    );
+
+    base.avatar = validateAvatar(raw.avatar);
+    return base;
+  }
+
+  function sanitizeAppIdList(value, fallback, limit) {
+    if (!Array.isArray(value)) return fallback.slice();
+    const seen = Object.create(null);
+    const result = [];
+    value.forEach(function (item) {
+      if (typeof item !== 'string') return;
+      const id = item.trim().toLowerCase();
+      if (!id || id.length > 64 || !/^[a-z0-9_-]+$/.test(id)) return;
+      if (seen[id]) return;
+      seen[id] = true;
+      result.push(id);
+    });
+    return result.slice(0, limit || 32);
+  }
+
+  function validateNotificationHistory(value) {
+    if (!Array.isArray(value)) return [];
+    return value.slice(0, 30).reduce(function (list, item) {
+      if (!isPlainObject(item)) return list;
+      const message = asSafeString(item.message, 280, '');
+      if (!message) return list;
+      list.push({
+        id: asSafeString(item.id, 64, 'notice-' + list.length),
+        level: oneOf(item.level, ['info', 'success', 'warning', 'error'], 'info'),
+        title: asSafeString(item.title, 80, ''),
+        message: message,
+        at: Math.round(clampNumber(item.at, 0, 4102444800000, Date.now()))
+      });
+      return list;
+    }, []);
+  }
+
+  function validateShellState(raw) {
+    const base = defaultState().shell;
+    if (!isPlainObject(raw)) return base;
+
+    const pins = isPlainObject(raw.pins) ? raw.pins : {};
+    base.pins.taskbar = sanitizeAppIdList(pins.taskbar, base.pins.taskbar, 24);
+    base.pins.start = sanitizeAppIdList(pins.start, base.pins.start, 48);
+    base.recentApps = sanitizeAppIdList(raw.recentApps, [], 12);
+
+    const taskbar = isPlainObject(raw.taskbar) ? raw.taskbar : {};
+    base.taskbar.position = oneOf(taskbar.position, ['bottom', 'top', 'left', 'right'], base.taskbar.position);
+    base.taskbar.align = oneOf(taskbar.align, ['left', 'center'], base.taskbar.align);
+    base.taskbar.grouping = asBoolean(taskbar.grouping, base.taskbar.grouping);
+    base.taskbar.labels = asBoolean(taskbar.labels, base.taskbar.labels);
+    base.taskbar.iconSize = oneOf(taskbar.iconSize, ['small', 'normal'], base.taskbar.iconSize);
+    base.taskbar.autoHide = asBoolean(taskbar.autoHide, base.taskbar.autoHide);
+    base.taskbar.showWorkspaces = asBoolean(taskbar.showWorkspaces, base.taskbar.showWorkspaces);
+    base.taskbar.showClockDate = asBoolean(taskbar.showClockDate, base.taskbar.showClockDate);
+
+    const clock = isPlainObject(raw.clock) ? raw.clock : {};
+    base.clock.format = oneOf(clock.format, ['12h', '24h'], base.clock.format);
+    base.clock.showSeconds = asBoolean(clock.showSeconds, base.clock.showSeconds);
+    base.clock.showDate = asBoolean(clock.showDate, base.clock.showDate);
+
+    const sound = isPlainObject(raw.sound) ? raw.sound : {};
+    base.sound.volume = Math.round(clampNumber(sound.volume, 0, 100, base.sound.volume));
+    base.sound.muted = asBoolean(sound.muted, base.sound.muted);
+    base.sound.output = oneOf(sound.output, ['desktop-speakers', 'headphones'], base.sound.output);
+
+    const network = isPlainObject(raw.network) ? raw.network : {};
+    base.network.connected = asBoolean(network.connected, base.network.connected);
+    base.network.adapter = asSafeString(network.adapter, 24, base.network.adapter);
+    base.network.name = asSafeString(network.name, 48, base.network.name);
+    base.network.ip = asSafeString(network.ip, 40, base.network.ip);
+
+    const notifications = isPlainObject(raw.notifications) ? raw.notifications : {};
+    base.notifications.quiet = asBoolean(notifications.quiet, base.notifications.quiet);
+    base.notifications.history = validateNotificationHistory(notifications.history);
+
+    return base;
   }
 
   function validateState(raw) {
@@ -158,6 +546,9 @@
       base.windows = windows;
     }
 
+    base.lockScreen = validateLockScreen(raw.lockScreen);
+    base.windowManager = validateWMState(raw.windowManager);
+    base.shell = validateShellState(raw.shell);
     return base;
   }
 
@@ -169,11 +560,39 @@
       target[section] = Object.assign({}, target[section], partial[section]);
     });
 
+    if (isPlainObject(partial.lockScreen)) {
+      // Merge one level inside lockScreen so a settings UI can save only the
+      // subsection it changed without dropping clock/widget/avatar defaults.
+      const current = isPlainObject(target.lockScreen) ? target.lockScreen : {};
+      const next = Object.assign({}, current);
+      Object.keys(partial.lockScreen).forEach(function (key) {
+        if (isPlainObject(partial.lockScreen[key]) && isPlainObject(current[key])) {
+          next[key] = Object.assign({}, current[key], partial.lockScreen[key]);
+        } else {
+          next[key] = partial.lockScreen[key];
+        }
+      });
+      target.lockScreen = next;
+    }
+
     // A window snapshot is authoritative for the whole open-window set. It
     // must replace the map so closing the last window writes `{}` instead of
     // merging the empty snapshot back into stale records.
     if (isPlainObject(partial.windows)) {
       target.windows = Object.assign({}, partial.windows);
+    }
+
+    // Window-manager state is a single authoritative snapshot too. Validating
+    // here keeps a malformed caller from poisoning the cached profile state.
+    if (isPlainObject(partial.windowManager)) {
+      target.windowManager = validateWMState(partial.windowManager);
+    }
+
+    // Shell preferences are saved as a full validated snapshot by the desktop
+    // environment. Replacing the section keeps pin removal and notification
+    // clearing authoritative instead of merging stale arrays back in.
+    if (isPlainObject(partial.shell)) {
+      target.shell = validateShellState(partial.shell);
     }
 
     return target;
@@ -246,7 +665,8 @@
       if (!profile) {
         throw new Error('Unknown profile id: ' + profileId);
       }
-      if (profile.type !== 'guest' && profile.type !== 'owner') {
+      if (profile.type !== 'guest' && profile.type !== 'owner' &&
+          profile.type !== 'administrator') {
         throw new Error('Invalid profile type: ' + profile.type);
       }
       return profile;

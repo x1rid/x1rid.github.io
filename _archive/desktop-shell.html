@@ -9,6 +9,7 @@
 <link href="https://fonts.cdnfonts.com/css/cascadia-mono" rel="stylesheet">
 <link rel="stylesheet" href="./css/variables.css">
 <link rel="stylesheet" href="./apps.css">
+<link rel="stylesheet" href="./window-manager.css">
 <link rel="stylesheet" href="./vendor/clippy/clippy.css">
 <link rel="stylesheet" href="./clippy-shell.css">
 <style>
@@ -2555,6 +2556,8 @@
     <script src="./profile/profile-ui.js?v=20261104"></script>
     <script src="./shortcuts.js?v=20261105"></script>
     <script src="./app-registry.js?v=20261105"></script>
+<script src="./window-manager-core.js?v=20261022"></script>
+<script src="./window-manager.js?v=20261022"></script>
     <script src="./system-services.js?v=20261107"></script>
     <script src="./system-config.js?v=20261107"></script>
 </head>
@@ -3112,7 +3115,8 @@ window.ProfileReady.then(() => {
     let restoringWindows = true;
     const windowState = window.ProfileWindowState ? window.ProfileWindowState.create({
         profileId: (window.ProfileService && window.ProfileService.getActiveProfile() || {}).id,
-        getWindows: () => windows
+        getWindows: () => windows,
+        getWMState: () => (window.ShellWM ? window.ShellWM.snapshotState() : null)
     }) : null;
 
     if (windowState) windowState.setRestoring(true);
@@ -3255,13 +3259,35 @@ window.ProfileReady.then(() => {
     }
 
     /* ── Window manager ─────────────────────────────────────── */
-    function setBounds(win, bounds) {
-        const maxWidth = Math.max(1, desktop.clientWidth);
-        const maxHeight = Math.max(1, desktop.clientHeight);
-        const width = clamp(bounds.width, Math.min(win.minWidth, maxWidth), maxWidth);
-        const height = clamp(bounds.height, Math.min(win.minHeight, maxHeight), maxHeight);
-        const x = clamp(bounds.x, 0, Math.max(0, maxWidth - width));
-        const y = clamp(bounds.y, 0, Math.max(0, maxHeight - height));
+    function windowWorkArea() {
+        if (window.WindowManagerCore) {
+            const desktopRect = desktop.getBoundingClientRect();
+            const taskbarRect = taskbar ? taskbar.getBoundingClientRect() : null;
+            return window.WindowManagerCore.workArea(
+                { x: 0, y: 0, width: desktop.clientWidth, height: desktop.clientHeight },
+                taskbarRect ? {
+                    x: taskbarRect.left - desktopRect.left,
+                    y: taskbarRect.top - desktopRect.top,
+                    width: taskbarRect.width,
+                    height: taskbarRect.height
+                } : null
+            );
+        }
+        return { x: 0, y: 0, width: desktop.clientWidth, height: desktop.clientHeight };
+    }
+
+    function setBounds(win, bounds, limits) {
+        const area = windowWorkArea();
+        const maxWidth = Math.max(1, area.width);
+        const maxHeight = Math.max(1, area.height);
+        const hardMaxWidth = Math.min(maxWidth, Number.isFinite(win.maxWidth) ? win.maxWidth : maxWidth);
+        const hardMaxHeight = Math.min(maxHeight, Number.isFinite(win.maxHeight) ? win.maxHeight : maxHeight);
+        const minWidth = Math.min(limits && Number.isFinite(limits.minWidth) ? limits.minWidth : win.minWidth, hardMaxWidth);
+        const minHeight = Math.min(limits && Number.isFinite(limits.minHeight) ? limits.minHeight : win.minHeight, hardMaxHeight);
+        const width = clamp(bounds.width, minWidth, hardMaxWidth);
+        const height = clamp(bounds.height, minHeight, hardMaxHeight);
+        const x = clamp(bounds.x, area.x, Math.max(area.x, area.x + area.width - width));
+        const y = clamp(bounds.y, area.y, Math.max(area.y, area.y + area.height - height));
         win.x = Math.round(x);
         win.y = Math.round(y);
         win.width = Math.round(width);
@@ -3273,23 +3299,24 @@ window.ProfileReady.then(() => {
     }
 
     function fitWindowToDesktop(win) {
+        const area = windowWorkArea();
         if (win.maximized) {
             setBounds(win, {
-                x: 0,
-                y: 0,
-                width: desktop.clientWidth,
-                height: desktop.clientHeight
+                x: area.x,
+                y: area.y,
+                width: area.width,
+                height: area.height
             });
             return;
         }
         const pad = 12;
-        const maxWidth = Math.max(win.minWidth, desktop.clientWidth - pad * 2);
-        const maxHeight = Math.max(win.minHeight, desktop.clientHeight - pad * 2);
+        const maxWidth = Math.max(win.minWidth, area.width - pad * 2);
+        const maxHeight = Math.max(win.minHeight, area.height - pad * 2);
         const width = Math.min(win.width, maxWidth);
         const height = Math.min(win.height, maxHeight);
         setBounds(win, {
-            x: Math.min(win.x, Math.max(pad, desktop.clientWidth - width - pad)),
-            y: Math.min(win.y, Math.max(pad, desktop.clientHeight - height - pad)),
+            x: Math.min(win.x, Math.max(area.x + pad, area.x + area.width - width - pad)),
+            y: Math.min(win.y, Math.max(area.y + pad, area.y + area.height - height - pad)),
             width,
             height
         });
@@ -3352,7 +3379,9 @@ window.ProfileReady.then(() => {
     function syncTaskbar() {
         windows.forEach((win) => {
             if (!win.taskbarButton) return;
-            const active = win.id === activeWindowId && !win.minimized && !win.closed;
+            const onWorkspace = !window.ShellWM || workspaceOfWindow(win) === window.ShellWM.state.activeWorkspace;
+            win.taskbarButton.hidden = !onWorkspace;
+            const active = win.id === activeWindowId && !win.minimized && !win.closed && onWorkspace;
             const label = win.minimized ? `${win.taskbarTitle} (minimized)` : win.taskbarTitle;
             win.taskbarButton.classList.toggle('is-active', active);
             win.taskbarButton.classList.toggle('is-minimized', win.minimized);
@@ -3362,9 +3391,14 @@ window.ProfileReady.then(() => {
         });
     }
 
+    function workspaceOfWindow(win) {
+        return Number.isFinite(Number(win.workspace)) ? Number(win.workspace) : 0;
+    }
+
     function focusWindow(id, focus = false) {
         const win = windows.get(id);
         if (!win || win.closed) return;
+        if (window.ShellWM) window.ShellWM.ensureVisible(win);
         if (win.minimized) {
             win.minimized = false;
             win.node.classList.remove('is-minimized');
@@ -3374,10 +3408,11 @@ window.ProfileReady.then(() => {
             other.node.classList.toggle('is-active', other.id === id);
             other.node.classList.toggle('is-inactive', other.id !== id);
         });
-        win.node.style.zIndex = String(++zCounter);
+        win.node.style.zIndex = String(window.ShellWM ? window.ShellWM.nextZ(win) : ++zCounter);
         activeWindowId = id;
         setActiveWindowMarker(id);
         syncTaskbar();
+        if (window.ShellWM) window.ShellWM.refreshDividers();
 
         if (focus) {
             const target = win.focusTarget ? win.node.querySelector(win.focusTarget) : win.node;
@@ -3390,8 +3425,10 @@ window.ProfileReady.then(() => {
     }
 
     function focusTopWindow() {
+        const workspace = window.ShellWM ? window.ShellWM.state.activeWorkspace : 0;
         const visible = Array.from(windows.values())
-            .filter((win) => !win.closed && !win.minimized);
+            .filter((win) => !win.closed && !win.minimized &&
+                (!window.ShellWM || workspaceOfWindow(win) === workspace));
         if (!visible.length) {
             activeWindowId = null;
             setActiveWindowMarker('none');
@@ -3422,6 +3459,7 @@ window.ProfileReady.then(() => {
         }
         syncTaskbar();
         persistWindowState();
+        if (window.ShellWM) window.ShellWM.refreshDividers();
     }
 
     function restoreWindow(id) {
@@ -3431,6 +3469,8 @@ window.ProfileReady.then(() => {
         win.node.classList.remove('is-minimized');
         focusWindow(id, true);
         persistWindowState();
+        if (window.ShellWM) window.ShellWM.refreshDividers();
+        if (window.ShellWM) window.ShellWM.onWindowShown(win);
     }
 
     function closeWindow(id) {
@@ -3463,6 +3503,7 @@ window.ProfileReady.then(() => {
             }
             syncTaskbar();
             persistWindowState();
+            if (window.ShellWM) window.ShellWM.refreshDividers();
             return;
         }
 
@@ -3477,11 +3518,17 @@ window.ProfileReady.then(() => {
         }
         syncTaskbar();
         persistWindowState();
+        if (window.ShellWM) window.ShellWM.refreshDividers();
     }
 
     function toggleMaximize(id) {
         const win = windows.get(id);
         if (!win || win.closed || win.minimized) return;
+        if (window.ShellWM && window.ShellWM.ready) {
+            window.ShellWM.toggleMaximize(win, { animate: true });
+            persistWindowState();
+            return;
+        }
         const button = win.titlebar.querySelector('[data-action="maximize"]');
         if (win.maximized) {
             win.maximized = false;
@@ -3534,7 +3581,14 @@ window.ProfileReady.then(() => {
         win.minimized = false;
         win.node.classList.remove('is-maximized', 'is-minimized');
         win.previousBounds = null;
+        win.snap = null;
+        if (Number.isFinite(Number(record.workspace))) win.workspace = Number(record.workspace);
+        win.alwaysOnTop = Boolean(record.alwaysOnTop);
+        win.tiling = Boolean(record.tiling);
+        win.userOverride = Boolean(record.userOverride);
         setBounds(win, { x: left, y: top, width, height });
+
+        if (window.ShellWM) window.ShellWM.restoreWindowState(win, record);
 
         if (record.maximized) {
             win.previousBounds = { x: win.x, y: win.y, width: win.width, height: win.height };
@@ -3543,6 +3597,7 @@ window.ProfileReady.then(() => {
         if (record.minimized) {
             minimizeWindow(win.id);
         }
+        if (window.ShellWM) window.ShellWM.updateWindow(win);
     }
 
     function restorePersistedWindows(saved) {
@@ -3626,6 +3681,8 @@ window.ProfileReady.then(() => {
             icon: opts.icon || '▣',
             minWidth: opts.minWidth || 320,
             minHeight: opts.minHeight || 200,
+            maxWidth: Number.isFinite(opts.maxWidth) ? opts.maxWidth : Infinity,
+            maxHeight: Number.isFinite(opts.maxHeight) ? opts.maxHeight : Infinity,
             focusTarget: opts.focusTarget || null,
             onFocus: opts.onFocus || null,
             x: 0,
@@ -3636,11 +3693,18 @@ window.ProfileReady.then(() => {
             maximized: false,
             closed: false,
             previousBounds: null,
+            snap: null,
+            workspace: 0,
+            alwaysOnTop: false,
+            tiling: false,
+            userOverride: false,
             taskbarButton: null
         };
 
         windows.set(id, win);
         setBounds(win, opts.bounds);
+
+        if (window.ShellWM) window.ShellWM.onWindowRegistered(win, opts);
 
         node.addEventListener('pointerdown', () => {
             if (!win.closed) focusWindow(id);
@@ -3689,8 +3753,13 @@ window.ProfileReady.then(() => {
     }
 
     function startDrag(event, win) {
-        if (event.button !== 0 || win.maximized || win.closed) return;
+        if (event.button !== 0 || win.closed) return;
         if (event.target.closest('.window-controls, button, input, textarea, select, a, .resize-handle')) return;
+        if (window.ShellWM && window.ShellWM.ready) {
+            window.ShellWM.beginDrag(event, win);
+            return;
+        }
+        if (win.maximized) return;
         event.preventDefault();
         focusWindow(win.id);
 
@@ -3724,6 +3793,10 @@ window.ProfileReady.then(() => {
 
     function startResize(event, win, dir) {
         if (event.button !== 0 || win.maximized || win.closed) return;
+        if (window.ShellWM && window.ShellWM.ready) {
+            window.ShellWM.beginResize(event, win, dir);
+            return;
+        }
         event.preventDefault();
         event.stopPropagation();
         focusWindow(win.id, true);
@@ -3780,8 +3853,13 @@ window.ProfileReady.then(() => {
         const win = windows.get(id);
         if (!win || win.closed) return;
         clearShowDesktopState();
-        if (win.minimized) restoreWindow(id);
-        else if (activeWindowId === id) minimizeWindow(id);
+        if (win.minimized) {
+            if (window.ShellWM && window.ShellWM.restoreGroupFor(win)) {
+                persistWindowState();
+                return;
+            }
+            restoreWindow(id);
+        } else if (activeWindowId === id) minimizeWindow(id);
         else focusWindow(id, true);
     }
 
@@ -3793,6 +3871,7 @@ window.ProfileReady.then(() => {
         if (win.closed) {
             win.closed = false;
             win.node.classList.remove('is-closed');
+            if (window.ShellWM) win.workspace = window.ShellWM.state.activeWorkspace;
             if (!win.taskbarButton) addTaskbarButton(win);
             fitWindowToDesktop(win);
         } else if (win.minimized) {
@@ -3816,6 +3895,7 @@ window.ProfileReady.then(() => {
         if (win.closed) {
             win.closed = false;
             win.node.classList.remove('is-closed');
+            if (window.ShellWM) win.workspace = window.ShellWM.state.activeWorkspace;
             if (!win.taskbarButton) addTaskbarButton(win);
             fitWindowToDesktop(win);
         }
@@ -4030,6 +4110,7 @@ window.ProfileReady.then(() => {
         if (win.closed) {
             win.closed = false;
             win.node.classList.remove('is-closed');
+            if (window.ShellWM) win.workspace = window.ShellWM.state.activeWorkspace;
             if (!win.taskbarButton) addTaskbarButton(win);
             fitWindowToDesktop(win);
         }
@@ -5744,6 +5825,37 @@ window.ProfileReady.then(() => {
     registerApplications();
 
     /* ── Boot the shell ─────────────────────────────────────── */
+    if (window.ShellWM && typeof window.ShellWM.init === 'function') {
+        window.ShellWM.init({
+            desktop,
+            taskbar,
+            windows,
+            setBounds,
+            focusWindow,
+            minimizeWindow,
+            restoreWindow,
+            closeWindow,
+            toggleMaximize,
+            focusTopWindow,
+            cycleWindow,
+            persist: persistWindowState,
+            toast,
+            getActiveId: () => activeWindowId,
+            savedState: window.ProfileState && window.ProfileState.windowManager,
+            clearActive: () => {
+                activeWindowId = null;
+                setActiveWindowMarker('none');
+                if (document.activeElement instanceof HTMLElement && document.activeElement.closest('.window')) {
+                    document.activeElement.blur();
+                }
+                windows.forEach((win) => {
+                    win.node.classList.remove('is-active');
+                    win.node.classList.add('is-inactive');
+                });
+                syncTaskbar();
+            }
+        });
+    }
     const programsWin = registerWindow(programsNode, {
         id: 'programs',
         appId: 'programs',
@@ -5801,6 +5913,7 @@ window.ProfileReady.then(() => {
         windowState.setRestoring(false);
         windowState.schedule();
     }
+    if (window.ShellWM) window.ShellWM.applyWorkspaceVisibility();
 
     updateTaskbarClock();
     window.setInterval(updateTaskbarClock, 1000);
@@ -5812,9 +5925,13 @@ window.ProfileReady.then(() => {
     }
 
     window.addEventListener('resize', () => {
-        windows.forEach((win) => {
-            if (!win.closed) fitWindowToDesktop(win);
-        });
+        if (window.ShellWM && window.ShellWM.ready) {
+            window.ShellWM.onDesktopResize();
+        } else {
+            windows.forEach((win) => {
+                if (!win.closed) fitWindowToDesktop(win);
+            });
+        }
         persistWindowState();
         resizeWallpaper();
         syncWallpaperMotion();
@@ -5929,40 +6046,6 @@ window.ProfileReady.then(() => {
             description: 'Show or restore the desktop',
             handler: () => {
                 toggleShowDesktop();
-            }
-        });
-
-        register({
-            id: 'shell.next-window',
-            keys: 'Alt+PageDown',
-            context: 'unlocked',
-            priority: 65,
-            allowInEditable: true,
-            description: 'Focus next simulator window',
-            handler: () => cycleWindow(1)
-        });
-
-        register({
-            id: 'shell.previous-window',
-            keys: 'Alt+PageUp',
-            context: 'unlocked',
-            priority: 65,
-            allowInEditable: true,
-            description: 'Focus previous simulator window',
-            handler: () => cycleWindow(-1)
-        });
-
-        register({
-            id: 'shell.close-window',
-            keys: 'Alt+W',
-            context: 'window',
-            priority: 65,
-            allowInEditable: true,
-            description: 'Close the active simulator window',
-            handler: () => {
-                if (!activeWindowId) return false;
-                closeWindow(activeWindowId);
-                return true;
             }
         });
 

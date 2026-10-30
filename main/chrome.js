@@ -36,7 +36,10 @@
 
     function syncPane() {
         if (!railPane) return;
-        railPane.textContent = `r3d1bruh://${visiblePaneName()}`;
+        // Use profile-derived display name when available; fall back to site handle
+        const handle = (window.ProfileService && window.ProfileService.current &&
+                        window.ProfileService.current().name) || 'r3d1bruh';
+        railPane.textContent = `${handle}://${visiblePaneName()}`;
     }
 
     function syncTrack() {

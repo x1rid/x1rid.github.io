@@ -30,7 +30,10 @@
     if (profile && typeof profile.username === 'string' && profile.username) {
       return profile.username;
     }
-    return 'r3d1';
+    // Default to 'user' — no hardcoded identity.
+    // In production the profile layer always supplies a username; this
+    // fallback only applies to legacy pages that skip the profile layer.
+    return 'user';
   }
 
   /**
@@ -91,7 +94,7 @@
 
   if (!hasProfileLayer) {
     // Legacy pages: keep the original readiness contract intact.
-    window.VirtualFSReady = open({ id: 'legacy', dbName: LEGACY_DB, username: 'r3d1' });
+    window.VirtualFSReady = open({ id: 'legacy', dbName: LEGACY_DB, username: 'user' });
     window.VirtualFSReady.catch(function (error) {
       console.error('[VFSService] Legacy VFS initialization failed', error);
     });

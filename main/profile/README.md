@@ -8,11 +8,11 @@ no bundler. Everything is a `window.*` global loaded with `<script>` tags.
 | File | Responsibility |
 | --- | --- |
 | `profile-db.js` | IndexedDB `profile-db` v2 (stores `profiles`, `profile-state`, `system-config`). Never stores file bytes. |
-| `profile-service.js` | Profile definitions, active profile, owner password gate, events. |
-| `persistence-service.js` | Validate / load / save / reset per-profile state, debounce, diagnostics, shell hooks. |
+| `profile-service.js` | Profile definitions, active profile, owner/admin password gates, authentication adapter, identity updates, events. |
+| `persistence-service.js` | Validate / load / save / reset per-profile state (schema v3, including `lockScreen`), debounce, diagnostics, shell hooks. |
 | `window-state.js` | Profile-scoped window snapshot bridge; restores through the shell's existing launch paths. |
 | `boot.js` | Deterministic boot: profiles → active profile → VFS → state → apply → emit. |
-| `profile-ui.js` | Lock-screen profile switcher and owner password prompt. |
+| `profile-ui.js` | Shell locked/inert state; delegates the root lock UI to `LockScreenV2` when present. |
 | `../system-config.js` | Profile-scoped virtual users/groups/permissions, startup/service metadata, audit, reset, rollback. |
 
 Load order (in `<head>`, before the VFS scripts):
@@ -41,14 +41,18 @@ the DOM or renders windows.
 
 ```js
 await ProfileService.init();                  // idempotent, creates/migrates metadata
-ProfileService.getProfiles();                 // [{ id, name, type, username, dbName, ... }]
-ProfileService.getProfile(id);                // copy or null
+ProfileService.getProfiles();                 // public [{ id, name, type, username, dbName, ... }]
+ProfileService.listPublicProfiles();          // explicit login-screen projection
+ProfileService.getProfile(id);                // copy or null (hidden ids work when explicit)
 ProfileService.getActiveProfile();            // copy or null
 ProfileService.resolveActive();               // profile for this tab (locked owner → guest)
 await ProfileService.setActiveProfile(id);    // flush outgoing state, then reload
 ProfileService.hasOwnerPassword();            // boolean
 await ProfileService.setOwnerPassword(pwd);   // first-time setup (salted PBKDF2)
 await ProfileService.unlock('owner', pwd);    // { ok, reason?, needsSetup? }
+await ProfileService.authenticate({ username, password }); // { ok, profileId?, reason? }
+await ProfileService.updateIdentity(id, { displayName, username });
+await ProfileService.enableHiddenAdmin(pwd, { dev: true }); // explicit dev/recovery only
 ProfileService.isUnlocked(id);
 ProfileService.lock(id);
 ProfileService.subscribe(fn);                 // returns unsubscribe
@@ -56,7 +60,14 @@ ProfileService.ready;                         // Promise (same as window.Profile
 ```
 
 Invalid ids/types are rejected. `setActiveProfile` rejects with
-`code === 'PROFILE_LOCKED'` when the owner is not unlocked.
+`code === 'PROFILE_LOCKED'` when the owner is not unlocked. `getProfiles()`
+removes `hidden` and auth fields and excludes the hidden administrator;
+`getProfile('admin')` still works when a caller explicitly names it.
+`authenticate()` returns only `{ ok, profileId?, reason? }`, uses generic
+failures for unknown usernames, and never auto-grants administrator access.
+`enableHiddenAdmin()` requires `{ dev: true }` or
+`sessionStorage['desktop.devMode'] === '1'`, otherwise it throws
+`DEV_MODE_REQUIRED`.
 
 ### `window.PersistenceService`
 
@@ -70,7 +81,8 @@ PersistenceService.collectState();                           // snapshot shell p
 PersistenceService.applyState(profileId, state);
 PersistenceService.bindAutoSave(profileId);
 PersistenceService.getCachedState(profileId);
-PersistenceService.validateState(state);                     // pure validator
+PersistenceService.validateState(state);                     // pure validator (schema v3)
+PersistenceService.defaults();                               // code-level default state
 ```
 
 `saveProfileState` only resolves after the IndexedDB transaction commits. A
@@ -129,6 +141,12 @@ ProfileUI.openSwitcher();
 ProfileUI.isLocked();
 ```
 
+On the root shell the lock markup has `data-lock-v2="true"`; `ProfileUI` then
+delegates account cards, credentials, and reveal transitions to
+`window.LockScreenV2` and only owns `_setLocked()` / `aria-hidden` plus window
+flush behavior. `main/index.html` and `main/desktop-shell.html` keep the legacy
+lock UI.
+
 ### Readiness contract
 
 - `window.ProfileReady` — resolves after profile metadata, VFS, and state are ready.
@@ -162,9 +180,9 @@ Dispatched as `CustomEvent` on `document` (also delivered to
   auth: null | { algo, iterations, salt, hash, updatedAt } }
 
 // profile-state
-{ profileId, schemaVersion: 2, revision, updatedAt,
+{ profileId, schemaVersion: 3, revision, updatedAt,
   data: {
-    schemaVersion: 2,
+    schemaVersion: 3,
     desktop: { wallpaper, wallpaperPaused, iconsVisible },
     settings: { theme, musicVolume, clippyVisible, cursorScheme, soundEnabled },
     apps: {
@@ -182,6 +200,23 @@ Dispatched as `CustomEvent` on `document` (also delivered to
         left: 403, top: 237, width: 363, height: 239,
         maximized: false, minimized: true
       }
+    },
+    lockScreen: {
+      clock: { enabled, showSeconds, format: '24h'|'12h', showDate },
+      animation: {
+        intensity: 'low'|'medium'|'high',
+        parallax, particles, respectReducedMotion, pauseWhenHidden
+      },
+      widgets: {
+        enabled,
+        enabledIds: ['fun-fact', 'system-message'],
+        rotation: 'on-interaction'|'interval'|'off'
+      },
+      audio: { enabled, ambientEnabled, effectsEnabled, volume },
+      accounts: {
+        showOwner, showGuest, showHiddenAccounts: false, allowAccountCreation
+      },
+      avatar: { kind: 'builtin'|'custom', value }
     }
   } }
 
@@ -204,9 +239,12 @@ Dispatched as `CustomEvent` on `document` (also delivered to
 State and system configuration are validated on every read and write. Unknown keys, wrong types,
 out-of-range numbers, functions, DOM nodes, and circular objects are dropped.
 A newer `schemaVersion` only reads known fields; malformed data falls back to
-defaults without throwing. Version 1 records still load; legacy geometry-only
-window entries are discarded because they have no app identity. The shell then
-boots its default layout and writes a version 2 record on the next save.
+defaults without throwing. Version 1 records still load; version 2 records gain
+validated `lockScreen` defaults on read and are written as version 3 on the
+next save (the migration is additive — existing data is never rewritten in
+place). Legacy geometry-only window entries are discarded because they have no
+app identity. The shell then boots its default layout and writes a version 3
+record on the next save.
 
 ### Persisted today
 
@@ -217,7 +255,9 @@ boots its default layout and writes a version 2 record on the next save.
 - Last Explorer folder.
 - Open windows per profile: app identity, restore bounds, maximized/minimized
   flags, and whether the profile has initialized its window set.
-- Profile metadata, timestamps, and owner auth verifier.
+- Lock-screen preferences per profile: clock, animation, widgets, audio, account
+  visibility, and the chosen/custom avatar. Passwords are never included.
+- Profile metadata, timestamps, and owner/admin auth verifiers.
 - Per-profile virtual system configuration, rollback snapshot, simulated
   users/groups/permissions, and startup/service metadata (`SystemConfig`).
 
@@ -235,6 +275,7 @@ IndexedDB namespace using the **same VFS schema and code**:
 | --- | --- | --- | --- |
 | `owner` | `vfs-db` (legacy) | `r3d1` | preserved unchanged |
 | `guest` | `vfs-db-guest` | `guest` | created lazily, seeded independently |
+| `admin` (hidden) | `vfs-db-admin` | `sysadmin` | only reachable by explicit id / dev setup |
 
 `VFSService.open(profile)` constructs the canonical `VirtualFS` against that
 namespace. A Guest `VirtualFS` instance only ever loads Guest nodes, so normal
@@ -252,6 +293,10 @@ cycle/orphan repair. Existing owner data is not rewritten during this work.
 - The password is never hardcoded and never stored in plaintext: a random salt
   and a PBKDF2-SHA256 verifier (120 000 iterations) live in `profile-db`.
   Non-secure contexts fall back to an iterated FNV hash (weaker).
+- The hidden `admin` account is excluded from public profile lists, but that is
+  presentation, not protection. It has no password until
+  `enableHiddenAdmin(pwd, { dev: true })` is called deliberately; it grants no
+  real OS privileges and remains a browser-only simulation.
 - Session unlock (`sessionStorage`) survives reload in the same tab and is
   cleared when the tab closes. This is convenience, not security.
 - Multi-tab: each tab has its own `sessionStorage` profile selection. Two tabs
@@ -305,6 +350,10 @@ Run from the repo root with `python -m http.server 8899`, then open
 13. `await SystemConfig.ready` → the active profile config loads; `get()` reports revision and current user.
 14. `await SystemConfig.patch({...})` → reload → the configuration persists; reset and rollback restore the expected virtual config without changing files.
 15. Switch Guest ↔ Owner → each profile reads its own `system-config` record; a cross-profile load/write rejects with `PROFILE_SCOPE`.
+16. Root lock screen → Owner and Guest cards render, no administrator card; Guest signs in; unknown usernames fail generically.
+17. Owner with no password → first-run password setup appears; after setup, the owner session activates.
+18. Change clock/animation/widget/avatar settings → reload → settings persist for that profile only; a custom avatar is re-encoded to WebP.
+19. Sign out from the lock-screen settings → the session locks and returns to the lock screen (Owner/Admin return through Guest).
 
 Simulated failure:
 

@@ -34,11 +34,12 @@
 
   const ACTIVE_KEY = 'desktop.activeProfile';
   const UNLOCK_KEY = 'desktop.ownerUnlocked';
+  const ADMIN_UNLOCK_KEY = 'desktop.adminUnlocked';
   const MEMORY_FALLBACK = Object.create(null);
   const SCHEMA_VERSION = 1;
   const MIN_PASSWORD_LENGTH = 4;
 
-  /** Canonical profile definitions. */
+  /** Canonical profile definitions. Hidden entries never appear in public lists. */
   const DEFINITIONS = [
     {
       id: 'guest',
@@ -46,15 +47,34 @@
       type: 'guest',
       username: 'guest',
       dbName: 'vfs-db-guest',
-      description: 'Shared, password-free session for visitors.'
+      description: 'Shared, password-free session for visitors.',
+      hidden: false,
+      showOnLogin: true
     },
     {
       id: 'owner',
+      // NOTE (Phase 0.6): 'r3d1bruh' is the site-owner's handle; ideally loaded
+      // from data/site-config.json so it can be changed without editing JS.
+      // See docs/OPEN_QUESTIONS.md OQ-004. The username 'r3d1' preserves legacy
+      // VFS paths (C:\Users\r3d1) for existing IndexedDB data; will be migrated
+      // in Phase 2.3.
       name: 'r3d1bruh',
       type: 'owner',
-      username: 'r3d1', // keep legacy path C:\Users\r3d1 intact
+      username: 'r3d1', // legacy VFS path root — do not change until Phase 2.3 migration
       dbName: 'vfs-db', // legacy database: existing data is preserved as-is
-      description: 'Owner profile, gated by a locally stored password verifier.'
+      description: 'Owner profile, gated by a locally stored password verifier.',
+      hidden: false,
+      showOnLogin: true
+    },
+    {
+      id: 'admin',
+      name: 'SYSTEM',
+      type: 'administrator',
+      username: 'sysadmin',
+      dbName: 'vfs-db-admin',
+      description: 'Hidden virtual administrator account (simulation only).',
+      hidden: true,
+      showOnLogin: false
     }
   ];
 
@@ -213,6 +233,9 @@
               type: prior.type || def.type,
               username: prior.username || def.username,
               dbName: prior.dbName || def.dbName,
+              hidden: def.hidden === true,
+              showOnLogin: def.hidden === true ? false : prior.showOnLogin !== false,
+              status: prior.status || 'active',
               schemaVersion: SCHEMA_VERSION,
               initialized: true
             });
@@ -227,6 +250,9 @@
               username: def.username,
               dbName: def.dbName,
               description: def.description,
+              hidden: def.hidden === true,
+              showOnLogin: def.showOnLogin !== false,
+              status: 'active',
               createdAt: now,
               lastAccessAt: 0,
               schemaVersion: SCHEMA_VERSION,
@@ -241,6 +267,9 @@
         if (safeSessionGet(UNLOCK_KEY) === '1') {
           this._unlocked.add('owner');
         }
+        if (safeSessionGet(ADMIN_UNLOCK_KEY) === '1') {
+          this._unlocked.add('admin');
+        }
 
         this._initialized = true;
         return this;
@@ -254,11 +283,28 @@
       }
     },
 
+    /**
+     * Public account-list query. Hidden virtual accounts are never returned;
+     * use getProfile(id) only from trusted internal code that already has an
+     * explicit id.
+     */
     getProfiles() {
       const self = this;
-      return DEFINITIONS.map(function (def) {
+      return DEFINITIONS.filter(function (def) {
+        return def.hidden !== true;
+      }).map(function (def) {
         const stored = self._profiles.get(def.id);
-        return stored ? clone(stored) : Object.assign({}, def);
+        const record = stored ? clone(stored) : Object.assign({}, def);
+        delete record.hidden;
+        delete record.auth;
+        return record;
+      });
+    },
+
+    /** Explicit login-screen projection; still excludes hidden accounts. */
+    listPublicProfiles() {
+      return this.getProfiles().filter(function (profile) {
+        return profile.status !== 'disabled' && profile.showOnLogin !== false;
       });
     },
 
@@ -280,10 +326,10 @@
      */
     resolveActive() {
       const requested = safeSessionGet(ACTIVE_KEY);
-      if (requested === 'owner' && !this.isUnlocked('owner')) {
+      if ((requested === 'owner' || requested === 'admin') && !this.isUnlocked(requested)) {
         return this.getProfile('guest');
       }
-      return this.getProfile(requested === 'owner' ? 'owner' : 'guest');
+      return this.getProfile(requested === 'owner' || requested === 'admin' ? requested : 'guest');
     },
 
     _rememberActive(profile) {
@@ -310,8 +356,9 @@
       await this.init();
       const profile = this.getProfile(id);
       if (!profile) throw new Error('Unknown profile id: ' + id);
-      if (profile.type === 'owner' && !this.isUnlocked('owner')) {
-        const error = new Error('Owner profile is locked');
+      if ((profile.type === 'owner' || profile.type === 'administrator') &&
+          !this.isUnlocked(profile.id)) {
+        const error = new Error('Profile is locked');
         error.code = 'PROFILE_LOCKED';
         throw error;
       }
@@ -405,10 +452,152 @@
       return { ok: true, profile: profile };
     },
 
+    /**
+     * Username + password authentication adapter used by the lock screen.
+     * Returns only { ok, profileId, reason? }; it never reveals whether a
+     * hidden account exists. Unknown usernames always fail generically.
+     */
+    async authenticate(credentials) {
+      await this.init();
+      const username = String(credentials && credentials.username || '').trim().toLowerCase();
+      const password = String(credentials && credentials.password || '');
+      const failure = { ok: false, reason: 'invalid-credentials' };
+      if (!username) return failure;
+
+      let matched = null;
+      DEFINITIONS.some((def) => {
+        const stored = this._profiles.get(def.id);
+        const name = String(stored && stored.username || def.username || '').toLowerCase();
+        if (name === username) {
+          matched = stored || Object.assign({}, def);
+          return true;
+        }
+        return false;
+      });
+      if (!matched) return failure;
+      if (matched.status === 'disabled') return failure;
+
+      if (matched.type === 'guest') {
+        // Guest is intentionally password-free, but the username still has to
+        // match. Any password input is ignored rather than creating a secret.
+        this._unlocked.add(matched.id);
+        return { ok: true, profileId: matched.id };
+      }
+
+      if (!matched.auth || !matched.auth.hash) {
+        return { ok: false, reason: 'no-password' };
+      }
+
+      const derived = await deriveHash(
+        password,
+        matched.auth.salt,
+        matched.auth.iterations || 120000
+      );
+      if (!constantTimeEqual(derived.hash, matched.auth.hash)) return failure;
+
+      this._unlocked.add(matched.id);
+      if (matched.type === 'owner') safeSessionSet(UNLOCK_KEY, '1');
+      if (matched.type === 'administrator') safeSessionSet(ADMIN_UNLOCK_KEY, '1');
+      return { ok: true, profileId: matched.id };
+    },
+
+    /**
+     * Development/recovery path for the hidden administrator. The browser is
+     * not a security boundary; this exists so the virtual account can be
+     * configured deliberately, never automatically from an unknown username.
+     */
+    async enableHiddenAdmin(password, options) {
+      await this.init();
+      const dev = options && options.dev === true;
+      let sessionDev = false;
+      try {
+        sessionDev = window.sessionStorage.getItem('desktop.devMode') === '1';
+      } catch (_) { /* storage can be blocked */ }
+      if (!dev && !sessionDev) {
+        const error = new Error('Hidden admin setup requires explicit development mode');
+        error.code = 'DEV_MODE_REQUIRED';
+        throw error;
+      }
+      const value = String(password == null ? '' : password);
+      if (value.length < MIN_PASSWORD_LENGTH || value.length > 256) {
+        const error = new Error('Invalid administrator password length');
+        error.code = 'INVALID_PASSWORD';
+        throw error;
+      }
+      const admin = this._profiles.get('admin');
+      if (!admin) throw new Error('Hidden administrator record is missing');
+      const salt = randomSalt();
+      const derived = await deriveHash(value, salt, 120000);
+      admin.auth = {
+        algo: derived.algo,
+        iterations: 120000,
+        salt: salt,
+        hash: derived.hash,
+        updatedAt: Date.now()
+      };
+      await this._db.putProfile(admin);
+      this._profiles.set('admin', admin);
+      return true;
+    },
+
+    /**
+     * Persist a custom display name and login username. Usernames are unique
+     * across the virtual account set, including the hidden administrator.
+     */
+    async updateIdentity(profileId, changes) {
+      await this.init();
+      const record = this._profiles.get(profileId);
+      if (!record) {
+        const error = new Error('Unknown profile id');
+        error.code = 'PROFILE_NOT_FOUND';
+        throw error;
+      }
+      const name = String(changes && changes.displayName != null ? changes.displayName : record.name).trim();
+      const username = String(changes && changes.username != null ? changes.username : record.username).trim();
+      if (!name || name.length > 40) {
+        const error = new Error('Display name must be 1-40 characters');
+        error.code = 'INVALID_DISPLAY_NAME';
+        throw error;
+      }
+      if (!/^[a-z0-9][a-z0-9._-]{2,31}$/i.test(username)) {
+        const error = new Error('Username must be 3-32 safe characters');
+        error.code = 'INVALID_USERNAME';
+        throw error;
+      }
+      const lowered = username.toLowerCase();
+      const taken = DEFINITIONS.some((def) => {
+        if (def.id === profileId) return false;
+        const other = this._profiles.get(def.id);
+        return String(other && other.username || def.username || '').toLowerCase() === lowered;
+      });
+      if (taken) {
+        const error = new Error('Username is already in use');
+        error.code = 'USERNAME_TAKEN';
+        throw error;
+      }
+      record.name = name;
+      record.username = username;
+      record.updatedAt = Date.now();
+      await this._db.putProfile(record);
+      this._profiles.set(profileId, record);
+      if (this._active && this._active.id === profileId) {
+        this._active = clone(record);
+      }
+      emit('profile:identity-changed', {
+        profileId: profileId,
+        displayName: record.name,
+        username: record.username
+      });
+      return clone(record);
+    },
+
     isUnlocked(profileId) {
       const profile = this.getProfile(profileId);
       if (!profile) return false;
       if (profile.type === 'guest') return true;
+      if (profile.type === 'administrator') {
+        return this._unlocked.has(profile.id) || safeSessionGet(ADMIN_UNLOCK_KEY) === '1';
+      }
       return this._unlocked.has(profile.id) || safeSessionGet(UNLOCK_KEY) === '1';
     },
 
@@ -417,6 +606,7 @@
       if (!profile) return false;
       this._unlocked.delete(profile.id);
       if (profile.type === 'owner') safeSessionSet(UNLOCK_KEY, '0');
+      if (profile.type === 'administrator') safeSessionSet(ADMIN_UNLOCK_KEY, '0');
       emit('profile:locked', { profileId: profile.id });
       return true;
     },

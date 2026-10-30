@@ -37,6 +37,12 @@ main/               → the retro homepage
                       associations, notifications, settings, and events
     system-config.js → profile-scoped virtual users, groups, permissions,
                       startup/service metadata, audit, reset, and rollback
+    lock-screen/    → immersive root lock screen: account cards, credentials,
+                      settings, avatars, animation controller, widgets, ARG hook
+    window-manager-core.js → pure work-area, layout, snap, resize, and WM-state logic
+    window-manager.js → desktop integration: snapping, previews, groups,
+                      workspaces, tiling, Snap Assist, overview, shortcuts
+    window-manager.css → preview, chooser, assist, overview, divider, and motion styles
     mobile.js       → phone shell controller (<=600px): tab bar, pages mirror,
                       terminal key strip, virtual-keyboard geometry
     assets/         → pixel cursor sprites + classic cursor GIFs
@@ -257,6 +263,51 @@ the site's own tokens. They are inspired by, not copied from, these projects:
 No upstream source is vendored. The Programs app files live in `main/apps/` and
 register through the shell's `window.RetroApps` contract; `main/apps.css` holds
 their shared skin.
+
+## Window manager
+
+The shell keeps its original inline window lifecycle and adds an optional
+Windows 11–style window manager on top. `main/window-manager-core.js` is pure
+geometry/layout/state logic (loaded in Node tests); `main/window-manager.js`
+binds it to the desktop through the `window.ShellWM` bridge.
+
+- **Snapping** — drag a titlebar to a screen edge or corner for halves,
+  quadrants, top/bottom, or maximize. Live translucent previews use the exact
+  final bounds. Dragging a snapped or maximized window restores its floating
+  rectangle under the pointer.
+- **Layouts** — half, top/bottom, quadrants, three columns, main + sidebar, and
+  asymmetric presets. The maximize-button chooser also offers captured custom
+  layouts and an **Always on top** / **Float window** control.
+- **Snap Assist** — after snapping, pick an open window for the remaining zone.
+- **Linked resize & snap groups** — adjacent snapped windows share draggable
+  dividers. Restore a whole group from the taskbar or with a shortcut.
+- **Virtual desktops** — four named desktops by default (up to nine), with
+  taskbar filtering, window moves, per-desktop layouts, and an overview.
+- **Optional tiling** — automatic grid tiling for eligible windows, with
+  per-app rules for floating, always-on-top, and preferred desktop.
+- **Persistence** — snap bounds, group ids, desktop membership, layouts, rules,
+  and shortcut overrides are saved per profile (schema v4) and restored
+  defensively. Missing apps or corrupt state fall back safely.
+- **Motion** — transitions respect `prefers-reduced-motion` and the overview's
+  **Reduce motion** switch.
+
+Shortcuts are registered through `main/shortcuts.js`; they are ignored while a
+text field is focused. Defaults:
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+Alt+ArrowLeft` / `Right` | Snap left / right |
+| `Ctrl+Alt+ArrowUp` / `Down` | Maximize / snap bottom |
+| `Ctrl+Alt+K` | Open snap-layout chooser |
+| `Ctrl+Alt+M` / `Ctrl+Alt+H` | Maximize / minimize active window |
+| `Ctrl+Alt+F` / `Ctrl+Alt+G` | Float / restore snap group |
+| `Ctrl+Alt+O` | Workspace overview |
+| `Ctrl+Alt+T` | Toggle automatic tiling |
+| `Ctrl+Alt+PageDown` / `PageUp` | Next / previous desktop |
+| `Ctrl+Alt+Shift+PageDown` / `PageUp` | Move window to next / previous desktop |
+
+Run `node tests/window-manager.test.js` for the geometry, persistence, and
+state-sanitization suite.
 
 ## Application registry and lifecycle
 
@@ -489,6 +540,60 @@ bounded to the newest 200 entries per tab and is exposed with
 `SystemConfig.audit()`; each entry is also emitted as `system:audit`. Audit
 entries are diagnostic telemetry, not tamper-proof records.
 
+## Lock screen
+
+The root shell (`index.html`) boots into `main/lock-screen/`, an immersive
+sign-in scene with Owner and Guest account cards, an optional custom username,
+per-profile avatars and preferences, an animated starfield/clock/widget host,
+and a disabled-by-default fictional ARG hook. It reuses `ProfileService` for
+authentication and session activation, `PersistenceService` for profile-scoped
+`lockScreen` state (schema v3), `ProfileUI` for the shell's locked/inert state,
+and `SystemServices.events` for telemetry. It does not create a second profile
+database, event bus, or session manager.
+
+- Guest signs in without a password. Owner signs in with a local password; the
+  first owner sign-in asks to create one. Unknown usernames always fail with a
+  generic error and never gain a session or administrator rights.
+- Password fields are never persisted. Owner/admin passwords are stored only as
+  salted PBKDF2 verifiers in `profile-db`.
+- Settings (clock, animation intensity, parallax, particles, widgets, avatars,
+  account visibility, audio preferences) are saved per profile and survive
+  reloads. Profile switching still performs the existing flush-and-reload.
+- Six built-in avatar presets plus PNG/JPEG/WebP uploads (re-encoded to WebP,
+  max 512 KB and 1024×1024). SVG/GIF uploads are rejected.
+- A single `LockAnimationController` owns transitions and the one particle loop;
+  it honours reduced motion and pauses while the page is hidden.
+- Logout locks the session and returns to the lock screen (Owner/Admin switch
+  back through `setActiveProfile('guest')`).
+
+### Hidden administrator
+
+`ProfileService` defines a hidden `admin` profile (`sysadmin`, database
+`vfs-db-admin`) that is excluded from `getProfiles()` and
+`listPublicProfiles()`. It has no password and cannot authenticate until
+explicit development/recovery setup:
+
+```js
+sessionStorage.setItem('desktop.devMode', '1');
+await ProfileService.enableHiddenAdmin('a-local-dev-password', { dev: true });
+```
+
+`enableHiddenAdmin()` throws `DEV_MODE_REQUIRED` without the explicit flag and
+`INVALID_PASSWORD` outside 4–256 characters. The `SystemConfig` simulation maps
+it to the `administrator` principal in the `administrators` group; this is still
+a browser-only simulation.
+
+### Security caveat
+
+The lock screen is a UI gate, not a security boundary. Anyone with DevTools,
+IndexedDB access, the browser profile, or the ability to change the served
+JavaScript can read or bypass everything. The hidden account and ARG hook are
+deliberately inert by default and never touch real Windows users, commands,
+`sethc.exe`, or security settings.
+
+See `main/lock-screen/README.md` for the module API, state machine, schema, and
+test commands.
+
 ## Keyboard shortcuts
 
 `main/shortcuts.js` is the single keyboard router for the desktop shell. It
@@ -505,6 +610,8 @@ of adding competing document listeners.
 | `Ctrl+Alt+D` | Show the desktop / restore windows |
 | `Alt+PageDown` / `Alt+PageUp` | Focus the next / previous simulator window |
 | `Alt+W` | Close the active simulator window |
+| `Ctrl+Alt+O` | Open the workspace overview (window manager) |
+| `Ctrl+Alt+T` | Toggle automatic tiling (window manager) |
 | `Ctrl+Alt+L` | Lock the desktop (root shell) |
 
 ### Start search
@@ -534,7 +641,7 @@ of adding competing document listeners.
 | --- | --- |
 | `ArrowUp` / `ArrowDown` | Previous / next terminal command |
 | `Ctrl+L` | Clear terminal output |
-| `Enter` / `Space` | Unlock the guest desktop |
+| `Enter` / `Space` | Unlock the guest desktop (legacy lock UI only; Lock Screen v2 uses the account cards and form) |
 
 `Ctrl+Escape`, `Ctrl+Alt+D`, `Ctrl+Alt+L`, and OS-level combinations may be
 captured by the host operating system or browser on some platforms; the
@@ -542,15 +649,15 @@ simulator cannot guarantee delivery. It deliberately does not register global
 `Ctrl+W`, `Ctrl+T`, `Ctrl+L`, `Ctrl+R`, `F5`, `Alt+Tab`, or `Alt+F4`. Explorer's
 `Alt+Left`/`Alt+Right` and `Backspace` are scoped to Explorer and Terminal's
 `Ctrl+L` is scoped to the terminal input. Explorer shortcuts are ignored while a
-text field is focused, and the lock-screen Enter/Space shortcut is ignored while
-the owner password prompt is open.
+text field is focused, and the lock-screen Enter/Space shortcut is disabled on
+the v2 lock screen.
 
 ### Service API
 
 ```js
 const remove = ShortcutService.register({
   id: 'my-app.action',
-  keys: ['Ctrl+Alt+K'],
+  keys: ['Ctrl+Alt+Y'],
   context: ['app'],
   priority: 50,
   allowInEditable: false,

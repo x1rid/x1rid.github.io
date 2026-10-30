@@ -28,6 +28,10 @@
   const MAX_WINDOWS = 32;
   const SAVE_DELAY_MS = 450;
 
+  function clone(value) {
+    return value == null ? value : JSON.parse(JSON.stringify(value));
+  }
+
   // Only windows the shell can reconstruct through its existing launch paths.
   const PERSISTENT_APP_IDS = {
     explorer: true,
@@ -94,19 +98,40 @@
 
       // A maximized window's live bounds are the maximized rectangle. Persist
       // its pre-maximize bounds so unmaximize still returns to the right size.
-      const source = win.maximized && win.previousBounds ? win.previousBounds : win;
+      // Snapped windows persist their floating rectangle for the same reason;
+      // the zone and any linked-resize bounds live in `snap`.
+      const source = win.snap && win.snap.floating
+        ? win.snap.floating
+        : (win.maximized && win.previousBounds ? win.previousBounds : win);
       const bounds = boundsOf(source);
       if (!bounds) return;
 
-      result[String(id)] = {
+      const record = {
         appId: appId,
         left: bounds.left,
         top: bounds.top,
         width: bounds.width,
         height: bounds.height,
         maximized: Boolean(win.maximized),
-        minimized: Boolean(win.minimized)
+        minimized: Boolean(win.minimized),
+        workspace: Number.isFinite(Number(win.workspace)) ? Math.round(Number(win.workspace)) : 0,
+        alwaysOnTop: Boolean(win.alwaysOnTop),
+        tiling: Boolean(win.tiling),
+        userOverride: Boolean(win.userOverride),
+        snap: null
       };
+
+      if (win.snap && typeof win.snap.layout === 'string' && typeof win.snap.zone === 'string') {
+        const snapBounds = boundsOf(win.snap.bounds);
+        record.snap = {
+          layout: win.snap.layout,
+          zone: win.snap.zone,
+          groupId: typeof win.snap.groupId === 'string' ? win.snap.groupId : null,
+          bounds: snapBounds
+        };
+      }
+
+      result[String(id)] = record;
       count += 1;
     });
 
@@ -130,16 +155,30 @@
       return snapshotWindows(options.getWindows());
     }
 
+    function snapshotWMState() {
+      if (typeof options.getWMState !== 'function') return null;
+      try {
+        const value = options.getWMState();
+        return value && typeof value === 'object' ? clone(value) : null;
+      } catch (error) {
+        console.warn('[ProfileWindowState] window-manager snapshot failed:', error);
+        return null;
+      }
+    }
+
     function queueSnapshot() {
       if (!isCurrentProfile() || restoring) return Promise.resolve(null);
       if (!window.PersistenceService ||
           typeof window.PersistenceService.queueSave !== 'function') {
         return Promise.resolve(null);
       }
-      return window.PersistenceService.queueSave(profileId, {
+      const partial = {
         windows: snapshot(),
         apps: { windowsInitialized: true }
-      }).catch(function () {
+      };
+      const wmState = snapshotWMState();
+      if (wmState) partial.windowManager = wmState;
+      return window.PersistenceService.queueSave(profileId, partial).catch(function () {
         // PersistenceService reports failures through console + profile:state-error.
         return null;
       });

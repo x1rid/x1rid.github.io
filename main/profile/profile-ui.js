@@ -83,9 +83,16 @@
       return document.getElementById('lock-screen');
     },
 
+    _ownsLockScreen() {
+      const lockScreen = this._lockScreen();
+      return Boolean(lockScreen && lockScreen.dataset && lockScreen.dataset.lockV2 === 'true');
+    },
+
     _augmentLockScreen() {
       const lockScreen = this._lockScreen();
       if (!lockScreen) return;
+      // LockScreenV2 owns the account cards and hint copy on the root shell.
+      if (this._ownsLockScreen()) return;
       const user = lockScreen.querySelector('.lock-user');
       if (user && this._profile) user.textContent = this._profile.name;
       const hint = lockScreen.querySelector('.lock-hint');
@@ -99,6 +106,7 @@
     _renderSwitcher() {
       const lockScreen = this._lockScreen();
       if (!lockScreen) return;
+      if (this._ownsLockScreen()) return;
       let holder = lockScreen.querySelector('.profile-switcher');
       if (!holder) {
         holder = el('div', { class: 'profile-switcher' });
@@ -129,6 +137,10 @@
     },
 
     async selectProfile(profileId) {
+      if (this._ownsLockScreen() && window.LockScreenV2) {
+        window.LockScreenV2.selectProfile(profileId);
+        return;
+      }
       const profile = window.ProfileService.getProfile(profileId);
       if (!profile) return;
       if (window.ProfileWindowState && typeof window.ProfileWindowState.flushActive === 'function') {
@@ -341,6 +353,10 @@
     },
 
     unlock() {
+      if (this._ownsLockScreen() && window.LockScreenV2) {
+        window.LockScreenV2.focusSignIn();
+        return;
+      }
       if (!this._profile) {
         this._setLocked(false);
         return;
@@ -353,6 +369,10 @@
     },
 
     lock() {
+      if (this._ownsLockScreen() && window.LockScreenV2) {
+        window.LockScreenV2.lock();
+        return;
+      }
       if (!this._profile) return;
       if (window.ProfileWindowState && typeof window.ProfileWindowState.flushActive === 'function') {
         window.ProfileWindowState.flushActive();
@@ -363,6 +383,10 @@
 
     openSwitcher() {
       const lockScreen = this._lockScreen();
+      if (this._ownsLockScreen() && window.LockScreenV2) {
+        window.LockScreenV2.show();
+        return;
+      }
       if (!lockScreen) {
         // No lock UI on this page: fall back to Guest if the owner is locked.
         if (this._profile && this._profile.type === 'owner' &&

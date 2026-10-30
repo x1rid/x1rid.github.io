@@ -1,0 +1,764 @@
+/* ---------------------------------------------------------------------------
+ * Window manager — snap previews, layouts, Snap Assist, linked dividers,
+ * workspace overview, tiling and focus polish. Loaded after apps.css so it can
+ * layer on the existing window chrome without replacing it.
+ * ------------------------------------------------------------------------- */
+
+/* ── Overlay layer ─────────────────────────────────────────── */
+.wm-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 6000;
+    pointer-events: none;
+}
+
+.wm-snap-preview {
+    position: absolute;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 10px;
+    border: 1px solid rgba(192, 132, 252, 0.85);
+    background:
+        linear-gradient(180deg, rgba(192, 132, 252, 0.22), rgba(85, 255, 153, 0.08));
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+        0 10px 40px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transform: scale(0.985);
+    transition: opacity 120ms ease, transform 140ms ease;
+    backdrop-filter: blur(2px);
+    pointer-events: none;
+}
+
+.wm-snap-preview.is-visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.wm-snap-preview-label {
+    padding: 3px 8px;
+    border: 1px solid rgba(192, 132, 252, 0.6);
+    background: rgba(14, 6, 30, 0.86);
+    color: var(--ink-90, #f2eaff);
+    font: 10px/1.2 'Cascadia Mono', 'Courier New', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ── Window animation / focus states ───────────────────────── */
+.window.wm-snap-anim {
+    transition:
+        left 190ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        top 190ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        width 190ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        height 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.window.wm-dragging {
+    opacity: 0.92;
+    box-shadow:
+        inset 1px 1px 0 var(--bevel-light),
+        inset -1px -1px 0 var(--bevel-dark),
+        0 34px 90px rgba(0, 0, 0, 0.72);
+}
+
+.window.wm-snapped {
+    border-color: rgba(192, 132, 252, 0.42);
+}
+
+.window.wm-always-on-top .titlebar::after {
+    content: 'ON TOP';
+    margin-left: 6px;
+    padding: 1px 4px;
+    border: 1px solid rgba(85, 255, 153, 0.5);
+    color: #55ff99;
+    font: 8px/1.2 'Cascadia Mono', 'Courier New', monospace;
+    letter-spacing: 0.08em;
+}
+
+.window.wm-tiled .titlebar {
+    box-shadow: inset 0 2px 0 rgba(85, 255, 153, 0.45);
+}
+
+.window.wm-off-workspace {
+    display: none !important;
+}
+
+.wm-layout-button {
+    color: var(--signal-active, #c084fc);
+}
+
+/* ── Linked resize dividers ────────────────────────────────── */
+.wm-linked-divider {
+    position: absolute;
+    z-index: 3;
+    pointer-events: auto;
+    touch-action: none;
+    background: transparent;
+}
+
+.wm-linked-divider::after {
+    content: '';
+    position: absolute;
+    background: rgba(192, 132, 252, 0.32);
+    transition: background 120ms ease;
+}
+
+.wm-linked-divider.is-vertical {
+    width: 9px;
+    transform: translateX(-4px);
+    cursor: col-resize;
+}
+
+.wm-linked-divider.is-vertical::after {
+    top: 0;
+    bottom: 0;
+    left: 4px;
+    width: 1px;
+}
+
+.wm-linked-divider.is-horizontal {
+    height: 9px;
+    transform: translateY(-4px);
+    cursor: row-resize;
+}
+
+.wm-linked-divider.is-horizontal::after {
+    left: 0;
+    right: 0;
+    top: 4px;
+    height: 1px;
+}
+
+.wm-linked-divider:hover::after,
+.wm-linked-divider.is-active::after {
+    background: #55ff99;
+    box-shadow: 0 0 10px rgba(85, 255, 153, 0.65);
+}
+
+.wm-linked-divider.is-vertical:hover::after,
+.wm-linked-divider.is-vertical.is-active::after {
+    width: 2px;
+    left: 3px;
+}
+
+.wm-linked-divider.is-horizontal:hover::after,
+.wm-linked-divider.is-horizontal.is-active::after {
+    height: 2px;
+    top: 3px;
+}
+
+body.wm-linked-resizing,
+body.wm-linked-resizing * {
+    user-select: none !important;
+}
+
+/* ── Snap Assist ───────────────────────────────────────────── */
+.wm-snap-assist {
+    position: absolute;
+    right: 22px;
+    bottom: 22px;
+    z-index: 5;
+    width: min(340px, calc(100% - 44px));
+    padding: 12px;
+    border: 1px solid var(--line-hi, #6f3a93);
+    background: linear-gradient(180deg, rgba(26, 12, 46, 0.98), rgba(14, 6, 30, 0.98));
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.68);
+    pointer-events: auto;
+    animation: wm-assist-in 160ms ease both;
+}
+
+@keyframes wm-assist-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.wm-assist-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--ink-90, #f2eaff);
+    font-size: 12px;
+}
+
+.wm-assist-close,
+.wm-chooser-close,
+.wm-overview-close {
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--line, #3b1f5c);
+    background: transparent;
+    color: var(--ink-70, #c9b6e8);
+    font: 13px/1 'Cascadia Mono', 'Courier New', monospace;
+    cursor: pointer;
+}
+
+.wm-assist-close:hover,
+.wm-chooser-close:hover,
+.wm-overview-close:hover {
+    border-color: var(--signal-active, #c084fc);
+    color: #fff;
+}
+
+.wm-assist-hint,
+.wm-chooser-hint {
+    margin: 6px 0 8px;
+    color: var(--ink-55, #9d86bf);
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.wm-assist-zones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.wm-assist-zone {
+    padding: 3px 7px;
+    border: 1px solid var(--line, #3b1f5c);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--ink-70, #c9b6e8);
+    font: 10px/1.2 'Cascadia Mono', 'Courier New', monospace;
+    cursor: pointer;
+}
+
+.wm-assist-zone.is-selected {
+    border-color: #55ff99;
+    background: rgba(85, 255, 153, 0.12);
+    color: #d9ffe8;
+}
+
+.wm-assist-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 210px;
+    overflow: auto;
+}
+
+.wm-assist-candidate {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border: 1px solid var(--line, #3b1f5c);
+    background: var(--surface-1, #130927);
+    color: var(--ink-90, #f2eaff);
+    font: 11px/1.2 'Cascadia Mono', 'Courier New', monospace;
+    text-align: left;
+    cursor: pointer;
+}
+
+.wm-assist-candidate:hover,
+.wm-assist-candidate:focus-visible {
+    border-color: var(--signal-active, #c084fc);
+    background: var(--row-selected, #3b1f5c);
+    outline: none;
+}
+
+.wm-assist-icon {
+    flex: 0 0 auto;
+    color: var(--signal-active, #c084fc);
+}
+
+.wm-assist-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wm-assist-min {
+    margin-left: auto;
+    color: var(--ink-55, #9d86bf);
+    font-size: 9px;
+}
+
+/* ── Snap layout chooser ───────────────────────────────────── */
+.wm-layout-chooser {
+    position: fixed;
+    z-index: 6200;
+    width: 330px;
+    max-height: 70vh;
+    overflow: auto;
+    padding: 10px;
+    border: 1px solid var(--line-hi, #6f3a93);
+    background: linear-gradient(180deg, rgba(26, 12, 46, 0.99), rgba(14, 6, 30, 0.99));
+    box-shadow: 0 22px 70px rgba(0, 0, 0, 0.72);
+    animation: wm-assist-in 140ms ease both;
+}
+
+.wm-layout-chooser.is-hover {
+    outline: 1px solid rgba(85, 255, 153, 0.22);
+}
+
+.wm-chooser-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    color: var(--ink-90, #f2eaff);
+    font-size: 11px;
+}
+
+.wm-layout-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.wm-layout-card {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 6px;
+    border: 1px solid var(--line, #3b1f5c);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.wm-layout-card.is-current {
+    border-color: rgba(192, 132, 252, 0.65);
+}
+
+.wm-layout-preview {
+    position: relative;
+    height: 58px;
+    overflow: hidden;
+    border: 1px solid var(--line, #3b1f5c);
+    background: rgba(0, 0, 0, 0.32);
+}
+
+.wm-layout-zone {
+    position: absolute;
+    border: 1px solid rgba(192, 132, 252, 0.4);
+    background: rgba(192, 132, 252, 0.12);
+    cursor: pointer;
+    transition: background 100ms ease, border-color 100ms ease;
+}
+
+.wm-layout-zone:hover,
+.wm-layout-zone:focus-visible {
+    border-color: #55ff99;
+    background: rgba(85, 255, 153, 0.3);
+    outline: none;
+}
+
+.wm-layout-zone.is-selected {
+    border-color: #55ff99;
+    background: rgba(85, 255, 153, 0.22);
+}
+
+.wm-layout-name {
+    overflow: hidden;
+    color: var(--ink-70, #c9b6e8);
+    font-size: 9px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wm-chooser-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line, #3b1f5c);
+}
+
+.wm-chooser-toggle {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--ink-70, #c9b6e8);
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.wm-chooser-action,
+.wm-overview-button,
+.wm-custom-row button,
+.wm-card-actions button {
+    padding: 4px 8px;
+    border: 1px solid var(--line, #3b1f5c);
+    background: var(--surface-1, #130927);
+    color: var(--ink-90, #f2eaff);
+    font: 10px/1.2 'Cascadia Mono', 'Courier New', monospace;
+    cursor: pointer;
+}
+
+.wm-chooser-action:hover,
+.wm-overview-button:hover,
+.wm-custom-row button:hover,
+.wm-card-actions button:hover {
+    border-color: var(--signal-active, #c084fc);
+    background: var(--row-selected, #3b1f5c);
+}
+
+/* ── Workspace overview ────────────────────────────────────── */
+.wm-overview {
+    position: fixed;
+    inset: 0;
+    z-index: 6400;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: clamp(14px, 3vw, 34px);
+    overflow: auto;
+    background:
+        radial-gradient(ellipse at 16% 0%, rgba(160, 32, 240, 0.26), transparent 55%),
+        radial-gradient(ellipse at 90% 100%, rgba(85, 255, 153, 0.08), transparent 45%),
+        rgba(7, 2, 12, 0.94);
+    backdrop-filter: blur(8px);
+    animation: wm-overview-in 170ms ease both;
+}
+
+@keyframes wm-overview-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.wm-overview-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    color: var(--ink-90, #f2eaff);
+}
+
+.wm-overview-kicker {
+    display: block;
+    color: var(--signal-active, #c084fc);
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.wm-overview-header h2 {
+    margin: 2px 0 0;
+    font-size: clamp(18px, 2.4vw, 26px);
+    font-weight: 700;
+}
+
+.wm-overview-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.wm-overview-action {
+    padding: 6px 10px;
+    border: 1px solid var(--line, #3b1f5c);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--ink-90, #f2eaff);
+    font: 10px/1.2 'Cascadia Mono', 'Courier New', monospace;
+    cursor: pointer;
+}
+
+.wm-overview-action.is-active {
+    border-color: #55ff99;
+    color: #d9ffe8;
+    box-shadow: inset 0 -2px 0 #55ff99;
+}
+
+.wm-workspace-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid var(--line, #3b1f5c);
+    background: rgba(19, 9, 39, 0.76);
+}
+
+.wm-workspace-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+}
+
+.wm-workspace-tab.is-active {
+    border-color: var(--signal-active, #c084fc);
+    background: var(--row-selected, #3b1f5c);
+}
+
+.wm-workspace-switch {
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--line, #3b1f5c);
+    background: transparent;
+    color: var(--ink-70, #c9b6e8);
+    font: 10px/1 'Cascadia Mono', 'Courier New', monospace;
+    cursor: pointer;
+}
+
+.wm-workspace-name {
+    width: 110px;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink-90, #f2eaff);
+    font: 11px/1.2 'Cascadia Mono', 'Courier New', monospace;
+}
+
+.wm-workspace-name:hover,
+.wm-workspace-name:focus {
+    border-color: var(--line-hi, #6f3a93);
+    background: rgba(0, 0, 0, 0.24);
+    outline: none;
+}
+
+.wm-workspace-count {
+    color: var(--ink-55, #9d86bf);
+    font-size: 9px;
+}
+
+.wm-overview-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+    gap: 12px;
+    align-items: start;
+}
+
+.wm-window-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.wm-window-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    border: 1px solid var(--line, #3b1f5c);
+    background: linear-gradient(180deg, rgba(26, 12, 46, 0.92), rgba(14, 6, 30, 0.92));
+    cursor: pointer;
+    transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.wm-window-card:hover,
+.wm-window-card:focus-visible {
+    border-color: var(--signal-active, #c084fc);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.wm-window-card.is-active {
+    border-color: #55ff99;
+}
+
+.wm-window-card.is-minimized {
+    opacity: 0.62;
+}
+
+.wm-card-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    color: var(--ink-90, #f2eaff);
+    font-size: 11px;
+}
+
+.wm-card-head strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wm-card-icon {
+    color: var(--signal-active, #c084fc);
+}
+
+.wm-card-state {
+    margin: 0;
+    color: var(--ink-55, #9d86bf);
+    font-size: 9px;
+    line-height: 1.35;
+}
+
+.wm-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: auto;
+}
+
+.wm-card-actions button {
+    padding: 3px 6px;
+    font-size: 9px;
+}
+
+.wm-overview-empty {
+    margin: 0;
+    padding: 12px;
+    border: 1px dashed var(--line, #3b1f5c);
+    color: var(--ink-55, #9d86bf);
+    font-size: 10px;
+}
+
+.wm-overview-side {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wm-overview-section {
+    padding: 10px;
+    border: 1px solid var(--line, #3b1f5c);
+    background: rgba(19, 9, 39, 0.76);
+}
+
+.wm-overview-section h3 {
+    margin: 0 0 7px;
+    color: var(--ink-90, #f2eaff);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.wm-section-hint {
+    color: var(--ink-55, #9d86bf);
+    font-size: 8px;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.wm-overview-section select,
+.wm-rule-row select {
+    width: 100%;
+    margin-bottom: 6px;
+    padding: 4px;
+    border: 1px solid var(--line, #3b1f5c);
+    background: var(--surface-1, #130927);
+    color: var(--ink-90, #f2eaff);
+    font: 10px/1.2 'Cascadia Mono', 'Courier New', monospace;
+}
+
+.wm-custom-layouts {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 7px;
+}
+
+.wm-custom-row,
+.wm-rule-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--ink-70, #c9b6e8);
+    font-size: 9px;
+}
+
+.wm-custom-row span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wm-custom-row button {
+    padding: 2px 5px;
+    font-size: 8px;
+}
+
+.wm-rule-row {
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.wm-rule-row > span {
+    flex: 1 0 64px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wm-rule-row select {
+    width: auto;
+    flex: 1 0 92px;
+    margin: 0;
+    font-size: 9px;
+}
+
+.wm-shortcut-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 220px;
+    overflow: auto;
+}
+
+.wm-shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    color: var(--ink-70, #c9b6e8);
+    font-size: 9px;
+}
+
+.wm-shortcut-row input[type="text"] {
+    width: 118px;
+    padding: 3px 5px;
+    border: 1px solid var(--line, #3b1f5c);
+    background: var(--surface-1, #130927);
+    color: var(--ink-90, #f2eaff);
+    font: 9px/1.2 'Cascadia Mono', 'Courier New', monospace;
+}
+
+.wm-shortcut-row input[type="text"]:focus {
+    border-color: var(--signal-active, #c084fc);
+    outline: none;
+}
+
+/* ── Reduced motion ────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .wm-snap-preview,
+    .window.wm-snap-anim,
+    .wm-snap-assist,
+    .wm-layout-chooser,
+    .wm-overview,
+    .wm-window-card {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+body.wm-reduced-motion .wm-snap-preview,
+body.wm-reduced-motion .window.wm-snap-anim,
+body.wm-reduced-motion .wm-snap-assist,
+body.wm-reduced-motion .wm-layout-chooser,
+body.wm-reduced-motion .wm-overview,
+body.wm-reduced-motion .wm-window-card {
+    transition: none !important;
+    animation: none !important;
+}
+
+@media (max-width: 760px) {
+    .wm-overview-body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .wm-window-cards {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .wm-layout-chooser {
+        width: min(330px, calc(100vw - 16px));
+    }
+
+    .wm-snap-assist {
+        right: 10px;
+        bottom: 10px;
+    }
+}

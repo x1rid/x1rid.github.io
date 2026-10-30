@@ -1619,7 +1619,7 @@
             if (!vfs) return [];
             const folders = [];
             const kf = vfs.knownFolders || {};
-            const user = vfs.username || 'r3d1';
+            const user = vfs.username || 'user';
             if (kf.desktop) folders.push({ name: 'Desktop', view: kf.desktop, target: 'C:\\Users\\' + user + '\\Desktop', note: 'Desktop files' });
             if (kf.documents) folders.push({ name: 'Documents', view: kf.documents, target: 'C:\\Users\\' + user + '\\Documents', note: 'User documents' });
             if (kf.downloads) folders.push({ name: 'Downloads', view: kf.downloads, target: 'C:\\Users\\' + user + '\\Downloads', note: 'Downloads folder' });
