@@ -13,7 +13,7 @@
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 
-const { OsError, OsErrors, KernelErrors } = require(path.join(ROOT, 'main/kernel/platform/errors.js'));
+const { OsError, FsError, OsErrors, KernelErrors } = require(path.join(ROOT, 'main/kernel/platform/errors.js'));
 const { KernelClock } = require(path.join(ROOT, 'main/kernel/platform/clock.js'));
 const { KernelLogger } = require(path.join(ROOT, 'main/kernel/platform/logger.js'));
 
@@ -46,6 +46,13 @@ equal(err.name, 'OsError', 'OsError name property is set');
 equal(err.code, 'ENOENT', 'OsError code property is set correctly');
 equal(err.message, 'File missing', 'OsError message is set correctly');
 equal(err.detail && err.detail.path, 'C:\\test.txt', 'OsError detail contains path');
+
+const fsErr = new FsError(OsErrors.EEXIST, 'File already exists', { path: 'C:\\test.txt' });
+ok(fsErr instanceof Error, 'FsError is an instance of Error');
+ok(fsErr instanceof OsError, 'FsError is an instance of OsError');
+ok(fsErr instanceof FsError, 'FsError is an instance of FsError');
+equal(fsErr.name, 'FsError', 'FsError name property is set');
+equal(fsErr.code, 'EEXIST', 'FsError code property is set');
 
 const jsonErr = err.toJSON();
 equal(jsonErr.code, 'ENOENT', 'toJSON preserves code');

@@ -34,6 +34,12 @@
     'KernelClock': 'KernelClock',
     'KernelLogger': 'KernelLogger',
     'KernelEvents': 'KernelEvents',
+    'SecurityUsers': 'SecurityUsers',
+    'SecurityPermissions': 'SecurityPermissions',
+    'SecurityAudit': 'SecurityAudit',
+    'KernelProcessTable': 'KernelProcessTable',
+    'KernelSyscalls': 'KernelSyscalls',
+    'KernelServiceManager': 'KernelServiceManager',
     'Kernel': 'Kernel',
     'KernelReady': null,
   };

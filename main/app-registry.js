@@ -244,10 +244,27 @@
 
         const context = activeContext();
         const cleanup = typeof win.onClose === 'function' ? win.onClose : null;
+
+        // Hook KernelProcessTable to associate a monotonic PID (§5.1, §8 Phase 1.4)
+        let proc = null;
+        if (window.KernelProcessTable && typeof window.KernelProcessTable.spawn === 'function') {
+            try {
+                proc = window.KernelProcessTable.spawn({
+                    appId: definition.id,
+                    name: definition.name,
+                    windows: [windowId],
+                    uid: context.profileId || 'owner'
+                });
+            } catch (err) {
+                console.warn('[AppRegistry] KernelProcessTable.spawn error:', err);
+            }
+        }
+
         const instance = {
             key: windowId,
             appId: definition.id,
             windowId: windowId,
+            pid: proc ? proc.pid : null,
             window: win,
             definition: definition,
             profileId: context.profileId,
@@ -280,6 +297,13 @@
         const instance = running.get(key);
         if (!instance) return false;
         running.delete(key);
+
+        // Notify KernelProcessTable of window detachment
+        if (window.KernelProcessTable && typeof window.KernelProcessTable.detachWindow === 'function') {
+            try {
+                window.KernelProcessTable.detachWindow(key);
+            } catch (_) {}
+        }
         emit('site:appclose', {
             key: instance.key,
             appId: instance.appId,

@@ -1,0 +1,1652 @@
+<USER_REQUEST>
+Phase 2.1 is complete with the changes below:
+
+- Removed the hardcoded inline fake `vfs` tree from `terminal.js`.
+- Removed the external fake-tree loader (`./data/vfs.json`).
+- Wired terminal filesystem operations to the real syscall layer:
+  - `fs.stat`
+  - `fs.list`
+  - `fs.read`
+  - `fs.write`
+  - `fs.remove`
+- Used structured errors only:
+  - `OsError`
+  - `FsError`
+  - no bare string throws
+- Added/updated real VFS commands:
+  - `touch`
+  - `cat`
+  - `ls` / `dir`
+  - `cd`
+  - `rm`
+  - `rmdir`
+  - `cp`
+  - `save`
+  - `load`
+- Preserved identity from `site-config.json` instead of hardcoding owner identity.
+
+Apply the following edits to `terminal.js`.
+
+---
+
+## 1. Replace the `builtInCommands` line
+
+Replace this line:
+
+```js
+const builtInCommands = ['cls', 'dir', 'ls', 'cd', 'start', 'open', 'echo', 'man', 'rm', 'rmdir', 'cp', 'save', 'load', 'saved-files', 'neofetch', 'layout', 'promptgap', 'cursor', 'sound', 'help'];
+```
+
+With:
+
+```js
+const builtInCommands = [
+    'cls',
+    'dir',
+    'ls',
+    'cd',
+    'touch',
+    'cat',
+    'start',
+    'open',
+    'echo',
+    'man',
+    'rm',
+    'rmdir',
+    'cp',
+    'save',
+    'load',
+    'saved-files',
+    'neofetch',
+    'layout',
+    'promptgap',
+    'cursor',
+    'sound',
+    'help'
+];
+```
+
+---
+
+## 2. Replace the fake VFS block and external VFS loader
+
+Delete the entire hardcoded VFS section beginning with:
+
+```js
+const vfs = {
+```
+
+and continuing through the end of this block:
+
+```js
+fetch('./data/vfs.json')
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => { if (data) applyExternalVfs(data); })
+    .catch(() => {
+        /* file:// or offline — the inline fallback tree is already active. */
+    });
+```
+
+Replace that whole region with:
+
+```js
+let cwd = '/';
+let history = loadHistory();
+let historyIndex = history.length;
+
+/* ------------------------------------------------------------------
+ * Phase 2.1 — Real VFS gateway.
+ *
+ * The terminal no longer owns a fake filesystem tree. All filesystem
+ * operations go through the kernel syscall layer exposed by syscalls.js.
+ *
+ * Structured errors are mandatory. We use OsError/FsError from errors.js
+ * whenever available and never throw bare strings.
+ * ------------------------------------------------------------------ */
+const LEGACY_ERROR_MAP = Object.freeze({
+    NOT_FOUND: 'ENOENT',
+    NOT_A_DIRECTORY: 'ENOTDIR',
+    NAME_CONFLICT: 'EEXIST',
+    INVALID_NAME: 'EINVAL',
+    INVALID_PATH: 'EINVAL',
+    ACCESS_DENIED: 'EACCES',
+    STORAGE_FULL: 'ENOSPC'
+});
+
+function createOsError(code, message, detail) {
+    const Ctor = window.OsError || Error;
+    const err = Ctor === Error ? new Error(message || code) : new Ctor(code, message, detail);
+    err.name = 'OsError';
+    err.code = code;
+    if (detail !== undefined) err.detail = detail;
+    return err;
+}
+
+function createFsError(code, message, detail) {
+    const Ctor = window.FsError || window.OsError || Error;
+    const err = Ctor === Error ? new Error(message || code) : new Ctor(code, message, detail);
+    err.name = 'FsError';
+    err.code = code;
+    if (detail !== undefined) err.detail = detail;
+    return err;
+}
+
+function normalizeFsError(err) {
+    let code = 'EINVAL';
+    let message = 'Unknown error';
+    let detail;
+    let name = 'FsError';
+
+    if (typeof err === 'string') {
+        message = err;
+    } else if (err && typeof err === 'object') {
+        code = err.code || code;
+        message = err.message || message;
+        detail = err.detail;
+        name = err.name === 'OsError' ? 'OsError' : 'FsError';
+    }
+
+    if (Object.prototype.hasOwnProperty.call(LEGACY_ERROR_MAP, code)) {
+        code = LEGACY_ERROR_MAP[code];
+    }
+
+    const Ctor = name === 'OsError'
+        ? (window.OsError || Error)
+        : (window.FsError || window.OsError || Error);
+
+    const normalized = Ctor === Error ? new Error(message) : new Ctor(code, message, detail);
+    normalized.name = name;
+    normalized.code = code;
+    if (detail !== undefined) normalized.detail = detail;
+    return normalized;
+}
+
+function formatError(err) {
+    const normalized = normalizeFsError(err);
+    const code = normalized.code || 'ERROR';
+    const message = normalized.message || 'Unknown error';
+    let extra = '';
+
+    if (normalized.detail && typeof normalized.detail === 'object') {
+        const p = normalized.detail.path || normalized.detail.resource || normalized.detail.parent;
+        if (p) extra = ` (${p})`;
+    }
+
+    return `${code}: ${message}${extra}`;
+}
+
+function getTerminalContext() {
+    const owner = window.SiteConfig && window.SiteConfig.owner;
+    const desktop = window.SiteConfig && window.SiteConfig.desktop;
+    const uid = (owner && (owner.legacyUsername || owner.displayName)) || 'guest';
+
+    return {
+        uid: String(uid),
+        pid: null,
+        app: 'terminal',
+        hostname: desktop && desktop.hostname ? desktop.hostname : undefined
+    };
+}
+
+function getSyscallFn() {
+    if (window.KernelSyscalls && typeof window.KernelSyscalls.syscall === 'function') {
+        return window.KernelSyscalls.syscall.bind(window.KernelSyscalls);
+    }
+
+    if (window.Kernel && typeof window.Kernel.syscall === 'function') {
+        return window.Kernel.syscall.bind(window.Kernel);
+    }
+
+    return null;
+}
+
+let vfsRoot = null;
+let rootDetectionPromise = null;
+
+async function syscallFs(name, args) {
+    const call = getSyscallFn();
+
+    if (!call) {
+        throw createOsError('EBUSY', 'Filesystem service unavailable', { syscall: name });
+    }
+
+    let result;
+
+    try {
+        result = await call(getTerminalContext(), name, args);
+    } catch (err) {
+        throw normalizeFsError(err);
+    }
+
+    if (result && typeof result === 'object' && Object.prototype.hasOwnProperty.call(result, 'ok')) {
+        if (!result.ok) {
+            throw normalizeFsError(result.error || result.message || 'Syscall failed');
+        }
+
+        return result.value;
+    }
+
+    return result;
+}
+
+async function statRaw(fsPath) {
+    return syscallFs('fs.stat', { path: fsPath });
+}
+
+async function detectVfsRoot(force = false) {
+    if (vfsRoot && !force) return vfsRoot;
+    if (rootDetectionPromise && !force) return rootDetectionPromise;
+
+    rootDetectionPromise = (async () => {
+        const candidates = ['/', 'C:\\'];
+
+        for (const candidate of candidates) {
+            try {
+                await statRaw(candidate);
+                vfsRoot = candidate;
+                return vfsRoot;
+            } catch (err) {
+                const code = err && err.code;
+
+                if (code === 'ENOENT' || code === 'NOT_FOUND') {
+                    continue;
+                }
+
+                /*
+                 * If a root exists but denies stat, treat it as the root
+                 * instead of falling back to a false path.
+                 */
+                if (code === 'EACCES' || code === 'EPERM' || code === 'PROFILE_SCOPE') {
+                    vfsRoot = candidate;
+                    return vfsRoot;
+                }
+
+                if (code === 'EBUSY') {
+                    vfsRoot = '/';
+                    return vfsRoot;
+                }
+            }
+        }
+
+        vfsRoot = '/';
+        return vfsRoot;
+    })();
+
+    try {
+        return await rootDetectionPromise;
+    } finally {
+        rootDetectionPromise = null;
+    }
+}
+
+function toFsPath(absPath) {
+    const path = String(absPath || '/');
+
+    if (/^[A-Za-z]:\\/.test(path)) {
+        return path;
+    }
+
+    if (!vfsRoot || vfsRoot === '/') {
+        return path;
+    }
+
+    if (vfsRoot === 'C:\\') {
+        if (path === '/') return 'C:\\';
+        return 'C:\\' + path.split('/').filter(Boolean).join('\\');
+    }
+
+    const root = String(vfsRoot).replace(/\/+$/, '');
+    return path === '/' ? root : root + path;
+}
+
+async function statPath(absPath) {
+    await detectVfsRoot();
+    return statRaw(toFsPath(absPath || '/'));
+}
+
+function isMissingError(err) {
+    const code = err && err.code;
+    return code === 'ENOENT' || code === 'NOT_FOUND';
+}
+
+async function tryStatPath(absPath) {
+    try {
+        return await statPath(absPath);
+    } catch (err) {
+        const normalized = normalizeFsError(err);
+        if (isMissingError(normalized)) return null;
+        throw normalized;
+    }
+}
+
+function isDirectory(node) {
+    return !!(node && (node.type === 'directory' || node.type === 'dir'));
+}
+
+function isFile(node) {
+    return !!(node && node.type === 'file');
+}
+
+async function listPath(absPath) {
+    await detectVfsRoot();
+
+    const value = await syscallFs('fs.list', { path: toFsPath(absPath || '/') });
+    let entries = [];
+
+    if (Array.isArray(value)) {
+        entries = value;
+    } else if (value && Array.isArray(value.entries)) {
+        entries = value.entries;
+    } else if (value && typeof value === 'object') {
+        entries = Object.keys(value).map((key) => {
+            const item = value[key];
+
+            if (item && typeof item === 'object') {
+                return Object.assign({ name: key }, item);
+            }
+
+            return { name: key, type: item };
+        });
+    }
+
+    return entries
+        .filter((entry) => entry && (entry.name || entry.id))
+        .map((entry) => Object.assign({}, entry, { name: entry.name || String(entry.id) }));
+}
+
+async function readPath(absPath) {
+    await detectVfsRoot();
+
+    const value = await syscallFs('fs.read', { path: toFsPath(absPath || '/') });
+
+    if (typeof value === 'string') return value;
+    if (value && typeof value.content === 'string') return value.content;
+    if (value && typeof value.data === 'string') return value.data;
+
+    return '';
+}
+
+async function writePath(absPath, content) {
+    await detectVfsRoot();
+
+    const safeContent = content === null || content === undefined ? '' : String(content);
+
+    await syscallFs('fs.write', {
+        path: toFsPath(absPath || '/'),
+        content: safeContent
+    });
+}
+
+async function removePath(absPath) {
+    await detectVfsRoot();
+    await syscallFs('fs.remove', { path: toFsPath(absPath || '/') });
+}
+
+function parentPath(absPath) {
+    if (!absPath || absPath === '/') return '/';
+
+    const segments = String(absPath).split('/').filter(Boolean);
+    segments.pop();
+
+    return segments.length ? `/${segments.join('/')}` : '/';
+}
+
+function pathBasename(absPath) {
+    const segments = String(absPath || '').split('/').filter(Boolean);
+    return segments.pop() || '/';
+}
+
+function joinPath(dir, name) {
+    const cleanDir = String(dir || '/');
+    const cleanName = String(name || '').replace(/^\/+|\/+$/g, '');
+
+    if (!cleanName) return cleanDir;
+    if (cleanDir === '/') return `/${cleanName}`;
+
+    return `${cleanDir}/${cleanName}`;
+}
+
+function isServableWebRoot() {
+    return !vfsRoot || vfsRoot === '/';
+}
+
+function toWebUrl(absPath) {
+    return absPath;
+}
+```
+
+---
+
+## 3. Delete the old fake-VFS traversal helpers
+
+Delete these functions entirely:
+
+```js
+function getNode(path) {
+    ...
+}
+```
+
+and:
+
+```js
+function isRepoPath(path) {
+    ...
+}
+```
+
+They are replaced by the async real-VFS helpers above and the command implementations below.
+
+---
+
+## 4. Replace the `manPages` object
+
+Replace the existing `manPages` object with:
+
+```js
+const manPages = {
+    cls: 'Clear the terminal output. Usage: cls',
+    dir: 'List files in the current directory. Usage: dir [path]',
+    ls: 'Alias for dir. Usage: ls [path]',
+    cd: 'Change directory. Usage: cd <path>',
+    touch: 'Create empty file(s), or report existing file(s). Usage: touch <path> [more paths...]',
+    cat: 'Print file contents from the real VFS. Usage: cat <path> [more paths...]',
+    start: 'Open a local HTML file or external URL in the webpage pane. Usage: start <path|url>',
+    open: 'Alias for start. Usage: open <path|url>',
+    echo: 'Echo text to the terminal. Usage: echo <text>',
+    man: 'Show manual pages for commands or view text files. Usage: man <command|path>',
+    rm: 'Remove file(s) from the real VFS. Usage: rm <path> [more paths...]',
+    rmdir: 'Remove directory from the real VFS. Usage: rmdir <path> [more paths...]',
+    cp: 'Copy a file inside the real VFS. Usage: cp <source> <dest>',
+    save: 'Save current open editor buffer to the real VFS. Usage: save [name]',
+    load: 'Load a file from the real VFS into the editor. Usage: load <name>',
+    'saved-files': 'List legacy files saved in browser storage. Usage: saved-files',
+    neofetch: 'Show system information art block. Usage: neofetch',
+    layout: 'Set terminal layout. Usage: layout <compact|normal>',
+    promptgap: 'Adjust prompt gap in px or keywords. Usage: promptgap <px|tight|normal|wide>',
+    cursor: 'Switch the pointer scheme. Usage: cursor <ghost|classic|rail|native>',
+    sound: 'Toggle retro interface sounds. Usage: sound <on|off|toggle|test>',
+    help: 'Show a short help summary. Usage: help'
+};
+```
+
+---
+
+## 5. Replace `saveFileToStorage` with a structured-error version
+
+Replace the existing `saveFileToStorage` function with:
+
+```js
+function saveFileToStorage(name, content) {
+    if (!name) {
+        throw createFsError('EINVAL', 'Missing name');
+    }
+
+    try {
+        const key = 'terminal_saved_files_v1';
+        const raw = localStorage.getItem(key);
+        const map = raw ? JSON.parse(raw) : {};
+
+        map[name] = {
+            content: String(content || ''),
+            modified: Date.now()
+        };
+
+        localStorage.setItem(key, JSON.stringify(map));
+    } catch (err) {
+        if (err && (err.name === 'QuotaExceededError' || err.code === 22)) {
+            throw createFsError('ENOSPC', 'Browser storage is full', { name });
+        }
+
+        throw normalizeFsError(err);
+    }
+}
+```
+
+---
+
+## 6. Replace `getCompletions` with the async real-VFS version
+
+Replace the existing `getCompletions` function with:
+
+```js
+async function getCompletions(input) {
+    const raw = String(input || '');
+    const trailingSpace = /\s$/.test(raw);
+    const trimmed = raw.replace(/\s+$/, '');
+    const tokens = trimmed ? trimmed.split(/\s+/) : [];
+    const commandPosition = tokens.length <= 1 && !trailingSpace;
+    const partial = commandPosition
+        ? (tokens[0] || '')
+        : (trailingSpace ? '' : tokens[tokens.length - 1]);
+
+    let candidates = builtInCommands.slice();
+
+    try {
+        const entries = await listPath(cwd);
+        candidates = candidates.concat(entries.map((entry) => entry.name));
+    } catch (err) {
+        /* Filesystem unavailable: keep command-only completion. */
+    }
+
+    if (commandPosition && cwd !== '/') {
+        try {
+            const rootEntries = await listPath('/');
+            candidates = candidates.concat(rootEntries.map((entry) => entry.name));
+        } catch (err) {
+            /* Ignore root completion failures. */
+        }
+    }
+
+    candidates = Array.from(new Set(candidates.filter(Boolean)));
+
+    const matches = partial
+        ? candidates.filter((entry) => entry.toLowerCase().startsWith(partial.toLowerCase()))
+        : candidates;
+
+    return { matches, partial, commandPosition };
+}
+```
+
+---
+
+## 7. Replace the entire `runCommand` function with the real-VFS command stack
+
+Replace the existing `function runCommand(rawInput) { ... }` with the following block:
+
+```js
+function formatListEntry(entry) {
+    let label = entry && entry.name ? entry.name : String((entry && entry.id) || '');
+
+    if (isDirectory(entry)) {
+        label += '/';
+    }
+
+    if (entry && (entry.readOnly === true || entry.immutable === true)) {
+        label += ' (ro)';
+    }
+
+    return label;
+}
+
+async function cmdList(arg) {
+    const target = arg ? resolvePath(String(arg).split(/\s+/)[0]) : cwd;
+    const st = await statPath(target);
+
+    if (!isDirectory(st)) {
+        throw createFsError('ENOTDIR', 'Not a directory', { path: target });
+    }
+
+    const entries = await listPath(target);
+
+    if (!entries.length) {
+        appendTextLine('(empty)', 'terminal-muted');
+        return;
+    }
+
+    const names = entries
+        .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }))
+        .map(formatListEntry);
+
+    appendTextLine(names.join('  '), 'terminal-muted');
+}
+
+async function cmdTouch(arg) {
+    if (!arg) {
+        appendTextLine('Usage: touch <path> [more paths...]', 'terminal-muted');
+        return;
+    }
+
+    const targets = String(arg).split(/\s+/).filter(Boolean);
+
+    for (const target of targets) {
+        const abs = resolvePath(target);
+
+        if (abs === '/') {
+            appendTextLine(
+                formatError(createFsError('EINVAL', 'Cannot touch root directory', { path: abs })),
+                'terminal-muted'
+            );
+            continue;
+        }
+
+        const existing = await tryStatPath(abs);
+
+        if (existing) {
+            if (isDirectory(existing)) {
+                appendTextLine(
+                    formatError(createFsError('EISDIR', 'Is a directory', { path: abs })),
+                    'terminal-muted'
+                );
+                continue;
+            }
+
+            appendTextLine(`touched ${target} (existing)`, 'terminal-muted');
+            continue;
+        }
+
+        const parent = parentPath(abs);
+        const parentStat = await tryStatPath(parent);
+
+        if (!parentStat) {
+            throw createFsError('ENOENT', 'Parent directory not found', { path: abs, parent });
+        }
+
+        if (!isDirectory(parentStat)) {
+            throw createFsError('ENOTDIR', 'Parent is not a directory', { path: abs, parent });
+        }
+
+        await writePath(abs, '');
+        appendTextLine(`created ${target}`, 'terminal-muted');
+    }
+}
+
+async function cmdCat(arg) {
+    if (!arg) {
+        appendTextLine('Usage: cat <path> [more paths...]', 'terminal-muted');
+        return;
+    }
+
+    const targets = String(arg).split(/\s+/).filter(Boolean);
+
+    for (const target of targets) {
+        const abs = resolvePath(target);
+
+        try {
+            const st = await statPath(abs);
+
+            if (isDirectory(st)) {
+                throw createFsError('EISDIR', 'Is a directory', { path: abs });
+            }
+
+            const content = await readPath(abs);
+
+            if (content) {
+                appendTextLines(String(content).replace(/\r\n/g, '\n').split('\n'));
+            }
+        } catch (err) {
+            appendTextLine(formatError(normalizeFsError(err)), 'terminal-muted');
+        }
+    }
+}
+
+async function openVfsFile(absPath) {
+    const st = await statPath(absPath);
+
+    if (isDirectory(st)) {
+        const indexAbs = joinPath(absPath, 'index.html');
+        const indexStat = await tryStatPath(indexAbs);
+
+        if (indexStat && isFile(indexStat)) {
+            return openVfsFile(indexAbs);
+        }
+
+        if (isServableWebRoot()) {
+            openWebpage(toWebUrl(absPath), pathBasename(absPath));
+            return;
+        }
+
+        throw createFsError('ENOENT', 'No index.html found in directory', { path: absPath });
+    }
+
+    if (!isFile(st)) {
+        throw createFsError('EINVAL', 'Unsupported file type', { path: absPath });
+    }
+
+    const name = pathBasename(absPath);
+    const lower = String(absPath).toLowerCase();
+
+    if (isServableWebRoot()) {
+        if (lower.endsWith('.html') || lower.endsWith('.htm')) {
+            openWebpage(toWebUrl(absPath), name);
+        } else {
+            window.open(toWebUrl(absPath), '_blank', 'noopener');
+        }
+
+        return;
+    }
+
+    const content = await readPath(absPath);
+    const mime = lower.endsWith('.html') || lower.endsWith('.htm')
+        ? 'text/html;charset=utf-8'
+        : 'application/octet-stream';
+
+    try {
+        const blob = new Blob([String(content || '')], { type: mime });
+        const url = URL.createObjectURL(blob);
+
+        window.setTimeout(() => {
+            try {
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                /* Ignore revoke failures. */
+            }
+        }, 5 * 60 * 1000);
+
+        if (mime.startsWith('text/html')) {
+            openWebpage(url, name);
+        } else {
+            window.open(url, '_blank', 'noopener');
+        }
+    } catch (err) {
+        if (isServableWebRoot()) {
+            if (lower.endsWith('.html') || lower.endsWith('.htm')) {
+                openWebpage(toWebUrl(absPath), name);
+            } else {
+                window.open(toWebUrl(absPath), '_blank', 'noopener');
+            }
+
+            return;
+        }
+
+        throw normalizeFsError(err);
+    }
+}
+
+async function cmdStart(arg) {
+    if (!arg) {
+        appendTextLine('Usage: start <path>', 'terminal-muted');
+        return;
+    }
+
+    if (/^https?:\/\//i.test(arg)) {
+        openWebpage(arg, arg.replace(/^https?:\/\//, '').replace(/\/.*/, ''));
+        return;
+    }
+
+    const target = resolvePath(arg);
+    const st = await tryStatPath(target);
+
+    if (!st) {
+        throw createFsError('ENOENT', 'No such file or directory', { path: target });
+    }
+
+    if (isDirectory(st)) {
+        const indexAbs = joinPath(target, 'index.html');
+        const indexStat = await tryStatPath(indexAbs);
+
+        if (indexStat && isFile(indexStat)) {
+            await openVfsFile(indexAbs);
+            return;
+        }
+
+        if (isServableWebRoot()) {
+            openWebpage(toWebUrl(target), pathBasename(target));
+            return;
+        }
+
+        throw createFsError('ENOENT', 'No index.html found in directory', { path: target });
+    }
+
+    await openVfsFile(target);
+}
+
+async function cmdMan(arg) {
+    if (!arg) {
+        const keys = Object.keys(manPages).sort();
+        appendTextLines([
+            'Manual pages available:',
+            '  ' + keys.join('  '),
+            'Usage: man <command|path>  (press ESC or click Close to dismiss viewer)'
+        ], 'terminal-muted');
+        return;
+    }
+
+    const key = arg.toLowerCase();
+
+    if (manPages[key]) {
+        openTextViewer(`man ${key}`, manPages[key] + '\n\n(Press ESC or click Close to dismiss)');
+        return;
+    }
+
+    const target = resolvePath(arg);
+    const st = await tryStatPath(target);
+
+    if (st && isDirectory(st)) {
+        throw createFsError('EISDIR', 'Is a directory', { path: target });
+    }
+
+    if (st && isFile(st)) {
+        const content = await readPath(target);
+        openTextEditor(target, content, {
+            editable: true,
+            filename: pathBasename(target),
+            path: target
+        });
+        return;
+    }
+
+    appendTextLine(`No manual entry for ${arg}`, 'terminal-muted');
+}
+
+async function cmdRm(arg) {
+    if (!arg) {
+        appendTextLine('Usage: rm <name>', 'terminal-muted');
+        return;
+    }
+
+    const targets = String(arg).split(/\s+/).filter(Boolean);
+
+    for (const target of targets) {
+        const abs = resolvePath(target);
+        let st = null;
+        let statError = null;
+
+        try {
+            st = await tryStatPath(abs);
+        } catch (err) {
+            statError = normalizeFsError(err);
+        }
+
+        if (!st && statError && statError.code !== 'EBUSY') {
+            appendTextLine(formatError(statError), 'terminal-muted');
+            continue;
+        }
+
+        if (st && isDirectory(st)) {
+            appendTextLine(
+                formatError(createFsError('EISDIR', 'Cannot remove directory; use rmdir', { path: abs })),
+                'terminal-muted'
+            );
+            continue;
+        }
+
+        if (st && isFile(st)) {
+            try {
+                await removePath(abs);
+                appendTextLine(`removed ${target}`, 'terminal-muted');
+            } catch (err) {
+                appendTextLine(formatError(normalizeFsError(err)), 'terminal-muted');
+            }
+
+            continue;
+        }
+
+        /*
+         * Legacy fallback: older terminal builds saved editor files in
+         * localStorage. Keep removal working for those artifacts.
+         */
+        if (removeSavedFile(target) || removeSavedFile(abs)) {
+            appendTextLine(`Removed ${target} from browser storage.`, 'terminal-muted');
+            continue;
+        }
+
+        if (statError) {
+            appendTextLine(formatError(statError), 'terminal-muted');
+        } else {
+            appendTextLine(
+                formatError(createFsError('ENOENT', 'No such file', { path: abs })),
+                'terminal-muted'
+            );
+        }
+    }
+}
+
+async function cmdRmdir(arg) {
+    if (!arg) {
+        appendTextLine('Usage: rmdir <name>', 'terminal-muted');
+        return;
+    }
+
+    const targets = String(arg).split(/\s+/).filter(Boolean);
+
+    for (const target of targets) {
+        const abs = resolvePath(target);
+        let st = null;
+        let statError = null;
+
+        try {
+            st = await tryStatPath(abs);
+        } catch (err) {
+            statError = normalizeFsError(err);
+        }
+
+        if (!st && statError && statError.code !== 'EBUSY') {
+            appendTextLine(formatError(statError), 'terminal-muted');
+            continue;
+        }
+
+        if (st && !isDirectory(st)) {
+            appendTextLine(
+                formatError(createFsError('ENOTDIR', 'Not a directory', { path: abs })),
+                'terminal-muted'
+            );
+            continue;
+        }
+
+        if (st && isDirectory(st)) {
+            try {
+                await removePath(abs);
+                appendTextLine(`removed ${target}`, 'terminal-muted');
+            } catch (err) {
+                appendTextLine(formatError(normalizeFsError(err)), 'terminal-muted');
+            }
+
+            continue;
+        }
+
+        /*
+         * Legacy fallback: older terminal builds used localStorage prefixes
+         * to fake directories for saved editor files.
+         */
+        const saved = listSavedFiles();
+        const prefix = target.endsWith('/') ? target : `${target}/`;
+        const toRemove = saved.filter((k) => k.startsWith(prefix));
+
+        if (toRemove.length) {
+            toRemove.forEach((k) => removeSavedFile(k));
+            appendTextLine(`Removed ${toRemove.length} saved files.`, 'terminal-muted');
+            continue;
+        }
+
+        if (statError) {
+            appendTextLine(formatError(statError), 'terminal-muted');
+        } else {
+            appendTextLine(
+                formatError(createFsError('ENOENT', 'No such directory', { path: abs })),
+                'terminal-muted'
+            );
+        }
+    }
+}
+
+async function cmdCp(input) {
+    const parts = String(input).split(/\s+/);
+
+    if (parts.length < 3) {
+        appendTextLine('Usage: cp <source> <dest>', 'terminal-muted');
+        return;
+    }
+
+    const source = parts[1];
+    const dest = parts[2];
+    const sourceAbs = resolvePath(source);
+    let destAbs = resolvePath(dest);
+    let content = null;
+    let sourceError = null;
+
+    try {
+        const sourceStat = await statPath(sourceAbs);
+
+        if (isDirectory(sourceStat)) {
+            throw createFsError('EISDIR', 'Cannot copy directory', { path: sourceAbs });
+        }
+
+        content = await readPath(sourceAbs);
+    } catch (err) {
+        sourceError = normalizeFsError(err);
+
+        if (!isMissingError(sourceError) && sourceError.code !== 'EBUSY') {
+            throw sourceError;
+        }
+
+        let saved = loadFileFromStorage(source);
+
+        if (saved === null) {
+            saved = loadFileFromStorage(sourceAbs);
+        }
+
+        if (saved !== null) {
+            content = saved;
+        } else {
+            throw sourceError;
+        }
+    }
+
+    let destStat = null;
+
+    try {
+        destStat = await tryStatPath(destAbs);
+    } catch (err) {
+        const destError = normalizeFsError(err);
+
+        if (destError.code !== 'EBUSY') {
+            throw destError;
+        }
+    }
+
+    if (destStat && isDirectory(destStat)) {
+        destAbs = joinPath(destAbs, pathBasename(sourceAbs));
+    }
+
+    try {
+        await writePath(destAbs, content);
+        appendTextLine(`Copied ${source} -> ${destAbs}`, 'terminal-muted');
+    } catch (err) {
+        const writeError = normalizeFsError(err);
+
+        if (writeError.code === 'EBUSY') {
+            saveFileToStorage(destAbs, content);
+            appendTextLine(
+                `Filesystem unavailable; copied to browser storage: ${destAbs}`,
+                'terminal-muted'
+            );
+        } else {
+            throw writeError;
+        }
+    }
+}
+
+async function cmdSave(arg) {
+    if (!currentEditor || !currentEditor.textarea) {
+        appendTextLine('No open editor to save.', 'terminal-muted');
+        return;
+    }
+
+    const requested = arg && arg.trim()
+        ? arg.trim()
+        : (currentEditor.path || currentEditor.filename || 'file.txt');
+
+    const abs = resolvePath(requested);
+    const value = currentEditor.textarea.value;
+
+    try {
+        await writePath(abs, value);
+        currentEditor.path = abs;
+        currentEditor.filename = pathBasename(abs);
+        appendTextLine(`Saved to filesystem: ${abs}`, 'terminal-muted');
+    } catch (err) {
+        const writeError = normalizeFsError(err);
+
+        if (writeError.code === 'EBUSY') {
+            saveFileToStorage(requested, value);
+            appendTextLine(
+                `Filesystem unavailable; saved to browser storage: ${requested}`,
+                'terminal-muted'
+            );
+        } else {
+            appendTextLine(formatError(writeError), 'terminal-muted');
+        }
+    }
+}
+
+async function cmdLoad(arg) {
+    if (!arg) {
+        appendTextLine('Usage: load <name>', 'terminal-muted');
+        return;
+    }
+
+    const name = arg.trim();
+    const abs = resolvePath(name);
+    let content = null;
+    let sourcePath = null;
+
+    try {
+        const st = await tryStatPath(abs);
+
+        if (st && isDirectory(st)) {
+            throw createFsError('EISDIR', 'Is a directory', { path: abs });
+        }
+
+        if (st && isFile(st)) {
+            content = await readPath(abs);
+            sourcePath = abs;
+        }
+    } catch (err) {
+        const loadError = normalizeFsError(err);
+
+        if (!isMissingError(loadError) && loadError.code !== 'EBUSY') {
+            throw loadError;
+        }
+    }
+
+    if (content === null) {
+        let saved = loadFileFromStorage(name);
+
+        if (saved === null) {
+            saved = loadFileFromStorage(abs);
+        }
+
+        if (saved !== null) {
+            content = saved;
+            sourcePath = name;
+        }
+    }
+
+    if (content === null) {
+        appendTextLine(`No saved file named ${name}`, 'terminal-muted');
+        return;
+    }
+
+    openTextEditor(sourcePath || name, content, {
+        editable: true,
+        filename: pathBasename(sourcePath || name),
+        path: sourcePath ? resolvePath(sourcePath) : abs
+    });
+
+    appendTextLine(`Loaded ${sourcePath || name} into editor`, 'terminal-muted');
+}
+
+async function runCommand(rawInput) {
+    const raw = String(rawInput || '');
+    const input = raw.trim();
+
+    if (!input) return;
+
+    const parts = input.split(/\s+/);
+    let command = parts[0].toLowerCase();
+    const arg = parts.slice(1).join(' ');
+
+    if (command === 'open') command = 'start';
+
+    if (command === 'cls') {
+        clearTerminal();
+        return;
+    }
+
+    if (command !== 'neofetch') {
+        appendCommandEcho(input);
+    }
+
+    try {
+        if (command === 'ls' || command === 'dir') {
+            await cmdList(arg);
+            return;
+        }
+
+        if (command === 'cd') {
+            if (!arg) {
+                appendTextLine(cwd, 'terminal-muted');
+                return;
+            }
+
+            const nextPath = resolvePath(arg);
+            const st = await statPath(nextPath);
+
+            if (!isDirectory(st)) {
+                throw createFsError('ENOTDIR', 'Not a directory', { path: nextPath });
+            }
+
+            cwd = nextPath;
+            setPrompt();
+            return;
+        }
+
+        if (command === 'touch') {
+            await cmdTouch(arg);
+            return;
+        }
+
+        if (command === 'cat') {
+            await cmdCat(arg);
+            return;
+        }
+
+        if (command === 'start') {
+            await cmdStart(arg);
+            return;
+        }
+
+        if (command === 'man') {
+            await cmdMan(arg);
+            return;
+        }
+
+        if (command === 'rm') {
+            await cmdRm(arg);
+            return;
+        }
+
+        if (command === 'rmdir') {
+            await cmdRmdir(arg);
+            return;
+        }
+
+        if (command === 'cp') {
+            await cmdCp(input);
+            return;
+        }
+
+        if (command === 'save') {
+            await cmdSave(arg);
+            return;
+        }
+
+        if (command === 'load') {
+            await cmdLoad(arg);
+            return;
+        }
+
+        if (command === 'saved-files' || command === 'savedfiles') {
+            const keys = listSavedFiles();
+            appendTextLine(keys.length ? keys.join('  ') : '(no saved files)', 'terminal-muted');
+            return;
+        }
+
+        if (command === 'echo') {
+            if (arg) appendTextLine(arg);
+            return;
+        }
+
+        if (command === 'neofetch') {
+            appendNeofetch();
+            return;
+        }
+
+        if (command === 'layout') {
+            if (!arg) {
+                appendTextLine('Usage: layout <compact|normal>', 'terminal-muted');
+                return;
+            }
+
+            const mode = arg.toLowerCase();
+
+            if (mode === 'compact') {
+                setLayoutMode('compact');
+                appendTextLine('Layout: compact', 'terminal-muted');
+                return;
+            }
+
+            setLayoutMode('normal');
+            appendTextLine('Layout: normal', 'terminal-muted');
+            return;
+        }
+
+        if (command === 'promptgap') {
+            if (!arg) {
+                const gap = getComputedStyle(terminal).getPropertyValue('--terminal-gap').trim() || '0px';
+                appendTextLine(`Prompt gap: ${gap}`, 'terminal-muted');
+                return;
+            }
+
+            const keywords = {
+                tight: 0,
+                normal: 0,
+                wide: 4
+            };
+
+            const value = Object.prototype.hasOwnProperty.call(keywords, arg.toLowerCase())
+                ? keywords[arg.toLowerCase()]
+                : Number(arg);
+
+            if (!Number.isFinite(value) || value < 0) {
+                appendTextLine('Usage: promptgap <px|tight|normal|wide>', 'terminal-muted');
+                return;
+            }
+
+            setTerminalGap(value);
+            appendTextLine(`Prompt gap set to ${value}px`, 'terminal-muted');
+            return;
+        }
+
+        if (command === 'cursor') {
+            const cursorApi = window.SiteCursor;
+
+            if (!cursorApi || typeof cursorApi.setScheme !== 'function') {
+                appendTextLine('Cursor controls are unavailable.', 'terminal-muted');
+                return;
+            }
+
+            const value = arg.trim().toLowerCase();
+
+            if (!value) {
+                appendTextLines([
+                    `Cursor scheme: ${cursorApi.getScheme()}`,
+                    `Effective: ${cursorApi.getEffectiveScheme()}`,
+                    'Usage: cursor <ghost|classic|rail|native>',
+                    '  ghost   - pixel arrow, link accent, ghost trail',
+                    '  classic - original GIF cursor + rainbow trail',
+                    '  rail    - native pointer + status-rail readout',
+                    '  native  - native pointer, no effects'
+                ], 'terminal-muted');
+                return;
+            }
+
+            const result = cursorApi.setScheme(value);
+
+            if (!result.ok) {
+                appendTextLine(`Unknown cursor scheme: ${value}`, 'terminal-muted');
+                appendTextLine('Usage: cursor <ghost|classic|rail|native>', 'terminal-muted');
+                return;
+            }
+
+            if (result.reason === 'touch') {
+                appendTextLine(
+                    `Cursor scheme saved: ${result.scheme} (desktop only; touch keeps the native pointer)`,
+                    'terminal-muted'
+                );
+            } else if (result.reason === 'reduced-motion') {
+                appendTextLine(
+                    `Cursor scheme saved: ${result.scheme} (reduced motion; using the native pointer)`,
+                    'terminal-muted'
+                );
+            } else {
+                appendTextLine(`Cursor scheme: ${result.scheme}`, 'terminal-muted');
+            }
+
+            return;
+        }
+
+        if (command === 'sound') {
+            const sfxApi = window.SiteSfx;
+
+            if (!sfxApi || typeof sfxApi.setEnabled !== 'function') {
+                appendTextLine('Interface sound controls are unavailable.', 'terminal-muted');
+                return;
+            }
+
+            const value = arg.trim().toLowerCase();
+
+            if (!value) {
+                appendTextLines([
+                    `Interface sounds: ${sfxApi.isEnabled() ? 'ON' : 'OFF'}`,
+                    'Usage: sound <on|off|toggle|test>',
+                    'Effects are synthesized locally and stay off until enabled.'
+                ], 'terminal-muted');
+                return;
+            }
+
+            if (value === 'test') {
+                if (!sfxApi.isEnabled()) {
+                    appendTextLine('Interface sounds are off. Run "sound on" first.', 'terminal-muted');
+                    return;
+                }
+
+                appendTextLine('Sound test: click, key, enter, success, error, pane, window, power-on.', 'terminal-muted');
+
+                const sequence = ['click', 'key', 'enter', 'success', 'error', 'pane', 'windowOpen', 'windowClose', 'enable'];
+
+                sequence.forEach((name, index) => {
+                    window.setTimeout(() => sfxApi.play(name), 180 + index * 320);
+                });
+
+                return;
+            }
+
+            if (value !== 'on' && value !== 'off' && value !== 'toggle') {
+                appendTextLine(`Unknown sound setting: ${value}`, 'terminal-muted');
+                appendTextLine('Usage: sound <on|off|toggle|test>', 'terminal-muted');
+                return;
+            }
+
+            const next = value === 'toggle' ? !sfxApi.isEnabled() : value === 'on';
+            sfxApi.setEnabled(next);
+            appendTextLine(`Interface sounds: ${next ? 'ON' : 'OFF'}`, 'terminal-muted');
+            return;
+        }
+
+        if (command === 'help') {
+            appendTextLines([
+                'Available commands:',
+                '  cls        - Clear the terminal',
+                '  dir / ls   - List files in current directory',
+                '  cd <path>  - Change directory',
+                '  touch <p>  - Create or refresh file(s) in the real VFS',
+                '  cat <p>    - Print file contents from the real VFS',
+                '  rm <name>  - Remove file(s) from the real VFS',
+                '  rmdir <n>  - Remove directory from the real VFS',
+                '  cp <s> <d> - Copy file inside the real VFS',
+                '  start <p>  - Open a local HTML or external URL inside the webpage pane',
+                '  open <p>   - Alias for start',
+                '  echo <txt> - Echo text back to the terminal',
+                '  man <cmd>  - Show a manual page or open a text file',
+                '  neofetch   - Show system info block',
+                '  layout     - Set layout to compact or normal',
+                '  promptgap  - Adjust prompt gap spacing',
+                '  cursor     - Switch pointer scheme: ghost, classic, rail, native',
+                '  sound      - Toggle retro interface sounds (on/off/test)',
+                '  save       - Save open editor buffer to VFS (fallback: browser storage)',
+                '  load <n>   - Load VFS file (fallback: saved browser file)',
+                '  saved-files- List legacy browser-storage files',
+                '  help       - Show this help text'
+            ], 'terminal-muted');
+            return;
+        }
+
+        appendTextLine(`'${command}' is not recognized as an internal or external command.`, 'terminal-muted');
+    } catch (err) {
+        appendTextLine(formatError(normalizeFsError(err)), 'terminal-muted');
+    }
+}
+```
+
+---
+
+## 8. Replace the terminal input key handler
+
+Replace the existing `terminalInput.addEventListener('keydown', ...)` block with:
+
+```js
+if (terminalInput) {
+    terminalInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            const value = terminalInput.value;
+            terminalInput.value = '';
+
+            if (value.trim()) {
+                pushHistory(value);
+
+                Promise.resolve(runCommand(value)).catch((err) => {
+                    appendTextLine(formatError(normalizeFsError(err)), 'terminal-muted');
+                });
+            }
+
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            if (!history.length) return;
+
+            historyIndex = historyIndex > 0 ? historyIndex - 1 : history.length - 1;
+            terminalInput.value = history[historyIndex] || '';
+            event.preventDefault();
+            return;
+        }
+
+        if (event.key === 'ArrowDown') {
+            if (!history.length) return;
+
+            if (historyIndex < history.length - 1) {
+                historyIndex += 1;
+                terminalInput.value = history[historyIndex] || '';
+            } else {
+                historyIndex = history.length;
+                terminalInput.value = '';
+            }
+
+            event.preventDefault();
+            return;
+        }
+
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'l') {
+            event.preventDefault();
+            clearTerminal();
+            return;
+        }
+
+        if (event.ctrlKey && event.key.toLowerCase() === 'c') {
+            if (!window.getSelection || !window.getSelection().toString()) {
+                event.preventDefault();
+                terminalInput.value = '';
+            }
+
+            return;
+        }
+
+        if (event.key === 'Tab') {
+            event.preventDefault();
+
+            const valueAtRequest = terminalInput.value;
+
+            getCompletions(valueAtRequest)
+                .then(({ matches, commandPosition }) => {
+                    if (terminalInput.value !== valueAtRequest) return;
+
+                    if (matches.length === 1) {
+                        terminalInput.value = applyCompletion(valueAtRequest, matches[0], commandPosition);
+                        historyIndex = history.length;
+                        return;
+                    }
+
+                    if (matches.length > 1) {
+                        appendTextLines([matches.join('  ')], 'terminal-muted');
+                    }
+                })
+                .catch(() => {
+                    /* Completion failures should not break input. */
+                });
+        }
+    });
+
+    terminalInput.addEventListener('input', () => {
+        historyIndex = history.length;
+    });
+}
+```
+
+---
+
+## 9. Patch `openTextEditor` so editor state carries the real VFS path
+
+Inside `openTextEditor`, replace:
+
+```js
+currentEditor = {
+    overlay,
+    textarea,
+    filename
+};
+```
+
+With:
+
+```js
+currentEditor = {
+    overlay,
+    textarea,
+    filename,
+    path: options.path || null
+};
+```
+
+---
+
+## 10. Patch `openWebpage` to allow blob URLs for virtual VFS files
+
+Inside `openWebpage`, replace the beginning:
+
+```js
+function openWebpage(url, title) {
+    if (!webpagePane || !webpageIframe) return;
+
+    if (window.SiteIframes && !window.SiteIframes.canEmbed(url)) {
+```
+
+With:
+
+```js
+function openWebpage(url, title) {
+    if (!webpagePane || !webpageIframe) return;
+
+    const isLocalObjectUrl = typeof url === 'string' && (
+        url.startsWith('blob:') || url.startsWith('data:')
+    );
+
+    if (!isLocalObjectUrl && window.SiteIframes && !window.SiteIframes.canEmbed(url)) {
+```
+
+Leave the rest of the existing `openWebpage` function unchanged.
+
+---
+
+## 11. Optional test file
+
+Create:
+
+```text
+tests/terminal-vfs.test.js
+```
+
+With:
+
+```js
+/**
+ * Phase 2.1 sanity test.
+ *
+ * This is intentionally lightweight: it verifies that terminal.js no longer
+ * contains the hardcoded fake VFS and that it uses the syscall-backed VFS
+ * APIs plus structured error handling.
+ *
+ * Run:
+ *   node tests/terminal-vfs.test.js
+ */
+const fs = require('fs');
+const path = require('path');
+const assert = require('assert');
+
+const terminalPath = path.join(__dirname, '..', 'terminal.js');
+const source = fs.readFileSync(terminalPath, 'utf8');
+
+assert.ok(
+    !/const\s+vfs\s*=\s*\{/.test(source),
+    'terminal.js must not contain a hardcoded const vfs object'
+);
+
+assert.ok(
+    !/applyExternalVfs/.test(source),
+    'terminal.js must not contain the fake external vfs applier'
+);
+
+assert.ok(
+    !/fetch\(['"]\.\/data\/vfs\.json['"]\)/.test(source),
+    'terminal.js must not fetch a fake vfs.json tree'
+);
+
+assert.ok(
+    source.includes('KernelSyscalls') || source.includes('Kernel.syscall'),
+    'terminal.js should call the kernel syscall layer'
+);
+
+assert.ok(
+    source.includes('fs.stat'),
+    'terminal.js should use fs.stat'
+);
+
+assert.ok(
+    source.includes('fs.list'),
+    'terminal.js should use fs.list'
+);
+
+assert.ok(
+    source.includes('fs.read'),
+    'terminal.js should use fs.read'
+);
+
+assert.ok(
+    source.includes('fs.write'),
+    'terminal.js should use fs.write'
+);
+
+assert.ok(
+    source.includes('fs.remove'),
+    'terminal.js should use fs.remove'
+);
+
+assert.ok(
+    source.includes('touch'),
+    'terminal.js should support touch'
+);
+
+assert.ok(
+    source.includes('cat'),
+    'terminal.js should support cat'
+);
+
+assert.ok(
+    source.includes('OsError') || source.includes('FsError'),
+    'terminal.js should use structured OS errors'
+);
+
+assert.ok(
+    !/throw\s+['"`]/.test(source),
+    'terminal.js must not throw bare string errors'
+);
+
+console.log('terminal-vfs Phase 2.1 tests passed');
+```
+
+IN CORPORATE THIS IN THIS REPO and tell me if my agent did a good job or not
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-31T03:15:42+06:00.
+</ADDITIONAL_METADATA>

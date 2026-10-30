@@ -12,58 +12,359 @@ document.addEventListener('DOMContentLoaded', () => {
         const layout = document.querySelector('.layout-grid');
         const webpagesList = document.getElementById('webpages-list');
 
-        const defaultPromptPrefix = 'r3d1bruh@desktop';
+        const defaultPromptPrefix = (window.SiteConfig && window.SiteConfig.desktop && window.SiteConfig.desktop.hostname && window.SiteConfig.owner)
+            ? `${window.SiteConfig.owner.displayName}@${window.SiteConfig.desktop.hostname}`
+            : 'user@desktop';
         const historyStorageKey = 'terminal_history';
         const maxHistoryEntries = 200;
-        const builtInCommands = ['cls', 'dir', 'ls', 'cd', 'start', 'open', 'echo', 'man', 'rm', 'rmdir', 'cp', 'save', 'load', 'saved-files', 'neofetch', 'layout', 'promptgap', 'cursor', 'sound', 'help'];
-
-        const vfs = {
-            '/': {
-                type: 'dir',
-                children: {
-                    '.gitignore': { type: 'file' },
-                    '.prettierrc': { type: 'file' },
-                    'AI_AGENT_PROMPT.md': { type: 'file' },
-                    'CODEBASE.md': { type: 'file' },
-                    'LICENSE': { type: 'file' },
-                    'README.md': { type: 'file' },
-                    'dora': { type: 'dir' },
-                    'l': { type: 'dir' },
-                    'main': { type: 'dir' },
-                    'index.html': { type: 'file' },
-                    'serve.py': { type: 'file' }
-                }
-            },
-            '/dora': { type: 'dir', children: { 'anushkaverse.html': { type: 'file' }, 'app-manifest.json': { type: 'file' }, 'app.html': { type: 'file' }, 'doraverse.html': { type: 'file' }, 'gallery': { type: 'dir' }, 'index.html': { type: 'file' }, 'manifest.json': { type: 'file' }, 'sw.js': { type: 'file' } } },
-            '/l': { type: 'dir', children: { 'index.html': { type: 'file' } } },
-            '/main': { type: 'dir', children: { 'assets': { type: 'dir', children: { 'cursor-arrow.png': { type: 'file' }, 'cursor-arrow-link.png': { type: 'file' }, 'cursor-arrow-press.png': { type: 'file' }, 'cursor.gif': { type: 'file' }, 'cursor-reversed.gif': { type: 'file' } } }, 'custom-cursor.js': { type: 'file' }, 'context-menu.css': { type: 'file' }, 'context-menu.js': { type: 'file' }, 'iframe-policy.js': { type: 'file' }, 'index.html': { type: 'file' }, 'link-exchange.js': { type: 'file' }, 'mobile.css': { type: 'file' }, 'mobile.js': { type: 'file' }, 'music.css': { type: 'file' }, 'music.js': { type: 'file' }, 'playlist': { type: 'dir' }, 'sfx.css': { type: 'file' }, 'sfx.js': { type: 'file' }, 'socials': { type: 'dir' }, 'splitter.js': { type: 'file' }, 'terminal.css': { type: 'file' }, 'terminal.js': { type: 'file' } } },
-            '/main/playlist': { type: 'dir', children: { 'playlist.json': { type: 'file' }, 'Basshunter - In Her Eyes': { type: 'file' }, 'Crystal Castles - Suffocation': { type: 'file' }, 'Pretty Scene Girl': { type: 'file' }, 'The Cure - Friday Im In Love': { type: 'file' } } },
-            '/main/socials': { type: 'dir', children: { 'pfp.webp': { type: 'file' }, 'xbox.svg': { type: 'file' }, 'github': { type: 'dir' }, 'reddit': { type: 'dir' }, 'discord': { type: 'dir' }, 'insta': { type: 'dir' }, 'snapchat': { type: 'dir' }, 'tiktok': { type: 'dir' }, 'x': { type: 'dir' }, 'linkedin': { type: 'dir' }, 'steam': { type: 'dir' } } }
-        };
+        const builtInCommands = [
+            'cls',
+            'dir',
+            'ls',
+            'cd',
+            'touch',
+            'cat',
+            'start',
+            'open',
+            'echo',
+            'man',
+            'rm',
+            'rmdir',
+            'cp',
+            'save',
+            'load',
+            'saved-files',
+            'neofetch',
+            'layout',
+            'promptgap',
+            'cursor',
+            'sound',
+            'help'
+        ];
 
         let cwd = '/';
         let history = loadHistory();
         let historyIndex = history.length;
 
         /* ------------------------------------------------------------------
-         * Optional external VFS — main/data/vfs.json
-         * The inline tree above is the offline/file:// fallback. The tree is
-         * read-only (site files can never be removed), so swapping the loaded
-         * copy is safe at any point; if the fetch fails, nothing changes.
+         * Phase 2.1 — Real VFS gateway.
+         *
+         * The terminal no longer owns a fake filesystem tree. All filesystem
+         * operations go through the kernel syscall layer exposed by syscalls.js.
+         *
+         * Structured errors are mandatory. We use OsError/FsError from errors.js
+         * whenever available and never throw bare strings.
          * ------------------------------------------------------------------ */
-        function applyExternalVfs(data) {
-            if (!data || typeof data !== 'object' || !data['/'] || typeof data['/'] !== 'object') return;
-            Object.keys(vfs).forEach((key) => { delete vfs[key]; });
-            Object.keys(data).forEach((key) => { vfs[key] = data[key]; });
-            if (!getNode(cwd)) cwd = '/';
+        const LEGACY_ERROR_MAP = Object.freeze({
+            NOT_FOUND: 'ENOENT',
+            NOT_A_DIRECTORY: 'ENOTDIR',
+            NAME_CONFLICT: 'EEXIST',
+            INVALID_NAME: 'EINVAL',
+            INVALID_PATH: 'EINVAL',
+            ACCESS_DENIED: 'EACCES',
+            STORAGE_FULL: 'ENOSPC'
+        });
+
+        function createOsError(code, message, detail) {
+            const Ctor = window.OsError || Error;
+            const err = Ctor === Error ? new Error(message || code) : new Ctor(code, message, detail);
+            err.name = 'OsError';
+            err.code = code;
+            if (detail !== undefined) err.detail = detail;
+            return err;
         }
 
-        fetch('./data/vfs.json')
-            .then((res) => (res.ok ? res.json() : null))
-            .then((data) => { if (data) applyExternalVfs(data); })
-            .catch(() => {
-                /* file:// or offline — the inline fallback tree is already active. */
+        function createFsError(code, message, detail) {
+            const Ctor = window.FsError || window.OsError || Error;
+            const err = Ctor === Error ? new Error(message || code) : new Ctor(code, message, detail);
+            err.name = 'FsError';
+            err.code = code;
+            if (detail !== undefined) err.detail = detail;
+            return err;
+        }
+
+        function normalizeFsError(err) {
+            let code = 'EINVAL';
+            let message = 'Unknown error';
+            let detail;
+            let name = 'FsError';
+
+            if (typeof err === 'string') {
+                message = err;
+            } else if (err && typeof err === 'object') {
+                code = err.code || code;
+                message = err.message || message;
+                detail = err.detail;
+                name = err.name === 'OsError' ? 'OsError' : 'FsError';
+            }
+
+            if (Object.prototype.hasOwnProperty.call(LEGACY_ERROR_MAP, code)) {
+                code = LEGACY_ERROR_MAP[code];
+            }
+
+            const Ctor = name === 'OsError'
+                ? (window.OsError || Error)
+                : (window.FsError || window.OsError || Error);
+
+            const normalized = Ctor === Error ? new Error(message) : new Ctor(code, message, detail);
+            normalized.name = name;
+            normalized.code = code;
+            if (detail !== undefined) normalized.detail = detail;
+            return normalized;
+        }
+
+        function formatError(err) {
+            const normalized = normalizeFsError(err);
+            const code = normalized.code || 'ERROR';
+            const message = normalized.message || 'Unknown error';
+            let extra = '';
+
+            if (normalized.detail && typeof normalized.detail === 'object') {
+                const p = normalized.detail.path || normalized.detail.resource || normalized.detail.parent;
+                if (p) extra = ` (${p})`;
+            }
+
+            return `${code}: ${message}${extra}`;
+        }
+
+        function getTerminalContext() {
+            const owner = window.SiteConfig && window.SiteConfig.owner;
+            const desktop = window.SiteConfig && window.SiteConfig.desktop;
+            const uid = (owner && (owner.legacyUsername || owner.displayName)) || 'guest';
+
+            return {
+                uid: String(uid),
+                pid: null,
+                app: 'terminal',
+                hostname: desktop && desktop.hostname ? desktop.hostname : undefined
+            };
+        }
+
+        function getSyscallFn() {
+            if (window.KernelSyscalls && typeof window.KernelSyscalls.syscall === 'function') {
+                return window.KernelSyscalls.syscall.bind(window.KernelSyscalls);
+            }
+
+            if (window.Kernel && typeof window.Kernel.syscall === 'function') {
+                return window.Kernel.syscall.bind(window.Kernel);
+            }
+
+            return null;
+        }
+
+        let vfsRoot = null;
+        let rootDetectionPromise = null;
+
+        async function syscallFs(name, args) {
+            const call = getSyscallFn();
+
+            if (!call) {
+                throw createOsError('EBUSY', 'Filesystem service unavailable', { syscall: name });
+            }
+
+            let result;
+
+            try {
+                result = await call(getTerminalContext(), name, args);
+            } catch (err) {
+                throw normalizeFsError(err);
+            }
+
+            if (result && typeof result === 'object' && Object.prototype.hasOwnProperty.call(result, 'ok')) {
+                if (!result.ok) {
+                    throw normalizeFsError(result.error || result.message || 'Syscall failed');
+                }
+
+                return result.value;
+            }
+
+            return result;
+        }
+
+        async function statRaw(fsPath) {
+            return syscallFs('fs.stat', { path: fsPath });
+        }
+
+        async function detectVfsRoot(force = false) {
+            if (vfsRoot && !force) return vfsRoot;
+            if (rootDetectionPromise && !force) return rootDetectionPromise;
+
+            rootDetectionPromise = (async () => {
+                const candidates = ['/', 'C:\\'];
+
+                for (const candidate of candidates) {
+                    try {
+                        await statRaw(candidate);
+                        vfsRoot = candidate;
+                        return vfsRoot;
+                    } catch (err) {
+                        const code = err && err.code;
+
+                        if (code === 'ENOENT' || code === 'NOT_FOUND') {
+                            continue;
+                        }
+
+                        /*
+                         * If a root exists but denies stat, treat it as the root
+                         * instead of falling back to a false path.
+                         */
+                        if (code === 'EACCES' || code === 'EPERM' || code === 'PROFILE_SCOPE') {
+                            vfsRoot = candidate;
+                            return vfsRoot;
+                        }
+
+                        if (code === 'EBUSY') {
+                            vfsRoot = '/';
+                            return vfsRoot;
+                        }
+                    }
+                }
+
+                vfsRoot = '/';
+                return vfsRoot;
+            })();
+
+            try {
+                return await rootDetectionPromise;
+            } finally {
+                rootDetectionPromise = null;
+            }
+        }
+
+        function toFsPath(absPath) {
+            const path = String(absPath || '/');
+
+            if (/^[A-Za-z]:\\/.test(path)) {
+                return path;
+            }
+
+            if (!vfsRoot || vfsRoot === '/') {
+                return path;
+            }
+
+            if (vfsRoot === 'C:\\') {
+                if (path === '/') return 'C:\\';
+                return 'C:\\' + path.split('/').filter(Boolean).join('\\');
+            }
+
+            const root = String(vfsRoot).replace(/\/+$/, '');
+            return path === '/' ? root : root + path;
+        }
+
+        async function statPath(absPath) {
+            await detectVfsRoot();
+            return statRaw(toFsPath(absPath || '/'));
+        }
+
+        function isMissingError(err) {
+            const code = err && err.code;
+            return code === 'ENOENT' || code === 'NOT_FOUND';
+        }
+
+        async function tryStatPath(absPath) {
+            try {
+                return await statPath(absPath);
+            } catch (err) {
+                const normalized = normalizeFsError(err);
+                if (isMissingError(normalized)) return null;
+                throw normalized;
+            }
+        }
+
+        function isDirectory(node) {
+            return !!(node && (node.type === 'directory' || node.type === 'dir'));
+        }
+
+        function isFile(node) {
+            return !!(node && node.type === 'file');
+        }
+
+        async function listPath(absPath) {
+            await detectVfsRoot();
+
+            const value = await syscallFs('fs.list', { path: toFsPath(absPath || '/') });
+            let entries = [];
+
+            if (Array.isArray(value)) {
+                entries = value;
+            } else if (value && Array.isArray(value.entries)) {
+                entries = value.entries;
+            } else if (value && typeof value === 'object') {
+                entries = Object.keys(value).map((key) => {
+                    const item = value[key];
+
+                    if (item && typeof item === 'object') {
+                        return Object.assign({ name: key }, item);
+                    }
+
+                    return { name: key, type: item };
+                });
+            }
+
+            return entries
+                .filter((entry) => entry && (entry.name || entry.id))
+                .map((entry) => Object.assign({}, entry, { name: entry.name || String(entry.id) }));
+        }
+
+        async function readPath(absPath) {
+            await detectVfsRoot();
+
+            const value = await syscallFs('fs.read', { path: toFsPath(absPath || '/') });
+
+            if (typeof value === 'string') return value;
+            if (value && typeof value.content === 'string') return value.content;
+            if (value && typeof value.data === 'string') return value.data;
+
+            return '';
+        }
+
+        async function writePath(absPath, content) {
+            await detectVfsRoot();
+
+            const safeContent = content === null || content === undefined ? '' : String(content);
+
+            await syscallFs('fs.write', {
+                path: toFsPath(absPath || '/'),
+                content: safeContent
             });
+        }
+
+        async function removePath(absPath) {
+            await detectVfsRoot();
+            await syscallFs('fs.remove', { path: toFsPath(absPath || '/') });
+        }
+
+        function parentPath(absPath) {
+            if (!absPath || absPath === '/') return '/';
+
+            const segments = String(absPath).split('/').filter(Boolean);
+            segments.pop();
+
+            return segments.length ? `/${segments.join('/')}` : '/';
+        }
+
+        function pathBasename(absPath) {
+            const segments = String(absPath || '').split('/').filter(Boolean);
+            return segments.pop() || '/';
+        }
+
+        function joinPath(dir, name) {
+            const cleanDir = String(dir || '/');
+            const cleanName = String(name || '').replace(/^\/+|\/+$/g, '');
+
+            if (!cleanName) return cleanDir;
+            if (cleanDir === '/') return `/${cleanName}`;
+
+            return `${cleanDir}/${cleanName}`;
+        }
+
+        function isServableWebRoot() {
+            return !vfsRoot || vfsRoot === '/';
+        }
+
+        function toWebUrl(absPath) {
+            return absPath;
+        }
 
         if (terminalInput && terminalInput.parentElement) {
             terminalInput.parentElement.classList.add('terminal-input-line');
@@ -95,45 +396,6 @@ document.addEventListener('DOMContentLoaded', () => {
             history = history.slice(-maxHistoryEntries);
             historyIndex = history.length;
             saveHistory();
-        }
-
-        function getNode(path) {
-            try {
-                if (!path) return null;
-                if (path === '/') return vfs['/'] || null;
-                const segments = String(path).split('/').filter(Boolean);
-                let node = vfs['/'];
-                for (let i = 0; i < segments.length; i++) {
-                    const seg = segments[i];
-                    if (!node) return null;
-                    // Prefer the authoritative absolute entry: root children are
-                    // bare { type: 'dir' } stubs used only for listing, so walking
-                    // into them first would lose the real subtree (and make
-                    // `cd main` + `ls` print "(empty)").
-                    const abs = '/' + segments.slice(0, i + 1).join('/');
-                    if (vfs[abs]) {
-                        node = vfs[abs];
-                        continue;
-                    }
-                    if (node.children && Object.prototype.hasOwnProperty.call(node.children, seg)) {
-                        node = node.children[seg];
-                        continue;
-                    }
-                    return null;
-                }
-                return node || null;
-            } catch (e) {
-                return null;
-            }
-        }
-
-        function isRepoPath(path) {
-            try {
-                const abs = resolvePath(path);
-                // a repo path is present in vfs or as a child under vfs
-                if (getNode(abs)) return true;
-                return false;
-            } catch (e) { return false; }
         }
 
         function removeSavedFile(name) {
@@ -283,7 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const title = document.createElement('div');
             title.className = 'neofetch-title';
-            title.textContent = 'r3d1bruh@desktop';
+            title.textContent = defaultPromptPrefix;
 
             const divider = document.createElement('div');
             divider.className = 'neofetch-divider';

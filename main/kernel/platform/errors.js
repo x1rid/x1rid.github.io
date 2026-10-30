@@ -65,7 +65,7 @@
     OPERATION_CANCELLED: 'OPERATION_CANCELLED',  // domain-specific
   });
 
-  // ── 2. OsError class ───────────────────────────────────────────────────
+  // ── 2. OsError and FsError classes ───────────────────────────────────────
   /**
    * Structured error for all OS operations. §6.4
    *
@@ -105,6 +105,17 @@
     }
   }
 
+  /**
+   * Structured error for Filesystem operations, subclassing OsError (§6.4).
+   * @extends OsError
+   */
+  class FsError extends OsError {
+    constructor(code, message, detail) {
+      super(code, message, detail);
+      this.name = 'FsError';
+    }
+  }
+
   // ── 3. Internal stats (diagnostics only) ──────────────────────────────
   const _stats = { errorsCreated: 0 };
 
@@ -134,12 +145,16 @@
     /** The OsError class. `throw new KernelErrors.OsError(code, msg, detail)` */
     OsError,
 
+    /** The FsError subclass. `throw new KernelErrors.FsError(code, msg, detail)` */
+    FsError,
+
     /** Frozen registry of all valid error codes. */
     codes: CODES,
   });
 
   // ── 5. Publish globals ─────────────────────────────────────────────────
   root.OsError     = OsError;         // global shorthand used everywhere
+  root.FsError     = FsError;         // global shorthand subclassing OsError
   root.OsErrors    = CODES;           // global shorthand for catch blocks
   root.KernelErrors = KernelErrors;
 
@@ -147,7 +162,7 @@
 
   // ── 6. Node.js CJS guard (for unit tests) ──────────────────────────────
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { OsError, OsErrors: CODES, KernelErrors };
+    module.exports = { OsError, FsError, OsErrors: CODES, KernelErrors };
   }
 
 }(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this)));

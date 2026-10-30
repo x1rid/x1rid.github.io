@@ -92,8 +92,92 @@ node tests/run-tests.js
 - Added `KernelEvents` to `main/debug-overlay.js`.
 - All **233 unit tests pass** across the suite (`node tests/run-tests.js`).
 
+---
+
+## 2026-10-31 | Antigravity | Phase 1.3 Complete
+
+### What was done
+- Logged Task Card: `docs/tasks/004-security-extraction.md`.
+- Implemented `main/security/users.js`:
+  - `SecurityUsers` service exporting `getUser()`, `getGroup()`, `getCurrentUser()`, and list methods.
+- Implemented `main/security/audit.js`:
+  - `SecurityAudit` service managing ring-buffer of structured audit records, broadcasting via `KernelEvents` on `sec:audit`.
+- Implemented `main/security/permissions.js`:
+  - `SecurityPermissions` service providing default-deny access control evaluating actor roles/groups against action patterns and resource paths.
+- Added unit tests `tests/security.test.js` (13 tests verifying users, group memberships, deny rules for system paths, allow rules for user paths, and audit dispatch).
+- Added script tags in `main/index.html` with `?v=20261031`.
+- Added `SecurityUsers`, `SecurityPermissions`, and `SecurityAudit` to `main/debug-overlay.js`.
+- All **246 unit tests pass** across the entire suite (`node tests/run-tests.js`).
+
+---
+
+## 2026-10-31 | Antigravity | Phase 1.4 Complete
+
+### What was done
+- Logged Task Card: `docs/tasks/005-process-table.md`.
+- Implemented `main/kernel/process-table.js`:
+  - `KernelProcessTable` service managing monotonic PIDs, process state records (`running`, `exited`), memory/cpu stats, signal handlers, and window attachments.
+  - Emits canonical events `proc:spawned` and `proc:exited`.
+- Hooked `main/app-registry.js`:
+  - Upon `attachWindow()`, spawns a process record via `KernelProcessTable.spawn()` and attaches `pid` to the running instance.
+  - Upon `detachWindow()`, calls `KernelProcessTable.detachWindow()` transitioning the process to `exited`.
+- Added unit tests in `tests/process-table.test.js` (15 tests passing).
+- Added script tag to `main/index.html` with `?v=20261031`.
+- Added `KernelProcessTable` to `main/debug-overlay.js`.
+- All **261 unit tests pass** across the entire test suite (`node tests/run-tests.js`).
+
+---
+
+## 2026-10-31 | Antigravity | Phase 1.5 Complete
+
+### What was done
+- Logged Task Card: `docs/tasks/006-syscalls.md`.
+- Implemented `main/kernel/syscalls.js`:
+  - `KernelSyscalls` & `Kernel` facade providing unified `Kernel.syscall(ctx, callName, args)`.
+  - Implemented core initial call registry: `proc.list`, `proc.info`, `proc.spawn`, `proc.kill`, `proc.signal`, `sys.time`, `sys.log`, `sys.notify`, `sec.whoami`, `sec.check`, `fs.stat`, `fs.read`, `fs.write`.
+  - Every syscall automatically validates caller capabilities through L2 `SecurityPermissions` (default-deny), emits audit entries to `SecurityAudit`, updates calling process syscall stats in `KernelProcessTable`, and throws structured `OsError` on failures.
+  - Provided `Kernel.legacy.vfs` compatibility getter (§5.3).
+- Added unit tests in `tests/syscalls.test.js` (18 tests passing).
+- Added script tag to `main/index.html` with `?v=20261031`.
+- Added `KernelSyscalls` to `main/debug-overlay.js`.
+- All **279 unit tests pass** across the entire test suite (`node tests/run-tests.js`).
+
+---
+
+## 2026-10-31 | Antigravity | Phase 1 Complete (All Phase 1 Exit Criteria Met)
+
+### What was done
+- Logged Task Card: `docs/tasks/007-service-manager.md`.
+- Implemented `main/kernel/service-manager.js`:
+  - `KernelServiceManager` service with topological dependency-resolution bootloader (`register()`, `start()`, `startAll()`, `stop()`).
+  - Circular dependency detection returning `OsError` (`EINVAL`).
+  - Core subsystem auto-registration (`KernelPlatform`, `KernelEvents`, `Security`, `KernelProcessTable`, `KernelSyscalls`).
+  - Exposes `window.KernelReady` Promise resolving after all core kernel subsystems are active.
+- Added unit tests in `tests/service-manager.test.js` (7 tests passing).
+- Added script tag to `main/index.html` with `?v=20261031`.
+- Added `KernelServiceManager` to `main/debug-overlay.js`.
+- All **286 unit tests pass** across the entire suite (`node tests/run-tests.js`).
+
+### Phase 1 Exit Criteria Status
+- [x] Every open window has a PID visible via `Kernel.proc.list()` / `KernelProcessTable.list()` (wired through `AppRegistry`).
+- [x] `Kernel.syscall(ctx, 'fs.read', ...)` works and is permission-checked via L2 default-deny engine.
+- [x] Legacy apps and existing services unchanged and operational.
+- [x] `window.KernelReady` Promise exported and resolves after declared dependencies boot.
+- [x] Task 001 complete: `main/data/site-config.json` with `schemaVersion: 1`, `migrations.js` validation, `terminal.js` no longer hardcodes identities.
+- [x] `kernel/platform/errors.js` exports `OsError` and `FsError` with UPPER_SNAKE registry codes.
+
+
 ### Exact next step
-Begin **Phase 1.3: Extract `security/` from `system-config.js`** (users, permissions, audit) keeping `SystemConfig` API as a facade. Create task card `docs/tasks/004-security-extraction.md`.
+Begin **Phase 2: One truth for storage and shells**.
+First task card: **Phase 2.1 — Wire Terminal to the real VFS via syscalls** (kills G3 by replacing hardcoded `vfs` with `Kernel.syscall`). Create task card `docs/tasks/008-terminal-real-vfs.md`.
+
+
+
+
+
+
+
+
 
 
 

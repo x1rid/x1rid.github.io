@@ -126,10 +126,40 @@
           await nodeStore.putNode(node);
         }
       }
+    },
+
+    /**
+     * Validates and loads site config schema (Task 001).
+     * @param {object} configData
+     * @returns {object} validated config
+     */
+    validateSiteConfig(configData) {
+      if (!configData || typeof configData !== 'object') {
+        throw new Error('Invalid site configuration: not an object');
+      }
+      if (typeof configData.schemaVersion !== 'number' || configData.schemaVersion < 1) {
+        throw new Error('Invalid site configuration: missing or invalid schemaVersion');
+      }
+      return {
+        schemaVersion: configData.schemaVersion,
+        owner: {
+          displayName: (configData.owner && configData.owner.displayName) || 'user',
+          legacyUsername: (configData.owner && configData.owner.legacyUsername) || 'user'
+        },
+        desktop: {
+          hostname: (configData.desktop && configData.desktop.hostname) || 'desktop',
+          defaultShellPrompt: (configData.desktop && configData.desktop.defaultShellPrompt) || 'user@desktop:~$'
+        }
+      };
     }
   };
 
-  // Expose to window
-  window.VfsMigrations = VfsMigrations;
+  // Expose to window / environment
+  if (typeof window !== 'undefined') {
+    window.VfsMigrations = VfsMigrations;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { VfsMigrations: VfsMigrations };
+  }
 
-})(typeof window !== 'undefined' ? window : globalThis);
+})(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));
