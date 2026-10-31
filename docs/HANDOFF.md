@@ -296,3 +296,44 @@ Proceed to **Phase 2.5: Explorer and Terminal both use fs.watch** (`llm-phase2/2
 
 ### Exact next step
 Phase 5 per docs/OS_FOUNDATION.md or further Phase 4 polish per open items above.
+
+
+---
+
+## 2026-10-31 — Phase 5 Complete (Immersion Pass & Advanced Features)
+
+### Summary
+Phase 5 (5.1 through 5.5) of OS_FOUNDATION.md is complete. 18 new automated tests added, test suite now stands at 426 passed, 1 failed (1 pre-existing syscalls.test.js failure).
+
+### Key Deliverables
+- **5.1 Virtual Network & Fake Internet:**
+  - main/kernel/net-service.js (window.NetService): Simulated networking with online/offline toggle, request routing, event dispatching.
+  - main/kernel/fake-internet.js (window.FakeInternet): Fake routes for internal ping, internal homepage, package store listing (store.r3dos.internal/packages), package installation, fake email, and chat rooms.
+  - tests/net-service.test.js: 6 tests passing.
+- **5.2 Email & Chat Subsystems:**
+  - main/kernel/mail-service.js (window.MailService): Manages messages, persisted to mailbox store in KernelDB.
+  - main/apps/mail/: Manifest app (Inbox, Sent, Compose).
+  - main/apps/chat/: Manifest app (IRC-style rooms, channels #general, #dev, #random, simulated bot replies).
+- **5.3 Resource Simulation & Diagnostics:**
+  - main/kernel/resource-sim.js (window.ResourceSim): Dynamic fake CPU & RAM tracking for PIDs with jittering ticks and crash simulation.
+  - main/shell/crash-dialog.js (window.CrashDialog): Crash modal dialog triggered on process:crashed.
+  - main/apps/event-viewer/: Manifest app to inspect audit records and live event stream.
+  - main/apps/dmesg/: Manifest app streaming kernel logs/events in real time with pause/clear controls.
+  - tests/resource-sim.test.js: 5 tests passing.
+- **5.4 Theming Engine & Sound System:**
+  - main/kernel/theme-service.js (window.ThemeService): Applies CSS custom properties on :root across built-in themes (default, dark, hacker, win95, macos). Persisted to user_prefs.
+  - main/themes/: Theme definition files.
+  - main/kernel/sound-service.js (window.SoundService): Maps system events to sound pack effects with fallback to silent mode.
+  - tests/theme-service.test.js: 7 tests passing.
+- **5.5 Window Manager Layouts:**
+  - main/kernel/wm-layout.js (window.WMLayout): Layout calculation algorithms for floating, tiling, and stacked window arrangements.
+- **Kernel & Shell Integration:**
+  - main/kernel/kernel-db.js: Upgraded to DB_VERSION 3, adding mailbox, chat_messages, and user_prefs stores.
+  - main/kernel/syscalls.js: Added net.request, sys.theme.get, sys.theme.set, sys.sound.play, and sys.wm.setLayout syscalls.
+  - main/index.html & main/apps/index.json: Registered new kernel services and apps.
+
+### Verification
+```bash
+node tests/run-tests.js
+```
+Total: 426 passed, 1 failed (known pre-existing syscalls test).
