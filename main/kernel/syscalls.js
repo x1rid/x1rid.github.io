@@ -564,10 +564,19 @@
     ready: ready,
 
     syscall: syscall,
-    register: function (name, fn, requiredCapability) {
+    // register(name, fn, requiredCapability, { capOnly, audit })
+    //   capOnly: skip the L2 SecurityPermissions rule lookup (gated by caps only)
+    //   audit:   write an audit row for successful calls too
+    register: function (name, fn, requiredCapability, options) {
       if (typeof fn !== 'function') return;
       SYSCALL_HANDLERS.set(name, fn);
       if (requiredCapability !== undefined) CAP_REQUIRED[name] = requiredCapability; // else default-deny by call name
+      if (options && options.capOnly) CAP_ONLY_CALLS.add(name);
+      if (options && options.audit) AUDIT_ON_ALLOW.add(name);
+    },
+    // does this ctx hold `cap`? (trusted kernel callers always do)
+    holds: function (ctx, cap) {
+      return isTrusted(ctx) || capGranted(resolveCaps(ctx), cap);
     },
     listCalls: function () {
       return Array.from(SYSCALL_HANDLERS.keys());

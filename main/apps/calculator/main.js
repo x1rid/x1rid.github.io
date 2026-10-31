@@ -1,28 +1,11 @@
 /* ---------------------------------------------------------------------------
- *  Calculator — the four-function desktop calculator, in the site's palette.
- *
- *  Real arithmetic, no eval(), no fake tape. Keyboard: digits, . + - * /
- *  Enter/=, Escape (clear), Backspace, %.
+ * Calculator — manifest app (migrated from the legacy RetroApps calculator.js).
+ * Real arithmetic, no eval(), no fake tape. Keyboard: digits, . + - * /
+ * Enter/=, Escape (clear), Backspace, %.
+ * Needs no capabilities: it never calls a syscall.
  * ------------------------------------------------------------------------- */
 (() => {
     'use strict';
-
-    const ICON = `
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <rect x="4" y="2" width="16" height="20" fill="#07020a" stroke="#6f3a93"></rect>
-            <rect x="6" y="4" width="12" height="4" fill="#130927" stroke="#c084fc"></rect>
-            <path d="M7 6h10" stroke="#55ff99" stroke-width="1"></path>
-            <g fill="#c084fc">
-                <rect x="6" y="10" width="3" height="3"></rect>
-                <rect x="10.5" y="10" width="3" height="3"></rect>
-                <rect x="15" y="10" width="3" height="3"></rect>
-                <rect x="6" y="14.5" width="3" height="3"></rect>
-                <rect x="10.5" y="14.5" width="3" height="3"></rect>
-                <rect x="15" y="14.5" width="3" height="3"></rect>
-            </g>
-            <rect x="6" y="19" width="7.5" height="2" fill="#8b72b8"></rect>
-            <rect x="15" y="19" width="3" height="2" fill="#ff4fd8"></rect>
-        </svg>`;
 
     function mount(root, api) {
         root.innerHTML = `
@@ -86,10 +69,10 @@
         function render() {
             valueEl.textContent = error ? 'ERROR' : current;
             expressionEl.textContent = expression || '\u00a0';
-            api.setMeta(error ? 'ERROR' : pending || (evaluated ? 'RESULT' : 'READY'));
+            if (api && api.setMeta) api.setMeta(error ? 'ERROR' : pending || (evaluated ? 'RESULT' : 'READY'));
         }
 
-        function reset(keepDrawCount) {
+        function reset() {
             current = '0';
             stored = null;
             pending = '';
@@ -100,83 +83,70 @@
             render();
         }
 
-        function compute(left, right, operator) {
-            if (operator === '+') return left + right;
-            if (operator === '-') return left - right;
-            if (operator === '*') return left * right;
-            if (operator === '/') return right === 0 ? NaN : left / right;
-            return right;
-        }
-
-        function digit(value) {
+        function digit(d) {
             if (error) reset();
-            if (evaluated && !pending) {
-                current = '0';
-                expression = '';
-                evaluated = false;
-            }
-            if (waiting) {
-                current = value;
+            if (waiting || evaluated) {
+                current = d;
                 waiting = false;
+                evaluated = false;
             } else {
-                const digits = current.replace(/[-.]/g, '').length;
-                if (digits >= 12) return;
-                current = current === '0' ? value : current + value;
+                current = current === '0' ? d : current + d;
             }
+            if (current.length > 16) current = current.slice(0, 16);
             render();
         }
 
         function decimal() {
             if (error) reset();
-            if (evaluated && !pending) {
-                current = '0';
-                expression = '';
-                evaluated = false;
-            }
-            if (waiting) {
+            if (waiting || evaluated) {
                 current = '0.';
                 waiting = false;
-            } else if (!current.includes('.')) {
-                current += '.';
+                evaluated = false;
+                render();
+                return;
             }
+            if (!current.includes('.')) {
+                current += '.';
+                render();
+            }
+        }
+
+        function backspace() {
+            if (error || evaluated || waiting) return;
+            current = current.length > 1 ? current.slice(0, -1) : '0';
+            if (current === '-' || current === '-0') current = '0';
             render();
         }
 
         function negate() {
-            if (error || current === '0') return;
-            current = current.startsWith('-') ? current.slice(1) : `-${current}`;
+            if (error) return;
+            const value = Number.parseFloat(current);
+            if (value === 0) return;
+            current = format(-value);
             render();
         }
 
         function percent() {
             if (error) return;
             const value = Number.parseFloat(current);
-            if (!Number.isFinite(value)) return;
             current = format(value / 100);
             render();
         }
 
-        function backspace() {
-            if (error) {
-                reset();
-                return;
-            }
-            if (evaluated) {
-                evaluated = false;
-                expression = '';
-            }
-            if (waiting) return;
-            current = current.length > 1 ? current.slice(0, -1) : '0';
-            if (current === '-') current = '0';
-            render();
+        function compute(a, b, op) {
+            if (op === '+') return a + b;
+            if (op === '-') return a - b;
+            if (op === '*') return a * b;
+            if (op === '/') return b === 0 ? Number.NaN : a / b;
+            return b;
         }
 
-        function chooseOperator(operator) {
+        function chooseOperator(nextOp) {
             if (error) reset();
             const value = Number.parseFloat(current);
-            if (!Number.isFinite(value)) return;
-
-            if (pending && !waiting) {
+            if (stored === null) {
+                stored = value;
+            } else if (!waiting) {
                 const result = compute(stored, value, pending);
                 if (!Number.isFinite(result)) {
                     error = true;
@@ -186,14 +156,11 @@
                 }
                 stored = result;
                 current = format(result);
-            } else {
-                stored = value;
             }
-
-            pending = operator;
-            expression = `${format(stored)} ${SYMBOLS[operator] || operator}`;
+            pending = nextOp;
             waiting = true;
             evaluated = false;
+            expression = `${format(stored)} ${SYMBOLS[nextOp] || nextOp}`;
             render();
         }
 
@@ -250,18 +217,12 @@
 
             if (!mapped) return;
             event.preventDefault();
-            /* Escape belongs to the calculator while the app is focused; the
-               Programs window manager would otherwise close the whole app. */
             event.stopPropagation();
             press(mapped);
         });
 
-        displayEl.addEventListener('focus', () => {
-            displayEl.classList.add('is-focused');
-        });
-        displayEl.addEventListener('blur', () => {
-            displayEl.classList.remove('is-focused');
-        });
+        displayEl.addEventListener('focus', () => { displayEl.classList.add('is-focused'); });
+        displayEl.addEventListener('blur', () => { displayEl.classList.remove('is-focused'); });
 
         render();
         return function cleanup() {
@@ -270,14 +231,13 @@
         };
     }
 
-    if (window.RetroApps) {
-        window.RetroApps.register({
-            id: 'calculator',
-            name: 'Calculator',
-            tagline: 'Four functions, keyboard input, and division-by-zero honesty.',
-            meta: 'DESKTOP · 12 DIGITS',
-            icon: ICON,
-            mount,
-        });
-    }
+    window.OSApps.register('calculator', {
+        async main(proc) {
+            const win = await proc.win.open({ title: 'Calculator' });
+            const cleanup = mount(win.root);
+            proc.onExit(cleanup);
+            const display = win.root.querySelector('.calc-display');
+            if (display) display.focus({ preventScroll: true });
+        }
+    });
 })();

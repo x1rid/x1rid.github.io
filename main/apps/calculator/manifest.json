@@ -1,0 +1,1 @@
+{"manifestVersion":1,"id":"calculator","name":"Calculator","version":"1.0.0","kind":"app","entry":"main.js","styles":["styles.css"],"icon":"assets/icon.svg","multiple":false,"capabilities":[],"window":{"width":360,"height":520,"resizable":false},"personality":["windows"],"tagline":"Four functions, keyboard input, and division-by-zero honesty."}

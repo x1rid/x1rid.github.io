@@ -174,6 +174,7 @@
             personality: Array.isArray(input.personality) ? input.personality.map(String) : [],
             manifest: manifest,
             legacy: !manifest,
+            installed: Boolean(input.installed),
             // manifest apps declare caps; legacy inline apps keep full access until migrated
             capabilities: manifest ? normalizeCaps(input.capabilities, []) : normalizeCaps(input.capabilities, LEGACY_CAPS),
             launch: input.launch,
@@ -202,7 +203,8 @@
             version: definition.version,
             personality: definition.personality.slice(),
             capabilities: definition.capabilities.slice(),
-            legacy: definition.legacy
+            legacy: definition.legacy,
+            installed: definition.installed
         };
     }
 
@@ -740,14 +742,15 @@
         }
     }
 
-    function buildManifestDefinition(manifest, impl, base) {
+    function buildManifestDefinition(manifest, impl, pending) {
         const w = manifest.window || {};
         return {
             id: manifest.id,
             name: manifest.name,
             tagline: stringValue(manifest.tagline, ''),
             meta: manifest.version ? 'v' + manifest.version : '',
-            icon: manifest.icon ? base + manifest.icon : '',
+            icon: pending.iconUrl !== undefined ? pending.iconUrl : (manifest.icon ? pending.base + manifest.icon : ''),
+            installed: Boolean(pending.installed),
             source: 'MANIFEST',
             kind: 'app',
             version: stringValue(manifest.version, ''),
@@ -775,7 +778,7 @@
             console.warn('[OSApps] register("' + key + '") ignored: impl.main(proc, args) is required.');
             return null;
         }
-        return register(buildManifestDefinition(pending.manifest, impl, pending.base));
+        return register(buildManifestDefinition(pending.manifest, impl, pending));
     }
 
     function fetchManifest(key, base) {
@@ -863,6 +866,91 @@
         }));
     }
 
+    // ── Installed packages (3.5): code comes from kernel-db, not the network ─
+    function addInlineStyle(appId, cssText) {
+        const el = document.createElement('style');
+        el.setAttribute('data-os-app', appId);
+        el.textContent = cssText;
+        document.head.appendChild(el);
+    }
+
+    function unloadInstalled(id) {
+        const key = normalizeId(id);
+        runningFor(key).forEach(function (inst) { closeInstance(inst); });
+        try {
+            Array.prototype.forEach.call(document.querySelectorAll('[data-os-app="' + key + '"]'), function (el) {
+                if (el.parentNode) el.parentNode.removeChild(el);
+            });
+        } catch (_) { /* no DOM */ }
+        return unregister(key);
+    }
+
+    function loadInstalled(record) {
+        const key = normalizeId(record && record.id);
+        if (!ID_RE.test(key)) return Promise.reject(new Error('Invalid installed app id'));
+        const check = validateManifest(record.manifest);
+        if (!check.ok) return Promise.reject(new Error('Invalid manifest for ' + key + ': ' + check.errors.join('; ')));
+        const existing = definitions.get(key);
+        if (existing && !existing.installed) return Promise.reject(new Error('"' + key + '" is a built-in app'));
+        if (existing) unloadInstalled(key); // upgrade in place
+
+        const files = record.files || {};
+        const manifest = Object.assign({}, record.manifest, {
+            id: key,
+            kind: 'app',
+            fileTypes: normalizeFileTypes(record.manifest.fileTypes),
+            capabilities: normalizeCaps(record.grantedCaps, []),   // granted, not merely requested
+            personality: Array.isArray(record.manifest.personality) ? record.manifest.personality.map(String) : []
+        });
+        const code = files[manifest.entry];
+        if (typeof code !== 'string') return Promise.reject(new Error('Package ' + key + ' is missing its entry file'));
+
+        let iconUrl = '';
+        if (manifest.icon && /\.svg$/i.test(manifest.icon) && typeof files[manifest.icon] === 'string') {
+            iconUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(files[manifest.icon]);
+        }
+        pendingManifests.set(key, { manifest: manifest, base: '', iconUrl: iconUrl, installed: true });
+        (manifest.styles || []).forEach(function (href) {
+            if (typeof files[href] === 'string') addInlineStyle(key, files[href]);
+        });
+
+        const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+        const done = function () { URL.revokeObjectURL(url); pendingManifests.delete(key); };
+        return loadScript(url).then(function () {
+            const def = definitions.get(key);
+            done();
+            if (!def) throw new Error('Entry script for "' + key + '" never called OSApps.register("' + key + '", ...)');
+            return def;
+        }, function (err) { done(); throw err; });
+    }
+
+    let packagesWired = false;
+    function wirePackages() {
+        const P = window.KernelPackages;
+        if (!P || packagesWired) return Promise.resolve([]);
+        packagesWired = true;
+        P.addGuard(function (record) {
+            const d = definitions.get(normalizeId(record.id));
+            if (d && !d.installed) {
+                const msg = '"' + record.id + '" is a built-in app and cannot be replaced by a package';
+                throw window.OsError ? new window.OsError('EBUSY', msg, { id: record.id })
+                    : Object.assign(new Error(msg), { name: 'OsError', code: 'EBUSY' });
+            }
+        });
+        P.onInstalled(loadInstalled);
+        P.onRemoved(unloadInstalled);
+        return P.listInstalled().then(function (records) {
+            return Promise.all(records.map(function (r) {
+                return loadInstalled(r).catch(function (err) {
+                    console.error('[AppRegistry] installed app ' + (r && r.id) + ' failed to load:', err);
+                });
+            }));
+        }, function (err) {
+            console.warn('[AppRegistry] could not read installed apps:', err && err.message);
+            return [];
+        });
+    }
+
     // Discover apps from apps/index.json ({ "apps": ["notepad", ...] }) or window.OSAppList.
     function autoload(opts) {
         const base = String((opts && opts.base) || DEFAULT_BASE).replace(/\/*$/, '/');
@@ -913,7 +1001,11 @@
         loadApps: loadApps,
         autoload: autoload,
         validateManifest: validateManifest,
-        adaptRetroApps: adaptRetroApps
+        adaptRetroApps: adaptRetroApps,
+        // Phase 3.5
+        loadInstalled: loadInstalled,
+        unloadInstalled: unloadInstalled,
+        wirePackages: wirePackages
     };
 
     window.OSApps = Object.assign(window.OSApps || {}, {
@@ -926,7 +1018,8 @@
     if (typeof document !== 'undefined' && document.addEventListener) {
         const boot = function () {
             adaptRetroApps();
-            if (window.OSAutoloadApps !== false) autoload();
+            const first = window.OSAutoloadApps !== false ? autoload() : Promise.resolve([]);
+            first.then(wirePackages);
         };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
         else setTimeout(boot, 0);

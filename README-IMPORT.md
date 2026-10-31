@@ -1,72 +1,66 @@
-# Phase 3 drop-in (3.1 + 3.2 + 3.3)
+# Phase 3 drop-in v2 (3.1 – 3.3 + calculator migration + 3.5)
 
-Folder layout mirrors your repo, so unzipping at the repo root merges everything into `main/`.
+Paths mirror your repo. Unzip at the repo root and allow overwrite.
 
-| File | Action | Phase |
-|---|---|---|
-| `main/app-registry.js` | **replaces** existing | 3.1 manifest loader, `OSApps.register`, RetroApps bridge, caps at spawn |
-| `main/kernel/process-table.js` | **replaces** existing | 3.2 caps, SIGTERM veto-once, crash/zombie, reaper |
-| `main/kernel/syscalls.js` | **replaces** existing | 3.2 capability checks + audit, 3.3 settings/clipboard/sys.info, net stubs |
-| `main/apps/index.json` | new | app discovery list |
-| `main/apps/notepad/*` | new | reference manifest app |
-| `main/apps/task-manager/*` | new | 3.3 |
-| `main/apps/settings/*` | new | 3.3 |
-| `tests/phase3-kernel.test.js` | new | 16 Node tests (all green on my side) |
+| File | Action |
+|---|---|
+| `main/app-registry.js` | **replaces** (v1 → v2: adds installed-package loading) |
+| `main/kernel/syscalls.js` | **replaces** (v2: `register(..., opts)`, `holds()`) |
+| `main/kernel/process-table.js` | **replaces** (same as v1) |
+| `main/kernel/kernel-db.js` | **new** (3.5: IndexedDB `kernel-db`: `audit`, `installed_apps`) |
+| `main/kernel/packages.js` | **new** (3.5: `.pkg` installer, `pkg.install/remove/list`) |
+| `main/apps/calculator/*` | **new** (migrated from your legacy source) |
+| `main/apps/{notepad,task-manager,settings}/*`, `main/apps/index.json` | new (index.json now lists calculator) |
+| `samples/hello.pkg` | sample package to test the installer |
+| `tests/*.test.js` | 16 + 9 Node tests |
 
 ## Import steps
 
-1. `git status` clean? If not, commit or stash first.
-2. `git checkout -b phase3-app-platform`
-3. Unzip into the repo root, allow overwrite (it overwrites exactly 3 files).
-4. `git diff --stat` should show 3 modified files + new `main/apps/...` folders.
-5. Run the tests: `node tests/phase3-kernel.test.js` (expect `16 tests passed`).
-6. **Serve the folder, don't double-click index.html.** Manifests load with `fetch`, which browsers block on `file://`.
-   `cd main && python -m http.server 8000` then open http://localhost:8000
-   (file:// escape hatch: define `window.OSManifests.<id>` and `window.OSAppList` before the registry loads.)
-7. Smoke test: lock screen, then Explorer + Terminal still work (legacy apps).
-8. Browser console checks:
-   ```js
-   AppRegistry.list().map(a => a.id + (a.legacy ? ' (legacy)' : ''))   // notepad, task-manager, settings appear
-   AppRegistry.launch('notepad'); AppRegistry.launch('task-manager');
-   KernelSyscalls.auditLog()                                           // denials/sensitive calls
+1. Commit/stash, then `git checkout -b phase3-app-platform-v2`.
+2. Unzip into the repo root (overwrites exactly 3 files).
+3. **Script tags in `index.html`** (kernel before registry, one new line each; this is a 2-line edit, not the 3.4 extraction):
+   ```html
+   <script src="kernel/process-table.js"></script>
+   <script src="kernel/kernel-db.js"></script>      <!-- NEW -->
+   <script src="kernel/syscalls.js"></script>
+   <script src="kernel/packages.js"></script>       <!-- NEW: must come after syscalls.js -->
+   <script src="app-registry.js"></script>
    ```
-9. Commit.
+   Keep your existing cache-buster style (`?v=YYYYMMDD`) and whatever order/paths you already use.
+4. **Retire the legacy calculator:** remove its `<script src="apps/calculator.js...">` tag and delete `main/apps/calculator.js`.
+   Otherwise both versions register id `calculator` and the registry ignores the new one with a "Duplicate application id" warning.
+   Move the `.calc*` CSS out of wherever it currently lives (it's now in `apps/calculator/styles.css`; the `.app-hint` rule is scoped to `.calc`).
+5. `node tests/phase3-kernel.test.js` (16) and `node tests/phase3-packages.test.js` (9).
+6. Serve the folder (`cd main && python -m http.server 8000`), not `file://`. Manifests use `fetch`.
+7. Smoke test: lock screen, Explorer, Terminal, then Calculator/Notepad/Task Manager/Settings from the start menu.
+8. Installer test in the browser console (put `samples/hello.pkg` in your VFS first, e.g. via Notepad save or Explorer):
+   ```js
+   // ctx = null is the trusted kernel/shell path, so no caps needed from the console
+   await Kernel.syscall(null, 'pkg.install', { path: 'C:\\Users\\owner\\Desktop\\hello.pkg', grant: 'all' })
+   AppRegistry.launch('hello')
+   await Kernel.syscall(null, 'pkg.list', {})
+   await Kernel.syscall(null, 'pkg.remove', { id: 'hello' })
+   await KernelDB.list('audit', { newestFirst: true, limit: 10 })
+   ```
+   Reload the page and `hello` should come back by itself (restored from `kernel-db`).
 
-## Things you need to know (read this one)
+## How the installer behaves
 
-- **Window creation seam.** I couldn't see your shell's window manager. Manifest apps get windows from
-  `AppRegistry.configure({ windowFactory(opts) -> win })`. `win` needs `{ id, root, closed, onClose, close() }`
-  (optional: `node`, `setTitle()`, `focus()`). Without it, a basic draggable floating window is used so apps still run.
-  Hook up your real shell factory and the apps render inside your normal windows.
-- **Start menu / desktop icons.** Apps load async. If the start menu renders before they arrive, re-render on the
-  `os:apps-changed` DOM event (fired on every register/unregister).
-- **Legacy apps get caps `['*']`** so nothing breaks until each is migrated. Manifest apps get exactly what they declare.
-  Manifests may not request wildcards.
-- **Default-deny is real now.** Anything calling `KernelProcessTable.spawn()` without `caps` gets `[]`. Anything calling
-  `Kernel.syscall()` with a pid that has no matching cap gets `CAPABILITY_DENIED`. Calls with `ctx == null` or `pid 1`
-  are treated as kernel-trusted. Debug switch: `KernelSyscalls.setCapabilityMode('audit')` logs would-be denials but allows them.
-- **`OsError` codes.** Add `CAPABILITY_DENIED` to your OsError code list if it isn't there yet (I couldn't see that file).
-- **New L2 calls skipped.** `sys.info`, `sys.clipboard.*`, `sys.settings.*`, `net.*` are gated by caps only, since I don't
-  know your `SecurityPermissions` rules and default-deny there would reject them. Add L2 rules later, then remove them
-  from `CAP_ONLY_CALLS`.
-- **SIGTERM veto direction.** PHASE3.md contradicts itself ("return true to allow exit" vs the contract's
-  `async () => true // veto exit once`). I followed the contract and the existing code: **returning `true` vetoes, once**.
-  Closing the last window always ends the process (the window is already gone); vetoes apply to explicit signals like Task Manager's End task.
-- **Settings persistence** is localStorage (`os.settings.<uid>`) until `kernel-db`/`profile-db` exist (3.5).
-- `fs.read:user` is not path-scoped yet. It's a cap name only, no `/c/Users/<you>` confinement.
-- One window per process for now; repeat `proc.win.open()` returns the same window.
+- `.pkg` = JSON `{ pkgVersion:1, manifest, files:{path:text} }`; only `.js .css .svg .json .txt`, ≤64 files, ≤2 MB, no `..`/absolute/URL paths.
+- `grant` is **mandatory** (`'all'` or a list). Granted ⊆ requested ⊆ what the installer itself holds. Registered caps = granted only.
+- A package can never replace a built-in app id (registry guard → `EBUSY`). Re-installing a package upgrades it in place.
+- Audit rows (denials + sensitive successes, incl. pkg.install/remove) now go to `kernel-db` `audit` (capped at 5000, oldest trimmed). Falls back to an in-memory store if IndexedDB is unavailable (`KernelDB.diagnostics()` tells you).
+- Layering: `packages.js` (L3) never calls the registry; the registry subscribes via `addGuard/onInstalled/onRemoved`.
 
-## NOT included (I didn't have the source files)
+## Read this
 
-- **Calculator migration** (needs `main/apps/calculator.js`). Recipe: create `main/apps/calculator/manifest.json`
-  (copy Notepad's, set id/name/caps), move the UI into `main.js` using `proc.win.open()` + `win.root`, delete the old
-  inline `AppRegistry.register({id:'calculator'...})`, add `"calculator"` to `apps/index.json`. Send me the file and I'll do it.
-- **3.4 `index.html` extraction** (needs `index.html`, plus PHASE3 says do it only after 3.1-3.3 are green).
-- **3.5 installer / `kernel-db`.** Audit already calls `KernelDB.append('audit', entry)` when that object exists, so it plugs in later.
-- **RetroApps:** the bridge only adds `register/launch/list/has` if missing and never overwrites. Check it against your real object.
+- **Installed packages are NOT sandboxed.** Their JS runs in the same page realm, so caps only constrain the syscall layer; a malicious package could still touch `window`/DOM. Fine for your own simulated-world packages, not for untrusted code. (Real isolation = sandboxed iframes + postMessage; that's a bigger redesign.)
+- **Not browser-tested.** Node tests cover kernel, installer logic, and the registry's loader with stubbed DOM/Blob. Real IndexedDB, real script loading and the apps' UIs haven't been run in a browser.
+- Window seam, start-menu refresh on `os:apps-changed`, `CAPABILITY_DENIED` in OsError, SIGTERM-veto direction, and the legacy `['*']` caps: same notes as v1 (still apply).
+- No Terminal command yet (I can't see the Terminal source). `Kernel.syscall(ctx,'pkg.install',...)` is the hook; a one-line `pkg install <path>` command can call it.
 
-## Adding a new app after this (zero core edits)
+## NOT done: 3.4 (`index.html` extraction)
 
-1. `main/apps/<id>/manifest.json` + `main.js` (+ optional `styles.css`)
-2. Add `"<id>"` to `main/apps/index.json`
-3. Reload.
+I only have the description, not the 6,377-line file, and it can't be done blind without breaking boot. Upload `main/index.html`
+(or paste it in chunks, ideally with `desktop-shell.html` for reference) and I'll extract `shell/desktop.js`, `shell/start-menu.js`,
+`shell/notifications.js` one at a time, plus wire `AppRegistry.configure({ windowFactory })` to your real window manager.
