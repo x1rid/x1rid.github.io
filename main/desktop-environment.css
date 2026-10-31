@@ -1,0 +1,8 @@
+/**
+ * @file main/desktop-environment.css
+ * @layer L4 — Desktop Environment Styles
+ * Styling hooks for desktop environment extensions and overrides.
+ */
+:root {
+  --desktop-environment-loaded: 1;
+}

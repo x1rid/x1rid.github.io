@@ -24,7 +24,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-SKIP_DIRS = {'.git', 'node_modules', '__pycache__'}
+SKIP_DIRS = {'.git', 'node_modules', '__pycache__', 'phase3', '_archive', '.gemini', 'tmp', 'imported_repos'}
 
 errors = []
 warnings = []

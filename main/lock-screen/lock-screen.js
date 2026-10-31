@@ -219,6 +219,10 @@
         } else {
           this._startGlance();
         }
+
+        if (window.LockAccessibility && typeof window.LockAccessibility.init === 'function') {
+          window.LockAccessibility.init();
+        }
       } catch (error) {
         await this.cleanup();
         throw error;
@@ -263,11 +267,7 @@
       if (!root.querySelector('.lock-statusbar')) {
         const status = el('div', 'lock-statusbar');
         const identity = el('span', 'lock-statusbar-identity', 'r3d1 OS');
-        const settings = el('button', 'lock-statusbar-settings', 'Settings');
-        settings.type = 'button';
-        settings.dataset.lockAction = 'settings';
-        settings.setAttribute('aria-expanded', 'false');
-        status.append(identity, settings);
+        status.appendChild(identity);
         root.appendChild(status);
       }
     },

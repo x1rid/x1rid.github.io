@@ -36,6 +36,51 @@ window.OSApps.register('settings', {
     appearance.appendChild(themeRow);
     appearance.appendChild(accentRow);
 
+    // Lock Screen Settings
+    const lockScreenSec = h('section');
+    lockScreenSec.appendChild(h('h3', '', 'Lock Screen'));
+
+    const clockFmtRow = h('div', 'st-row');
+    clockFmtRow.appendChild(h('label', '', 'Clock format'));
+    const clockFmt = h('select');
+    [['24h', '24-hour'], ['12h', '12-hour']].forEach(function (pair) {
+      const o = h('option', '', pair[1]); o.value = pair[0]; clockFmt.appendChild(o);
+    });
+    clockFmtRow.appendChild(clockFmt);
+    lockScreenSec.appendChild(clockFmtRow);
+
+    const animIntRow = h('div', 'st-row');
+    animIntRow.appendChild(h('label', '', 'Animation intensity'));
+    const animIntensity = h('select');
+    ['high', 'medium', 'low'].forEach(function (val) {
+      const o = h('option', '', val.charAt(0).toUpperCase() + val.slice(1)); o.value = val; animIntensity.appendChild(o);
+    });
+    animIntRow.appendChild(animIntensity);
+    lockScreenSec.appendChild(animIntRow);
+
+    const secRow = h('div', 'st-row');
+    secRow.appendChild(h('label', '', 'Show seconds'));
+    const showSec = h('input');
+    showSec.type = 'checkbox';
+    secRow.appendChild(showSec);
+    lockScreenSec.appendChild(secRow);
+
+    const partRow = h('div', 'st-row');
+    partRow.appendChild(h('label', '', 'Star particles'));
+    const showPart = h('input');
+    showPart.type = 'checkbox';
+    showPart.checked = true;
+    partRow.appendChild(showPart);
+    lockScreenSec.appendChild(partRow);
+
+    const widgRow = h('div', 'st-row');
+    widgRow.appendChild(h('label', '', 'Bulletin widgets'));
+    const showWidg = h('input');
+    showWidg.type = 'checkbox';
+    showWidg.checked = true;
+    widgRow.appendChild(showWidg);
+    lockScreenSec.appendChild(widgRow);
+
     // Raw editor
     const raw = h('section');
     raw.appendChild(h('h3', '', 'All settings'));
@@ -50,7 +95,7 @@ window.OSApps.register('settings', {
     raw.appendChild(list);
     raw.appendChild(addRow);
 
-    [appearance, raw, msg].forEach(function (el) { wrap.appendChild(el); });
+    [appearance, lockScreenSec, raw, msg].forEach(function (el) { wrap.appendChild(el); });
     root.textContent = '';
     root.appendChild(wrap);
 
@@ -64,6 +109,14 @@ window.OSApps.register('settings', {
         const s = r.settings || {};
         if (typeof s['appearance.theme'] === 'string') theme.value = s['appearance.theme'];
         if (typeof s['appearance.accent'] === 'string') accent.value = s['appearance.accent'];
+
+        // Lock screen settings
+        if (typeof s['lockScreen.clock.format'] === 'string') clockFmt.value = s['lockScreen.clock.format'];
+        if (typeof s['lockScreen.animation.intensity'] === 'string') animIntensity.value = s['lockScreen.animation.intensity'];
+        if (typeof s['lockScreen.clock.showSeconds'] === 'boolean') showSec.checked = s['lockScreen.clock.showSeconds'];
+        if (typeof s['lockScreen.animation.particles'] === 'boolean') showPart.checked = s['lockScreen.animation.particles'];
+        if (typeof s['lockScreen.widgets.enabled'] === 'boolean') showWidg.checked = s['lockScreen.widgets.enabled'];
+
         list.textContent = '';
         Object.keys(s).sort().forEach(function (k) {
           const row = h('div', 'st-row');
@@ -81,6 +134,52 @@ window.OSApps.register('settings', {
 
     theme.addEventListener('change', async function () { if (await set({ 'appearance.theme': theme.value })) load(); });
     accent.addEventListener('change', async function () { if (await set({ 'appearance.accent': accent.value })) load(); });
+
+    clockFmt.addEventListener('change', async function () {
+      if (await set({ 'lockScreen.clock.format': clockFmt.value })) {
+        if (window.LockScreenV2 && typeof window.LockScreenV2.saveLockScreen === 'function') {
+          window.LockScreenV2.saveLockScreen({ clock: { format: clockFmt.value } });
+        }
+        load();
+      }
+    });
+
+    animIntensity.addEventListener('change', async function () {
+      if (await set({ 'lockScreen.animation.intensity': animIntensity.value })) {
+        if (window.LockScreenV2 && typeof window.LockScreenV2.saveLockScreen === 'function') {
+          window.LockScreenV2.saveLockScreen({ animation: { intensity: animIntensity.value } });
+        }
+        load();
+      }
+    });
+
+    showSec.addEventListener('change', async function () {
+      if (await set({ 'lockScreen.clock.showSeconds': showSec.checked })) {
+        if (window.LockScreenV2 && typeof window.LockScreenV2.saveLockScreen === 'function') {
+          window.LockScreenV2.saveLockScreen({ clock: { showSeconds: showSec.checked } });
+        }
+        load();
+      }
+    });
+
+    showPart.addEventListener('change', async function () {
+      if (await set({ 'lockScreen.animation.particles': showPart.checked })) {
+        if (window.LockScreenV2 && typeof window.LockScreenV2.saveLockScreen === 'function') {
+          window.LockScreenV2.saveLockScreen({ animation: { particles: showPart.checked } });
+        }
+        load();
+      }
+    });
+
+    showWidg.addEventListener('change', async function () {
+      if (await set({ 'lockScreen.widgets.enabled': showWidg.checked })) {
+        if (window.LockScreenV2 && typeof window.LockScreenV2.saveLockScreen === 'function') {
+          window.LockScreenV2.saveLockScreen({ widgets: { enabled: showWidg.checked } });
+        }
+        load();
+      }
+    });
+
     addBtn.addEventListener('click', async function () {
       const k = newKey.value.trim();
       if (!k) { say('Key is required', true); return; }

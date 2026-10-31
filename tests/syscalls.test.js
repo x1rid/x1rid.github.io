@@ -53,7 +53,13 @@ function equal(actual, expected, label) {
 async function runTests() {
   console.log('--- Phase 1.5: Kernel Syscall Layer Tests ---');
 
-  const ctx = { pid: 1001, uid: 'owner', caps: ['fs.read:user', 'proc:all'] };
+  const callerProc = KernelProcessTable.spawn({
+    appId: 'test-runner',
+    name: 'Test Runner',
+    uid: 'owner',
+    caps: ['fs.read:user', 'fs.write:user', 'proc.list', 'proc.spawn', 'proc.kill']
+  });
+  const ctx = { pid: callerProc.pid, uid: 'owner', caps: callerProc.caps };
 
   // ── 1. proc.* syscalls ───────────────────────────────────────────────────
   const listRes = await Kernel.syscall(ctx, 'proc.list');

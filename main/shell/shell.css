@@ -1128,6 +1128,24 @@
 
     .desktop-icon:active { transform: translate(1px, 1px); }
 
+    .desktop-icon.is-desktop-selected {
+        border-color: var(--signal-active);
+        background: var(--row-selected);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--signal-active) 46%, transparent);
+    }
+
+    .desktop-selection-rectangle {
+        position: absolute;
+        z-index: 2;
+        display: block;
+        box-sizing: border-box;
+        border: 1px solid color-mix(in srgb, var(--signal-active) 82%, white);
+        background: color-mix(in srgb, var(--signal-active) 18%, transparent);
+        pointer-events: none;
+    }
+
+    .desktop-selection-rectangle[hidden] { display: none; }
+
     .desktop-icon:focus-visible {
         outline: 1px dotted var(--dotted);
         outline-offset: 1px;

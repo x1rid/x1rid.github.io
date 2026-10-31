@@ -279,13 +279,13 @@ Proceed to **Phase 2.5: Explorer and Terminal both use fs.watch** (`llm-phase2/2
 
 ### What was done
 
-- **P4.1** — main/security/elevation.js (ElevationService): request/revoke/isElevated. UAC modal in main/shell/elevation-dialog.js. sec.elevate syscall wired. Node test env: ELEVATION_AUTO_GRANT=1 grants, else denies.
-- **P4.2** — main/kernel/autostart.js (AutostartService): register/unregister/list/run. KernelDB store utostart_entries. main/kernel/scheduler.js (KernelScheduler): schedule/cancel/list, supports interval/t/cron (*/N parser only). KernelDB store scheduled_tasks.
-- **P4.3** — main/kernel/power.js (PowerService): sleep/hibernate/restore/restart/shutdown/safeMode. KernelDB store hibernate_snapshot. Sleep overlay in main/shell/power-overlay.js. ProfileWindowState.exportAll() and importAll() added to main/profile/window-state.js.
-- **P4.4** — main/immersion/bios.js (BiosScreen): POST typewriter, F2/F8/any-key. main/immersion/boot-menu.js (BootMenuScreen): arrow-key boot entry selector. Both wired in shell/boot.js via ?bios=1 / ?restoring=hibernate URL params.
+- **P4.1** ï¿½ main/security/elevation.js (ElevationService): request/revoke/isElevated. UAC modal in main/shell/elevation-dialog.js. sec.elevate syscall wired. Node test env: ELEVATION_AUTO_GRANT=1 grants, else denies.
+- **P4.2** ï¿½ main/kernel/autostart.js (AutostartService): register/unregister/list/run. KernelDB store utostart_entries. main/kernel/scheduler.js (KernelScheduler): schedule/cancel/list, supports interval/t/cron (*/N parser only). KernelDB store scheduled_tasks.
+- **P4.3** ï¿½ main/kernel/power.js (PowerService): sleep/hibernate/restore/restart/shutdown/safeMode. KernelDB store hibernate_snapshot. Sleep overlay in main/shell/power-overlay.js. ProfileWindowState.exportAll() and importAll() added to main/profile/window-state.js.
+- **P4.4** ï¿½ main/immersion/bios.js (BiosScreen): POST typewriter, F2/F8/any-key. main/immersion/boot-menu.js (BootMenuScreen): arrow-key boot entry selector. Both wired in shell/boot.js via ?bios=1 / ?restoring=hibernate URL params.
 - **KernelDB** bumped to v2; migration 2 adds 3 new stores.
 - **syscalls.js**: added sec.elevate + power.* handlers + CAP_ONLY_CALLS entries.
-- **Tests**: 408 passed, 1 pre-existing failure (syscalls.test.js — untouched). New: elevation (6), autostart (6), power (7).
+- **Tests**: 408 passed, 1 pre-existing failure (syscalls.test.js ï¿½ untouched). New: elevation (6), autostart (6), power (7).
 
 ### What is NOT done (Phase 4 future work)
 - Real su/sudo/login shell commands wired to ElevationService

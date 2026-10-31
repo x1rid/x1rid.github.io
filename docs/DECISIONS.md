@@ -31,3 +31,12 @@ Decision: B — `CommandEngine` acts as the shared foundation for all L6 shells,
 Consequences: Shells share robust pipeline and redirection logic without duplicate code; dialect differences remain strictly confined to presentation, parsing rules, and builtins.
 Owner: Jules
 
+
+
+## 2026-10-31 | D-004 | Served Root & Repository Structure Alignment
+Context: Section 2 of `docs/FOUNDATION_POLISH.md` observed that GitHub Pages is configured to publish `./main` (`.github/workflows/deploy.yml`), whereas the root of the repository previously contained a legacy duplicate `index.html`.
+Options:
+  A) Change Pages deploy workflow to publish from repo root.
+  B) Keep `./main` as the authoritative, modular static distribution target (which contains all extracted shell scripts, manifest apps, and assets), and keep root `index.html` synchronized for local / root-level testing while tracking `./main/index.html` as the deployment entry point.
+Decision: B — `./main` remains the deployment target for GitHub Pages. `main/desktop-environment.css` is added to prevent 404s, stale script tags in the root `index.html` are cleaned up, and verify.py checks both locations.
+Owner: Human & Antigravity
