@@ -200,10 +200,17 @@
         this._mountWidgets();
         this._syncSettingsPanel();
         this._startClock();
-        this._startEnvironment();
 
-        // Re-enter after a profile switch performed by the login flow.
-        if (safeSessionGet(AUTO_ENTER_KEY) === '1') {
+        // A screen-locked session (Super+L) restores into SessionLock instead.
+        const sessionLocked = Boolean(window.ProfileUI &&
+          typeof window.ProfileUI.isSessionLocked === 'function' &&
+          window.ProfileUI.isSessionLocked());
+        if (!sessionLocked) this._startEnvironment();
+
+        if (sessionLocked) {
+          this.state.phase = 'transitioning';
+        } else if (safeSessionGet(AUTO_ENTER_KEY) === '1') {
+          // Re-enter after a profile switch performed by the login flow.
           safeSessionRemove(AUTO_ENTER_KEY);
           const active = window.ProfileService ? window.ProfileService.getActiveProfile() : null;
           if (active && window.ProfileService.isUnlocked(active.id)) {
@@ -418,6 +425,10 @@
       }
       const heading = this._root.querySelector('#lock-user-heading');
       if (heading) heading.textContent = account ? account.displayName : 'Sign in';
+    },
+
+    getAvatarSrc(profileId) {
+      return avatarSrc(this._avatarFor(profileId || this._profileId()));
     },
 
     _avatarFor(profileId) {

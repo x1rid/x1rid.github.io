@@ -150,6 +150,49 @@ an OS administrator.
   reload. A one-time `sessionStorage['desktop.lock.autoEnter']='1'` reveals the
   desktop after that reload.
 
+## Active-session lock (Super+L)
+
+`session-lock.js` + `session-lock.css` implement an Ubuntu GNOME-style screen
+lock over the **running** desktop. It is separate from the LockScreenV2 sign-in
+screen above: no account list, no username field, no reload.
+
+- `Super+L` (and the legacy `Ctrl+Alt+L`) are registered once, through
+  `ShortcutService` in `shell/lock-screen-host.js` (`lock.lock`, context
+  `unlocked`). `window.lockDesktop()` (and `#start-lock-btn`, if present) route to
+  `SessionLock.lock()` whenever a session is active.
+- Lock state: `SessionLock.LOCK_STATES` (`unlocked → locking → locked →
+  authenticating → auth_failed | unlocking → unlocked`) and a separate
+  `PRESENTATION_STATES` (`clock` / `authentication`). Invalid transitions are
+  rejected; unlock is only reachable after `ProfileService.unlockSession()`
+  succeeds.
+- Authentication: `ProfileService.unlockSession(password)` calls the existing
+  `ProfileService.authenticate()` with the active profile's username. Guest
+  sessions unlock with an Unlock button; no second credential store exists.
+- Session preservation: `ProfileWindowState.flushActive()` runs before
+  locking; windows, workspaces, apps, VFS and the active profile are untouched.
+  `ProfileUI.setSessionLocked()` marks every other top-level body child `inert`
+  (including ones appended while locked) and flips the ShortcutService
+  `locked` context, while keeping the desktop painted under the shield.
+- Refresh: `ProfileService.lockSession()` writes only the profile id to
+  sessionStorage `desktop.sessionLock` (the same per-tab store that holds
+  `desktop.activeProfile`). On boot `ProfileUI._init()` sees the marker for the
+  resolved profile and restores the session lock before the desktop is
+  reachable; LockScreenV2 skips its glance/sign-in flow. A marker for another
+  profile is discarded and the normal sign-in screen is shown.
+- Presentation: blurred/dimmed snapshot of the live `#wallpaper` canvas layered
+  over `#desktop`'s computed background (refreshed on lock, resize and tab
+  re-show), large thin clock + date from `KernelClock` and the existing
+  `lockScreen.clock` preferences (12h/24h, seconds, date), one aligned timer
+  that stops while the tab is hidden. Click, touch, wheel or any key reveals
+  authentication; the first printable key is forwarded into the password
+  field. Escape (or 30 s idle with an empty field) returns to the clock.
+- Keyboard events are swallowed in a window capture listener while locked, so
+  apps behind the shield never see them (`session-lock.js` loads before
+  `shortcuts.js`). Browser reload (F5 / Ctrl+R) is allowed; the lock survives it.
+- Motion: the shield drops in on lock, the clock lifts/shrinks for
+  authentication, and the whole shield slides up on unlock (CSS transforms).
+  `prefers-reduced-motion` collapses these to near-instant changes / a fade.
+
 ## Security limitations
 
 This is a static, client-side simulator. The password/Hidden-admin gate is a UI
@@ -160,6 +203,10 @@ fallback on insecure contexts), never in plaintext and never in the lock-screen
 schema.
 
 ## Tests
+
+- `tests/session-lock.test.js` covers the session-lock state machine, clock
+  formatting, `lockSession` / `unlockSession`, and the Super+L wiring.
+
 
 ```bash
 node tests/lock-screen-logic.test.js

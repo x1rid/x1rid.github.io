@@ -40,3 +40,12 @@ Options:
   B) Keep `./main` as the authoritative, modular static distribution target (which contains all extracted shell scripts, manifest apps, and assets), and keep root `index.html` synchronized for local / root-level testing while tracking `./main/index.html` as the deployment entry point.
 Decision: B — `./main` remains the deployment target for GitHub Pages. `main/desktop-environment.css` is added to prevent 404s, stale script tags in the root `index.html` are cleaned up, and verify.py checks both locations.
 Owner: Human & Antigravity
+
+## 2026-11-01 | D-005 | Active-session lock is a shield, not a sign-in
+Context: Super+L must lock the running desktop like Ubuntu GNOME and restore the exact session, while LockScreenV2 remains the boot/sign-in screen.
+Options:
+  A) Re-skin LockScreenV2 and reuse its `lock()` (calls `ProfileService.lock()`, which clears `desktop.ownerUnlocked`, so a refresh would boot Guest).
+  B) Add a presentation-only `SessionLock` over the live desktop; keep the owner session established and gate it with a sessionStorage marker (`desktop.sessionLock`) checked by `ProfileUI` before the desktop is reachable. Unlock re-verifies through `ProfileService.authenticate()`.
+Decision: B. No new database, credential store or session manager; LockScreenV2 is unchanged for sign-in and profile switching.
+Consequences: Lock/unlock never reloads or touches windows/VFS. The marker is client-side state like the rest of the simulator's auth and is not a security boundary.
+Owner: Devin

@@ -35,6 +35,9 @@
   const ACTIVE_KEY = 'desktop.activeProfile';
   const UNLOCK_KEY = 'desktop.ownerUnlocked';
   const ADMIN_UNLOCK_KEY = 'desktop.adminUnlocked';
+  // Active-session lock marker (GNOME-style Super+L). Holds only the locked
+  // profile id; the session itself stays established so unlock never reloads.
+  const SESSION_LOCK_KEY = 'desktop.sessionLock';
   const MEMORY_FALLBACK = Object.create(null);
   const SCHEMA_VERSION = 1;
   const MIN_PASSWORD_LENGTH = 4;
@@ -609,6 +612,51 @@
       if (profile.type === 'administrator') safeSessionSet(ADMIN_UNLOCK_KEY, '0');
       emit('profile:locked', { profileId: profile.id });
       return true;
+    },
+
+    /* Active-session lock (screen lock over a running desktop) */
+
+    lockSession(profileId) {
+      const profile = this.getProfile(profileId || (this._active && this._active.id));
+      if (!profile || !this._active || profile.id !== this._active.id) return false;
+      safeSessionSet(SESSION_LOCK_KEY, profile.id);
+      emit('profile:session-locked', { profileId: profile.id });
+      return true;
+    },
+
+    peekSessionLock() {
+      const id = safeSessionGet(SESSION_LOCK_KEY);
+      return id && definitionFor(id) ? id : null;
+    },
+
+    isSessionLocked(profileId) {
+      const id = this.peekSessionLock();
+      return Boolean(id) && (!profileId || id === profileId);
+    },
+
+    clearSessionLock() {
+      safeSessionRemove(SESSION_LOCK_KEY);
+    },
+
+    async unlockSession(password) {
+      await this.init();
+      const failure = { ok: false, reason: 'invalid-credentials' };
+      const active = this._active;
+      if (!active) return { ok: false, reason: 'no-session' };
+      const lockedId = this.peekSessionLock();
+      if (lockedId && lockedId !== active.id) return failure;
+      const stored = this._profiles.get(active.id) || definitionFor(active.id);
+      if (!stored) return failure;
+      const result = await this.authenticate({
+        username: stored.username,
+        password: String(password == null ? '' : password)
+      });
+      if (!result || !result.ok || result.profileId !== active.id) {
+        return { ok: false, reason: (result && result.reason) || failure.reason };
+      }
+      safeSessionRemove(SESSION_LOCK_KEY);
+      emit('profile:session-unlocked', { profileId: active.id });
+      return { ok: true, profileId: active.id };
     },
 
     subscribe(listener) {

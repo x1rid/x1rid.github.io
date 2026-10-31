@@ -74,9 +74,77 @@
       this._wireTray();
       this._renderSwitcher();
 
+      // A refresh while the active session was screen-locked (Super+L) must
+      // come back locked over the same profile, not at the sign-in screen.
+      const service = window.ProfileService;
+      const sessionLock = service && typeof service.peekSessionLock === 'function'
+        ? service.peekSessionLock() : null;
+      if (sessionLock && this._profile && sessionLock === this._profile.id) {
+        this.setSessionLocked(true);
+        return;
+      }
+      if (sessionLock && service) service.clearSessionLock();
+
       // Every boot begins with the lockscreen showing for all users.
       // Guest can unlock immediately without a password prompt; Owner requires authentication.
       this._setLocked(true);
+    },
+
+    /**
+     * Shield the running desktop for the GNOME-style session lock. Unlike
+     * _setLocked() the desktop stays rendered (the lock slides away to
+     * reveal it); every other top-level surface becomes inert.
+     */
+    setSessionLocked(locked) {
+      this._sessionLocked = Boolean(locked);
+      this._locked = this._sessionLocked;
+      const root = document.documentElement;
+      if (root) {
+        root.classList.toggle('session-locked', this._sessionLocked);
+        if (this._sessionLocked) root.classList.remove('profile-locked');
+      }
+      const signIn = this._lockScreen();
+      if (signIn && this._sessionLocked) {
+        signIn.classList.add('is-unlocked');
+        signIn.setAttribute('aria-hidden', 'true');
+      }
+      const body = document.body;
+      if (!body) return;
+      if (this._sessionLocked) {
+        const active = document.activeElement;
+        if (active && active !== body && typeof active.blur === 'function') active.blur();
+        const shield = function (node) {
+          if (node.nodeType !== 1 || node.id === 'session-lock' || node.hasAttribute('inert')) return;
+          node.setAttribute('inert', '');
+          node.setAttribute('data-session-inert', '');
+        };
+        Array.prototype.forEach.call(body.children, shield);
+        // Surfaces appended while locked (toasts, restored windows) stay unreachable.
+        if (!this._sessionObserver && typeof MutationObserver === 'function') {
+          this._sessionObserver = new MutationObserver(function (records) {
+            records.forEach(function (record) { Array.prototype.forEach.call(record.addedNodes, shield); });
+          });
+          this._sessionObserver.observe(body, { childList: true });
+        }
+      } else {
+        if (this._sessionObserver) {
+          this._sessionObserver.disconnect();
+          this._sessionObserver = null;
+        }
+        body.querySelectorAll('[data-session-inert]').forEach(function (node) {
+          node.removeAttribute('inert');
+          node.removeAttribute('data-session-inert');
+        });
+        [document.getElementById('desktop'), document.getElementById('taskbar')].forEach(function (node) {
+          if (!node) return;
+          node.removeAttribute('inert');
+          node.removeAttribute('aria-hidden');
+        });
+      }
+    },
+
+    isSessionLocked() {
+      return Boolean(this._sessionLocked);
     },
 
     _lockScreen() {
