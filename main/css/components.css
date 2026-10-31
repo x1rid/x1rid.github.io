@@ -250,6 +250,14 @@ html[data-cursor-effective="ghost"].custom-cursor-enabled :is(
     [aria-disabled="true"] *
 ) { cursor: not-allowed !important; }
 
+/* The custom pointer paints under the sign-in screen and the session-lock
+   shield (both sit above its z-index), so over those surfaces the browser
+   keeps its own cursor or the pointer looks invisible. */
+.custom-cursor-enabled .lock-screen,
+.custom-cursor-enabled .lock-screen *,
+.custom-cursor-enabled .gnome-lock,
+.custom-cursor-enabled .gnome-lock * { cursor: auto !important; }
+
 /* Pixel pointer (ghost scheme) */
 .custom-cursor-main {
     position: fixed;

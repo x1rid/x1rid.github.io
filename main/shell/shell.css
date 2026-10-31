@@ -2413,6 +2413,13 @@
         [aria-disabled="true"] *
     ) { cursor: not-allowed !important; }
 
+    /* Custom pointer paints under the sign-in screen and session-lock shield;
+       over those surfaces the browser cursor must come back or it vanishes. */
+    .custom-cursor-enabled .lock-screen,
+    .custom-cursor-enabled .lock-screen *,
+    .custom-cursor-enabled .gnome-lock,
+    .custom-cursor-enabled .gnome-lock * { cursor: auto !important; }
+
     /* Window resize edges: keep the directional resize cursors. */
     html[data-cursor-effective="ghost"].custom-cursor-enabled .resize-handle { cursor: default !important; }
     html[data-cursor-effective="ghost"].custom-cursor-enabled .resize-handle.n { cursor: n-resize !important; }

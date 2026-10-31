@@ -32,7 +32,7 @@
     0.46, 0.39, 0.33, 0.27, 0.22, 0.18, 0.145, 0.115, 0.09, 0.07
   ];
 
-  const NATIVE_STATES = ['text', 'frame', 'splitter', 'disabled'];
+  const NATIVE_STATES = ['text', 'frame', 'splitter', 'disabled', 'screenlock'];
 
   const ASSETS = {
     arrow: './assets/cursor-arrow.png',
@@ -167,6 +167,9 @@
       'input[type="week"], .terminal-output, .terminal-pager-body'
     )) return 'text';
     if (target.closest(':disabled, [aria-disabled="true"]')) return 'disabled';
+    /* Custom cursors paint under the sign-in/session-lock surfaces; there the
+     * CSS restores the browser cursor, so stand the ghost pointer down. */
+    if (target.closest('.lock-screen, .gnome-lock')) return 'screenlock';
     if (target.closest('.is-dragging')) return 'drag';
     if (target.closest('a, button, input, select, [role="button"], summary, label')) return 'link';
     if (target.closest('#retro-titlebar, #retro-music-mini')) return 'drag';
