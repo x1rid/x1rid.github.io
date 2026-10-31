@@ -73,14 +73,22 @@
     'sys.settings.set': 'sys.settings:write',
     'sec.whoami': null,
     'sec.check': null,
+    'sec.elevate': null,
+    'power.sleep': null,
+    'power.hibernate': null,
+    'power.restart': null,
+    'power.shutdown': null,
+    'power.state': null,
     'net.status': 'net.simulated',
     'net.fetch': 'net.simulated'
   };
 
   // Phase 3 calls that are gated by capabilities only (L2 rules don't know them yet).
+  // Phase 4 power + elevation calls are also cap-only (open to all � no L2 rule).
   const CAP_ONLY_CALLS = new Set([
     'sys.info', 'sys.clipboard.get', 'sys.clipboard.set',
-    'sys.settings.get', 'sys.settings.set', 'net.status', 'net.fetch'
+    'sys.settings.get', 'sys.settings.set', 'net.status', 'net.fetch',
+    'sec.elevate', 'power.sleep', 'power.hibernate', 'power.restart', 'power.shutdown', 'power.state'
   ]);
 
   // Successful calls worth an audit line.
@@ -357,6 +365,39 @@
       user: ctx ? ctx.uid : 'guest',
       profileId: ctx ? ctx.uid : 'guest'
     }));
+  });
+
+  SYSCALL_HANDLERS.set('sec.elevate', async function (ctx, args) {
+    if (!root.ElevationService) throw OsErr('ENOSYS', 'ElevationService not available');
+    const result = await root.ElevationService.request(ctx ? ctx.pid : 0, args && args.reason || 'Unknown operation');
+    if (!result.granted) throw OsErr('EPERM', 'Elevation denied');
+    return { token: result.token };
+  });
+
+  // ── power.* ─────────────────────────────────────────────────────────────
+  SYSCALL_HANDLERS.set('power.sleep', async function () {
+    if (!root.PowerService) throw OsErr('ENOSYS', 'PowerService not available');
+    return root.PowerService.sleep();
+  });
+
+  SYSCALL_HANDLERS.set('power.hibernate', async function () {
+    if (!root.PowerService) throw OsErr('ENOSYS', 'PowerService not available');
+    return root.PowerService.hibernate();
+  });
+
+  SYSCALL_HANDLERS.set('power.restart', async function () {
+    if (!root.PowerService) throw OsErr('ENOSYS', 'PowerService not available');
+    return root.PowerService.restart();
+  });
+
+  SYSCALL_HANDLERS.set('power.shutdown', async function () {
+    if (!root.PowerService) throw OsErr('ENOSYS', 'PowerService not available');
+    return root.PowerService.shutdown();
+  });
+
+  SYSCALL_HANDLERS.set('power.state', async function () {
+    if (!root.PowerService) throw OsErr('ENOSYS', 'PowerService not available');
+    return { state: root.PowerService.state };
   });
 
   // ── fs.* (Wraps VFS or mock) ───────────────────────────────────────────

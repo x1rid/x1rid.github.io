@@ -15,22 +15,30 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '20261031.p3.5';
+  const VERSION = '20261031.p4';
   const DB_NAME = 'kernel-db';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const SCHEMA_VERSION = 1;
   const AUDIT_MAX = 5000;
   const TRIM_EVERY = 100;
 
   const STORES = {
     audit: { autoIncrement: true },
-    installed_apps: { keyPath: 'id' }
+    installed_apps: { keyPath: 'id' },
+    autostart_entries: { keyPath: 'id' },
+    scheduled_tasks: { keyPath: 'id' },
+    hibernate_snapshot: { keyPath: 'id' }
   };
 
   // target db version -> fn(db, tx). Add entries here; never edit old ones.
   const MIGRATIONS = {
     1: function (db) {
-      Object.keys(STORES).forEach(function (name) {
+      ['audit', 'installed_apps'].forEach(function (name) {
+        if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, STORES[name]);
+      });
+    },
+    2: function (db) {
+      ['autostart_entries', 'scheduled_tasks', 'hibernate_snapshot'].forEach(function (name) {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, STORES[name]);
       });
     }

@@ -160,6 +160,20 @@ function shellBoot() {
     shellInit_host_bridge_1();   // host-bridge
     shellInit_boot_2();   // boot
     shellInit_shortcuts_host_1();   // shortcuts-host
+
+    // Phase 4.2: run autostart entries after full shell boot
+    if (typeof AutostartService !== 'undefined') { AutostartService.run(); }
+}
+
+// Phase 4.4: BIOS fiction screen — show before ProfileReady if URL param set
+if (typeof BiosScreen !== 'undefined' &&
+    (location.search.includes('bios=1') || location.search.includes('restoring=hibernate'))) {
+    BiosScreen.show({ onContinue: function () { BiosScreen.hide(); } });
+}
+
+// Phase 4.3: restore hibernate snapshot if requested
+if (typeof PowerService !== 'undefined' && location.search.includes('restoring=hibernate')) {
+    PowerService.restore();
 }
 
 window.ProfileReady.then(shellBoot).catch(function (error) {
