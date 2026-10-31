@@ -213,3 +213,21 @@ First task card: **Phase 2.1 — Wire Terminal to the real VFS via syscalls** (k
 
 ### Next step
 Phase 2.4 � Split shells (cmd.exe / ash) per roadmap and llm-phase2/2.4-split-shells/.
+
+---
+
+## 2026-10-31 | Jules | Phase 2.4 Complete
+
+### What was done
+- **Task 011 / Phase 2.4** — Split shells (`cmd`, `powershell`, `bash`) into separate L6 apps sharing `CommandEngine` library:
+  - Created `main/shell/command-engine.js`: parser, pipes, redirection (`>`, `>>`, `<`), environment expansion (`$VAR`, `${VAR}`, `%VAR%`, `$env:VAR`), pipeline execution, job control (`jobs`, `kill`), and `Kernel.syscall` integration.
+  - Created `main/apps/cmd.js`: Windows CMD L6 shell application with CMD dialect (`dir`, `cd`, `type`, `cls`, `del`, `md`, `ver`, `copy`, `echo`, `exit`, `help`), `C:\...>` prompt, and `AppRegistry` registration.
+  - Created `main/apps/powershell.js`: PowerShell L6 application with cmdlets and aliases (`Get-ChildItem`/`dir`/`ls`, `Set-Location`/`cd`, `Get-Content`/`type`/`cat`, `Remove-Item`/`rm`, `New-Item`/`touch`, `Get-Process`/`ps`), `PS C:\...>` prompt, and `AppRegistry` registration.
+  - Created `main/apps/bash.js`: POSIX Bash L6 application with POSIX paths, builtins (`ls`, `cd`, `cat`, `pwd`, `clear`, `rm`, `mkdir`, `cp`, `touch`, `export`, `ps`, `echo`, `whoami`, `date`, `exit`, `help`), `user@host:path$` prompt, and `AppRegistry` registration.
+  - Integrated shell scripts into `main/index.html` with `?v=20261031` cache busting; wired terminal window launcher to support opening distinct shell dialects (`cmd`, `powershell`, `bash`).
+  - Created comprehensive test suite `tests/command-engine.test.js` (47 tests).
+  - All **383 unit tests pass** across 18 test suites in `node tests/run-tests.js`.
+  - Added `docs/tasks/011-split-shells.md` and decision entry in `docs/DECISIONS.md`.
+
+### Exact next step
+Proceed to **Phase 2.5: Explorer and Terminal both use fs.watch** (`llm-phase2/2.5-fs-watch-sync/`).

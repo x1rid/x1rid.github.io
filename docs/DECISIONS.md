@@ -22,3 +22,12 @@ Decisions:
 4. Extracting hardcoded identities (`r3d1bruh`) to `data/site-config.json` approved with explicit `schemaVersion` and migration/loader steps, scheduled as a discrete Task Card (`docs/tasks/001-extract-site-config.md`).
 Owner: Human & Antigravity
 
+## 2026-10-31 | D-003 | Phase 2.4 Split Shells & CommandEngine Architecture
+Context: OS_FOUNDATION.md Phase 2.4 requires splitting shells (`cmd`, `powershell`, `bash`) as separate L6 apps sharing a command-engine library.
+Options:
+  A) Bundle parsing and builtins individually inside each shell script.
+  B) Provide a shared `CommandEngine` library in `main/shell/command-engine.js` implementing tokenizer, AST parsing, environment expansion, pipeline chaining, redirection, and job control, while allowing each shell app (`main/apps/cmd.js`, `main/apps/powershell.js`, `main/apps/bash.js`) to provide its own dialect, prompts, and builtins.
+Decision: B — `CommandEngine` acts as the shared foundation for all L6 shells, communicating with VFS purely through `Kernel.syscall` and exposing job control and diagnostics.
+Consequences: Shells share robust pipeline and redirection logic without duplicate code; dialect differences remain strictly confined to presentation, parsing rules, and builtins.
+Owner: Jules
+

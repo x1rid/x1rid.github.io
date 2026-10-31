@@ -2887,6 +2887,10 @@ window.RetroApps = (() => {
     };
 })();
 </script>
+<script src="./shell/command-engine.js?v=20261031"></script>
+<script src="./apps/cmd.js?v=20261031"></script>
+<script src="./apps/powershell.js?v=20261031"></script>
+<script src="./apps/bash.js?v=20261031"></script>
 <script src="./apps/minesweeper.js"></script>
 <script src="./apps/solitaire.js"></script>
 <script src="./apps/calculator.js"></script>
@@ -3943,11 +3947,17 @@ window.ProfileReady.then(() => {
         node.querySelector('.tty-cell').textContent = `TTY ${String(number).padStart(2, '0')}`;
         desktop.appendChild(node);
 
+        const dialect = options.dialect || 'bash';
+        const winTitle = options.title || (dialect === 'cmd' ? `Command Prompt ${number}` : (dialect === 'powershell' ? `Windows PowerShell ${number}` : `Terminal ${number}`));
+        node.querySelector('.titlebar-title').textContent = winTitle;
+        node.setAttribute('aria-label', winTitle);
+        node.querySelector('.terminal-status-cell:nth-child(2)').textContent = dialect === 'cmd' ? 'cmd 4.10' : (dialect === 'powershell' ? 'powershell 5.1' : 'bash 5.1');
+
         const win = registerWindow(node, {
             id,
-            appId: 'terminal',
-            title: `Terminal ${number}`,
-            taskbarTitle: `Terminal ${number}`,
+            appId: dialect === 'cmd' ? 'cmd' : (dialect === 'powershell' ? 'powershell' : (dialect === 'bash' ? 'bash' : 'terminal')),
+            title: winTitle,
+            taskbarTitle: winTitle,
             icon: '>_',
             minWidth: 340,
             minHeight: 220,
@@ -3955,8 +3965,8 @@ window.ProfileReady.then(() => {
             focusTarget: '.terminal-input'
         });
 
-        initTerminal(win);
-        if (window.AppRegistry) window.AppRegistry.attachWindow('terminal', win, { windowId: id });
+        initTerminal(win, options);
+        if (window.AppRegistry) window.AppRegistry.attachWindow(win.appId, win, { windowId: id });
         if (options.focus !== false) focusWindow(id, true);
         persistWindowState();
         return win;
@@ -4685,17 +4695,32 @@ window.ProfileReady.then(() => {
         return `${seconds}s`;
     }
 
-    function initTerminal(win) {
+    function initTerminal(win, options) {
+        options = options || {};
+        const dialect = options.dialect || 'bash';
         const node = win.node;
         const output = node.querySelector('.terminal-output');
         const form = node.querySelector('.terminal-form');
         const input = node.querySelector('.terminal-input');
         const promptElement = node.querySelector('.terminal-prompt');
+
+        // Check if dialect session app is available
+        let session = null;
+        if (dialect === 'cmd' && window.CmdShellApp) {
+            session = window.CmdShellApp.createSession({ cwd: 'C:\\Users\\user' });
+        } else if (dialect === 'powershell' && window.PowerShellApp) {
+            session = window.PowerShellApp.createSession({ cwd: 'C:\\Users\\user' });
+        } else if (dialect === 'bash' && window.BashApp) {
+            session = window.BashApp.createSession({ cwd: '/home/user' });
+        }
+
         const term = {
-            cwd: '~',
+            cwd: session ? session.cwd : '~',
             cwdId: (window.VFS ? window.VFS.getKnownFolder('userProfile') : null),
             history: [],
-            historyIndex: 0
+            historyIndex: 0,
+            dialect: dialect,
+            session: session
         };
 
         terminalSessions.set(win.id, { term, input, output, node });
@@ -4707,6 +4732,9 @@ window.ProfileReady.then(() => {
         const categories = ['all', 'social', 'dev', 'play', 'unavailable'];
 
         function promptText() {
+            if (term.session) {
+                return term.session.prompt;
+            }
             const vfs = vfsReady();
             let display = term.cwd;
             if (vfs && term.cwdId) {
@@ -5141,7 +5169,7 @@ window.ProfileReady.then(() => {
             return true;
         }
 
-        form.addEventListener('submit', (event) => {
+        form.addEventListener('submit', async (event) => {
             event.preventDefault();
             const raw = input.value;
             const command = raw.trim();
@@ -5150,10 +5178,38 @@ window.ProfileReady.then(() => {
             if (command) {
                 term.history.push(command);
                 term.historyIndex = term.history.length;
-                const shouldRefocus = runCommand(command);
-                if (win.closed) return;
-                updatePrompt();
-                if (shouldRefocus !== false) input.focus();
+
+                if (term.session) {
+                    try {
+                        const res = await term.session.execute(command, {
+                            closeWindow: () => closeWindow(win.id)
+                        });
+                        if (win.closed) return;
+                        if (res.stdout) {
+                            if (res.stdout.includes('\x1b[2J\x1b[H')) {
+                                output.textContent = '';
+                            } else {
+                                res.stdout.split('\n').forEach(l => {
+                                    if (l || res.stdout.endsWith('\n')) line(l);
+                                });
+                            }
+                        }
+                        if (res.stderr) {
+                            res.stderr.split('\n').forEach(l => {
+                                if (l) line(l, 'error');
+                            });
+                        }
+                    } catch (err) {
+                        line(err.message || 'Execution error', 'error');
+                    }
+                    updatePrompt();
+                    input.focus();
+                } else {
+                    const shouldRefocus = runCommand(command);
+                    if (win.closed) return;
+                    updatePrompt();
+                    if (shouldRefocus !== false) input.focus();
+                }
             } else {
                 input.focus();
             }
@@ -5167,9 +5223,15 @@ window.ProfileReady.then(() => {
             }
         });
 
-        line('r3sh 0.1 — r3d1bruh desktop', 'success');
-        line('Type "help" for commands. Start is a desktop-wide search.', 'dim');
-        line('');
+        if (term.session) {
+            term.session.banner.split('\n').forEach(l => {
+                if (l) line(l);
+            });
+        } else {
+            line('r3sh 0.1 — r3d1bruh desktop', 'success');
+            line('Type "help" for commands. Start is a desktop-wide search.', 'dim');
+            line('');
+        }
         updatePrompt();
     }
 
@@ -5825,6 +5887,48 @@ window.ProfileReady.then(() => {
             multiple: true,
             launch(context, options) {
                 return openTerminal(options);
+            }
+        });
+
+        registry.register({
+            id: 'cmd',
+            name: 'Command Prompt',
+            tagline: 'Windows Command Interpreter (cmd.exe)',
+            meta: 'CLI \u00B7 MS-DOS / WIN32',
+            icon: '>_',
+            source: 'IN-HOUSE',
+            kind: 'system',
+            multiple: true,
+            launch(context, options) {
+                return openTerminal(Object.assign({ dialect: 'cmd', title: 'Command Prompt' }, options));
+            }
+        });
+
+        registry.register({
+            id: 'powershell',
+            name: 'PowerShell',
+            tagline: 'Windows PowerShell Command Automation',
+            meta: 'CLI \u00B7 OBJECT PIPELINES',
+            icon: '>_',
+            source: 'IN-HOUSE',
+            kind: 'system',
+            multiple: true,
+            launch(context, options) {
+                return openTerminal(Object.assign({ dialect: 'powershell', title: 'Windows PowerShell' }, options));
+            }
+        });
+
+        registry.register({
+            id: 'bash',
+            name: 'Bash',
+            tagline: 'POSIX Bourne-Again SHell',
+            meta: 'CLI \u00B7 POSIX PIPES & REDIRECTION',
+            icon: '>_',
+            source: 'IN-HOUSE',
+            kind: 'system',
+            multiple: true,
+            launch(context, options) {
+                return openTerminal(Object.assign({ dialect: 'bash', title: 'Bash' }, options));
             }
         });
 
