@@ -1,0 +1,512 @@
+<body>
+<div class="desktop" id="desktop" role="main" aria-label="Desktop">
+    <canvas class="wallpaper" id="wallpaper" aria-hidden="true"></canvas>
+    <div class="wallpaper-grid" aria-hidden="true"></div>
+
+    <button class="desktop-icon" onclick="openMyComputer()" ondblclick="openMyComputer()" aria-label="My Computer" title="My Computer" style="top:18px; left:18px;">
+        <span class="pc-icon" aria-hidden="true"></span>
+        <span class="icon-label">My Computer</span>
+    </button>
+
+    <button class="desktop-icon" onclick="openRecycleBin()" ondblclick="openRecycleBin()" aria-label="Recycle Bin" title="Recycle Bin" style="top:102px; left:18px;">
+        <span class="trash-icon" aria-hidden="true"></span>
+        <span class="icon-label">Recycle Bin</span>
+    </button>
+
+    <section class="explorer window" id="explorer" aria-label="Link Exchange file manager prototype">
+        <header class="titlebar">
+            <img class="title-avatar" src="./socials/pfp.webp" alt="" width="20" height="20">
+            <span class="title-path"><span class="title-root">r3d1bruh://</span><span class="title-folder">link-exchange</span></span>
+            <span class="prototype-badge">PROTOTYPE</span>
+        </header>
+
+        <div class="toolbar">
+            <button id="nav-back" class="tool-btn" type="button" title="Back (Alt+Left)" aria-label="Back" disabled>←</button>
+            <button id="nav-forward" class="tool-btn" type="button" title="Forward (Alt+Right)" aria-label="Forward" disabled>→</button>
+            <button id="nav-up" class="tool-btn" type="button" title="Up (Backspace)" aria-label="Up" disabled>↑</button>
+            <span class="tool-sep" aria-hidden="true"></span>
+
+            <div class="addressbar" aria-label="Current path">
+                <span class="address-icon" aria-hidden="true"></span>
+                <div class="breadcrumbs" id="breadcrumbs"></div>
+            </div>
+
+            <label class="searchbox">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+                    <circle cx="7" cy="7" r="4.5"></circle>
+                    <path d="M10.5 10.5 L14 14"></path>
+                </svg>
+                <input id="search" type="search" placeholder="Search links…" autocomplete="off" spellcheck="false" aria-label="Search links">
+            </label>
+
+            <button id="view-toggle" class="tool-btn view-btn" type="button" title="Toggle details / list view" aria-pressed="false">DETAILS</button>
+        </div>
+
+        <div class="body">
+            <aside class="tree-pane" aria-label="Folders">
+                <div class="tree-header">
+                    <span>Folders</span>
+                    <span class="tree-header-count" id="tree-total">-- OBJECTS</span>
+                </div>
+                <div class="tree" id="tree" role="tree" aria-label="Link exchange folders"></div>
+            </aside>
+
+            <div class="splitter" id="splitter" role="separator" aria-label="Resize folder pane" aria-orientation="vertical" aria-valuemin="160" aria-valuemax="360" aria-valuenow="220" tabindex="0">
+                <span aria-hidden="true"></span>
+            </div>
+
+            <div class="list-pane">
+                <div class="table-wrap" id="table-wrap">
+                    <table id="file-table" aria-label="Link exchange files">
+                        <thead>
+                            <tr>
+                                <th class="col-name" data-sort="name" aria-sort="ascending">
+                                    <button type="button" data-sort-key="name">Name <span class="sort-arrow">▲</span></button>
+                                </th>
+                                <th class="col-type" data-sort="type">
+                                    <button type="button" data-sort-key="type">Type <span class="sort-arrow">▲</span></button>
+                                </th>
+                                <th class="col-size" data-sort="size">
+                                    <button type="button" data-sort-key="size">Size <span class="sort-arrow">▲</span></button>
+                                </th>
+                                <th class="col-modified" data-sort="modified">
+                                    <button type="button" data-sort-key="modified">Modified <span class="sort-arrow">▲</span></button>
+                                </th>
+                                <th class="col-status" data-sort="status">
+                                    <button type="button" data-sort-key="status">Status <span class="sort-arrow">▲</span></button>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="file-rows"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <footer class="statusbar">
+            <span class="status-cell status-count" id="status-count">-- objects</span>
+            <span class="status-cell status-target" id="status-target" aria-live="polite">Double-click or press Enter to open</span>
+            <span class="status-cell status-state"><span class="state-dot" aria-hidden="true"></span>LOCAL</span>
+            <span class="status-cell status-clock" id="clock">--:--</span>
+        </footer>
+    </section>
+
+    <section class="window programs-window" id="programs" aria-label="Programs">
+        <header class="titlebar">
+            <span class="program-title-icon" aria-hidden="true">
+                <svg viewBox="0 0 16 16" width="16" height="16" focusable="false">
+                    <rect x="1" y="1" width="6" height="6" fill="#c084fc"></rect>
+                    <rect x="9" y="1" width="6" height="6" fill="#55ff99"></rect>
+                    <rect x="1" y="9" width="6" height="6" fill="#ff4fd8"></rect>
+                    <rect x="9" y="9" width="6" height="6" fill="#8be9fd"></rect>
+                </svg>
+            </span>
+            <span class="titlebar-title">Programs</span>
+            <span class="prototype-badge" id="programs-count">0 INSTALLED</span>
+        </header>
+        <div class="programs-body">
+            <div class="apps-head">
+                <strong>C:\PROGRAMS</strong>
+                <span>IN-HOUSE SOFTWARE</span>
+            </div>
+            <div class="apps-grid" id="programs-grid" role="group" aria-label="Installed programs"></div>
+            <p class="apps-note">Four in-house ports plus six programs copied from 98.js and re-themed &mdash; see the README credits.</p>
+        </div>
+        <footer class="program-statusbar">
+            <span class="program-status-cell" id="programs-status">READY</span>
+            <span class="program-status-cell">C:\PROGRAMS</span>
+            <span class="program-status-cell program-status-state"><span class="state-dot" aria-hidden="true"></span>LOCAL</span>
+        </footer>
+    </section>
+
+    <section class="music-window window is-closed" id="music" aria-label="Music player">
+        <header class="titlebar">
+            <span class="music-title-icon" aria-hidden="true">♪</span>
+            <span class="titlebar-title">Music</span>
+            <span class="music-badge">LOCAL</span>
+        </header>
+        <div class="music-body">
+            <div class="music-screen">
+                <div class="music-screen-head">
+                    <div class="music-now">
+                        <span class="music-kicker">NOW PLAYING</span>
+                        <span class="music-track-title" id="music-track-title" aria-live="polite">LOADING PLAYLIST…</span>
+                    </div>
+                    <span class="music-status" id="music-status" aria-live="polite" aria-atomic="true">SCANNING</span>
+                </div>
+                <div class="music-progress-wrap">
+                    <input class="music-progress" id="music-progress" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek track">
+                    <div class="music-time">
+                        <span id="music-time">0:00</span>
+                        <span id="music-duration">--:--</span>
+                    </div>
+                </div>
+            </div>
+            <div class="music-controls">
+                <button class="music-btn" id="music-prev" type="button" title="Previous track" aria-label="Previous track">|◀</button>
+                <button class="music-btn music-btn-primary" id="music-play" type="button" title="Play" aria-label="Play">▶</button>
+                <button class="music-btn" id="music-next" type="button" title="Next track" aria-label="Next track">▶|</button>
+                <label class="music-volume-wrap" title="Volume">
+                    <span>VOL</span>
+                    <input class="music-volume" id="music-volume" type="range" min="0" max="100" value="45" step="1" aria-label="Volume">
+                    <span class="music-volume-value" id="music-volume-value">45%</span>
+                </label>
+            </div>
+            <div class="music-list-head">
+                <span>PLAYLIST</span>
+                <span id="music-count">0 TRACKS</span>
+            </div>
+            <div class="music-list" id="music-list" role="listbox" aria-label="Local playlist"></div>
+            <div class="music-foot">
+                <span>LOCAL PLAYLIST</span>
+                <span id="music-source">playlist/</span>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div class="taskbar" id="taskbar" role="toolbar" aria-label="Taskbar">
+    <button class="start-button" id="start-button" type="button" aria-expanded="false" aria-controls="start-menu" title="Search the desktop">
+        <span class="start-mark" aria-hidden="true">▣</span>
+        <span class="start-label">START</span>
+    </button>
+    <button class="start-button programs-button" id="programs-button" type="button" title="Open Programs" aria-haspopup="dialog">
+        <span class="start-mark" aria-hidden="true">▦</span>
+        <span class="start-label">PROGRAMS</span>
+    </button>
+    <div class="taskbar-apps" id="taskbar-apps" aria-label="Open windows"></div>
+    <div class="taskbar-music" id="taskbar-music" role="group" aria-label="Music player">
+        <button class="mini-open" id="mini-open" type="button" title="Open Music" aria-label="Open Music">
+            <span class="mini-led" aria-hidden="true"></span>
+            <span class="mini-icon" aria-hidden="true">♪</span>
+            <span class="mini-text">
+                <span class="mini-title">MUSIC</span>
+                <span class="mini-track" id="mini-track">LOADING…</span>
+            </span>
+        </button>
+        <button class="mini-btn" id="mini-play" type="button" title="Play" aria-label="Play">▶</button>
+        <button class="mini-btn" id="mini-next" type="button" title="Next track" aria-label="Next track">▶|</button>
+    </div>
+    <div class="taskbar-tray">
+        <button class="tray-button" id="show-desktop" type="button" title="Show desktop" aria-label="Show desktop" aria-pressed="false">▭</button>
+        <button class="tray-button" id="wallpaper-toggle" type="button" title="Pause live wallpaper" aria-label="Pause live wallpaper" aria-pressed="false">✦</button>
+        <button class="tray-button clippy-toggle" id="clippy-toggle" type="button" title="Show assistant" aria-label="Show assistant" aria-pressed="false">📎</button>
+        <span class="taskbar-clock" id="taskbar-clock" title="">--:--</span>
+    </div>
+</div>
+
+<div class="start-menu" id="start-menu" role="dialog" aria-label="Search the desktop" hidden>
+    <div class="start-header">
+        <span>START / SEARCH</span>
+        <button class="start-close" id="start-close" type="button" title="Close search" aria-label="Close search">×</button>
+    </div>
+    <label class="start-search">
+        <span class="start-search-icon" aria-hidden="true">⌕</span>
+        <input id="start-input" type="search" placeholder="Search apps, folders, links, files…" autocomplete="off" spellcheck="false" aria-label="Search the desktop" role="combobox" aria-expanded="true" aria-controls="start-results" aria-autocomplete="list">
+    </label>
+    <div class="start-results" id="start-results" role="listbox" aria-label="Search results"></div>
+    <div class="start-footer">
+        <span>↑↓ navigate · enter open</span>
+        <span>esc close</span>
+    </div>
+</div>
+
+<div class="shell-toast" id="shell-toast" role="status" aria-live="polite" hidden></div>
+
+<div class="desktop-gate" role="note">
+    <div>
+        <div class="desktop-gate-mark" aria-hidden="true">▣</div>
+        <div class="desktop-gate-title">DESKTOP SHELL PROTOTYPE</div>
+        <p>Open this page at 761px or wider.<br>The phone design is intentionally untouched.</p>
+    </div>
+</div>
+
+<template id="terminal-template">
+    <section class="window terminal-window" data-app="terminal" aria-label="Terminal">
+        <header class="titlebar terminal-titlebar">
+            <span class="terminal-title-icon" aria-hidden="true">&gt;_</span>
+            <span class="titlebar-title">Terminal</span>
+            <span class="prototype-badge">TTY</span>
+        </header>
+        <div class="terminal-body">
+            <div class="terminal-output" role="log" aria-live="polite"></div>
+            <form class="terminal-form" autocomplete="off">
+                <span class="terminal-prompt">r3d1bruh@desktop:~$</span>
+                <input class="terminal-input" type="text" autocomplete="off" spellcheck="false" aria-label="Terminal command">
+            </form>
+        </div>
+        <footer class="terminal-statusbar">
+            <span class="terminal-status-cell tty-cell">TTY 01</span>
+            <span class="terminal-status-cell">r3sh 0.1</span>
+            <span class="terminal-status-cell terminal-status-state"><span class="state-dot" aria-hidden="true"></span>LOCAL</span>
+        </footer>
+    </section>
+</template>
+
+<div class="context-menu" id="context-menu" role="menu" hidden></div>
+
+<div class="dialog-overlay" id="dialog-overlay" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+        <div class="dialog-titlebar" id="dialog-title">Properties</div>
+        <div class="dialog-body" id="dialog-body"></div>
+        <div class="dialog-actions">
+            <button id="dialog-ok" class="dialog-btn" type="button">OK</button>
+        </div>
+    </div>
+</div>
+
+<script src="./fs/explorer-adapter.js?v=20261105"></script>
+<script>
+/* ---------------------------------------------------------------------------
+ *  Programs registry for the desktop shell.
+ *
+ *  The four app files only know this tiny contract:
+ *    RetroApps.register({ id, name, tagline, meta, icon, mount })
+ *    mount(root, api) -> optional cleanup; api.setMeta(text); api.close()
+ *
+ *  The shell's window manager owns the actual windows, so this adapter just
+ *  collects registrations and hands definitions to openProgram().
+ * ------------------------------------------------------------------------- */
+window.RetroApps = (() => {
+    'use strict';
+
+    const registry = [];
+
+    function byId(id) {
+        const key = String(id || '').toLowerCase();
+        return registry.find((app) => app.id === key) || null;
+    }
+
+    function register(def) {
+        if (!def || !def.id || typeof def.mount !== 'function') return;
+        const id = String(def.id).toLowerCase();
+        if (byId(id)) return;
+        registry.push({
+            id,
+            name: def.name || id,
+            tagline: def.tagline || '',
+            meta: def.meta || '',
+            icon: def.icon || '',
+            source: def.source || 'IN-HOUSE',
+            frame: Boolean(def.frame),
+            mount: def.mount
+        });
+    }
+
+    return {
+        register,
+        get: byId,
+        list() {
+            return registry.map((app) => ({
+                id: app.id,
+                name: app.name,
+                tagline: app.tagline,
+                meta: app.meta,
+                icon: app.icon
+            }));
+        }
+    };
+})();
+</script>
+<script src="./shell/command-engine.js?v=20261031"></script>
+<script src="./apps/cmd.js?v=20261031"></script>
+<script src="./apps/powershell.js?v=20261031"></script>
+<script src="./apps/bash.js?v=20261031"></script>
+<script src="./apps/minesweeper.js"></script>
+<script src="./apps/solitaire.js"></script>
+<script src="./apps/mediaplayer.js"></script>
+<script>
+/* ---------------------------------------------------------------------------
+ *  Vendored 98.js programs.
+ *
+ *  These are the upstream programs from https://github.com/1j01/98, copied
+ *  under ./vendor/98 and re-pointed at the site palette by
+ *  ./vendor/98/theme.css. They run in same-origin frames so their original
+ *  scripts, menus, WebGL and WASM assets stay untouched.
+ * ------------------------------------------------------------------------- */
+(() => {
+    'use strict';
+
+    const ICONS = {
+        flowerbox: `
+            <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <rect x="2" y="2" width="28" height="28" fill="#07020a" stroke="#6f3a93"></rect>
+                <path d="M16 6l7 5v9l-7 5-7-5v-9z" fill="none" stroke="#c084fc" stroke-width="1.2"></path>
+                <path d="M16 6v9m0 0l7-4m-7 4l-7-4m7 4v10" stroke="#ff4fd8" stroke-width="1"></path>
+                <circle cx="16" cy="15" r="2.4" fill="#55ff99"></circle>
+            </svg>`,
+        notepad: `
+            <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <path d="M7 4h13l5 5v19H7z" fill="#0e061e" stroke="#6f3a93"></path>
+                <path d="M20 4v6h5" fill="none" stroke="#6f3a93"></path>
+                <path d="M11 15h10M11 19h10M11 23h7" stroke="#c084fc" stroke-width="1.3"></path>
+            </svg>`,
+        pinball: `
+            <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <rect x="2" y="2" width="28" height="28" fill="#07020a" stroke="#6f3a93"></rect>
+                <path d="M9 24l5-12M23 24l-5-12" stroke="#c084fc" stroke-width="2.2"></path>
+                <circle cx="16" cy="10" r="3" fill="#f2eaff" stroke="#ff4fd8"></circle>
+                <path d="M8 27h16" stroke="#55ff99" stroke-width="1.4"></path>
+            </svg>`,
+        pipes: `
+            <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <rect x="2" y="2" width="28" height="28" fill="#07020a" stroke="#6f3a93"></rect>
+                <path d="M8 24V14a6 6 0 016-6h10" fill="none" stroke="#c084fc" stroke-width="5"></path>
+                <path d="M8 24V14a6 6 0 016-6h10" fill="none" stroke="#ff4fd8" stroke-width="1.4"></path>
+                <path d="M6 6h4M22 22h4" stroke="#55ff99" stroke-width="2"></path>
+            </svg>`,
+        soundrecorder: `
+            <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <rect x="2" y="2" width="28" height="28" fill="#07020a" stroke="#6f3a93"></rect>
+                <path d="M16 7a3 3 0 00-3 3v6a3 3 0 006 0v-6a3 3 0 00-3-3z" fill="none" stroke="#c084fc" stroke-width="1.4"></path>
+                <path d="M10 16a6 6 0 0012 0M16 22v4M12 26h8" fill="none" stroke="#c084fc" stroke-width="1.4"></path>
+                <path d="M5 14v4M27 14v4" stroke="#ff4fd8" stroke-width="1.2"></path>
+            </svg>`,
+        winamp: `
+            <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <rect x="2" y="2" width="28" height="28" fill="#07020a" stroke="#6f3a93"></rect>
+                <path d="M13 8l11 8-11 8z" fill="#c084fc" stroke="#f2eaff" stroke-width="0.8"></path>
+                <path d="M8 8v16M25 8v16" stroke="#ff4fd8" stroke-width="1.2"></path>
+            </svg>`,
+        controlpanel: `
+            <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <rect x="2" y="2" width="28" height="28" fill="#07020a" stroke="#6f3a93"></rect>
+                <rect x="7" y="7" width="18" height="18" fill="none" stroke="#c084fc" stroke-width="1.2"></rect>
+                <circle cx="16" cy="16" r="4" fill="#ff4fd8"/>
+                <rect x="13" y="9" width="6" height="2" fill="#55ff99"/>
+                <rect x="13" y="21" width="6" height="2" fill="#55ff99"/>
+            </svg>`
+    };
+
+    const VENDOR_PROGRAMS = [
+        {
+            id: 'flowerbox',
+            name: '3D FlowerBox',
+            tagline: 'Polygon blossoms with real-time WebGL lighting.',
+            meta: 'SCREENSAVER \u00B7 WEBGL',
+            icon: ICONS.flowerbox,
+            src: './vendor/98/programs/3D-FlowerBox/index.html'
+        },
+        {
+            id: 'notepad',
+            name: 'Notepad',
+            tagline: 'Plain text, BrowserFS files, and the original menu engine.',
+            meta: 'TEXT EDITOR \u00B7 98.JS',
+            icon: ICONS.notepad,
+            src: './vendor/98/programs/notepad/index.html'
+        },
+        {
+            id: 'pinball',
+            name: '3D Pinball',
+            tagline: 'Space Cadet, compiled to WebAssembly and running locally.',
+            meta: 'GAME \u00B7 WASM',
+            icon: ICONS.pinball,
+            src: './vendor/98/programs/pinball/space-cadet.html'
+        },
+        {
+            id: 'pipes',
+            name: '3D Pipes',
+            tagline: 'Endless phosphor pipes from the classic screensaver.',
+            meta: 'SCREENSAVER \u00B7 WEBGL',
+            icon: ICONS.pipes,
+            src: './vendor/98/programs/pipes/index.html'
+        },
+        {
+            id: 'soundrecorder',
+            name: 'Sound Recorder',
+            tagline: 'Record, trim and play back audio without leaving the shell.',
+            meta: 'AUDIO \u00B7 98.JS',
+            icon: ICONS.soundrecorder,
+            src: './vendor/98/programs/sound-recorder/index.html'
+        },
+        {
+            id: 'winamp',
+            name: 'Winamp',
+            tagline: 'The llama whipping intro, playlist and spectrum visualizer.',
+            meta: 'PLAYER \u00B7 WEBAMP',
+            icon: ICONS.winamp,
+            src: './vendor/98/programs/winamp/index.html'
+        }
+    ];
+
+    VENDOR_PROGRAMS.forEach((program) => {
+        window.RetroApps.register({
+            id: program.id,
+            name: program.name,
+            tagline: program.tagline,
+            meta: program.meta,
+            icon: program.icon,
+            source: '98.JS',
+            frame: true,
+            mount(root) {
+                const frame = document.createElement('iframe');
+                frame.className = 'program-frame';
+                frame.title = program.name;
+                frame.src = program.src;
+                frame.setAttribute('allow', 'autoplay; fullscreen; gamepad');
+                root.replaceChildren(frame);
+                return () => {
+                    frame.src = 'about:blank';
+                    root.replaceChildren();
+                };
+            }
+        });
+    });
+
+    /* Control Panel — in-house settings, same plum grammar as the shell. */
+    window.RetroApps.register({
+        id: 'controlpanel',
+        name: 'Control Panel',
+        tagline: 'Appearance, folder options, and desktop settings.',
+        meta: 'SETTINGS \· IN-HOUSE',
+        icon: ICONS.controlpanel,
+        source: 'IN-HOUSE',
+        frame: true,
+        mount(root) {
+            const frame = document.createElement('iframe');
+            frame.className = 'program-frame';
+            frame.title = 'Control Panel';
+            frame.src = './vendor/control-panel/index.html';
+            frame.setAttribute('allow', 'autoplay; fullscreen');
+            root.replaceChildren(frame);
+            return () => {
+                frame.src = 'about:blank';
+                root.replaceChildren();
+            };
+        }
+    });
+
+    /* JS Paint — dark plum utility theme, aligned with the desktop shell. */
+    window.RetroApps.register({
+        id: 'paint',
+        name: 'JS Paint',
+        tagline: 'Classic MS Paint with a dark plum utility theme.',
+        meta: 'PAINT \· JSPAINT',
+        icon: `
+            <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <rect x="2" y="3" width="28" height="26" fill="#07020a" stroke="#c084fc"></rect>
+                <path d="M5 22l7-7 4 4-6 7z" fill="#c084fc" stroke="#f2eaff" stroke-width="0.8"></path>
+                <path d="M16 18l5-8 3 2-4 8z" fill="#ff4fd8"></path>
+                <circle cx="8" cy="8" r="2" fill="#55ff99"></circle>
+                <rect x="20" y="24" width="6" height="2" fill="#c084fc"></rect>
+            </svg>`,
+        source: 'JSPAINT',
+        frame: true,
+        mount(root) {
+            const frame = document.createElement('iframe');
+            frame.className = 'program-frame';
+            frame.title = 'JS Paint';
+            frame.src = './vendor/jspaint/index.html';
+            frame.setAttribute('allow', 'autoplay; fullscreen; clipboard-read; clipboard-write');
+            root.replaceChildren(frame);
+            return () => {
+                frame.src = 'about:blank';
+                root.replaceChildren();
+            };
+        }
+    });
+})();
+</script>
+<script src="./vendor/clippy/jquery-3.4.1.min.js"></script>
+<script src="./vendor/clippy/clippy.js"></script>
+<script>
