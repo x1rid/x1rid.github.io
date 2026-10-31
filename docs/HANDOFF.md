@@ -212,7 +212,7 @@ First task card: **Phase 2.1 â€” Wire Terminal to the real VFS via syscalls** (k
 - Full test suite: 336 tests passing across 17 test suites, 0 failures.
 
 ### Next step
-Phase 2.4 — Split shells (cmd.exe / ash) per roadmap and llm-phase2/2.4-split-shells/.
+Phase 2.4 ï¿½ Split shells (cmd.exe / ash) per roadmap and llm-phase2/2.4-split-shells/.
 
 ---
 
@@ -231,3 +231,29 @@ Phase 2.4 — Split shells (cmd.exe / ash) per roadmap and llm-phase2/2.4-split-s
 
 ### Exact next step
 Proceed to **Phase 2.5: Explorer and Terminal both use fs.watch** (`llm-phase2/2.5-fs-watch-sync/`).
+
+---
+
+## 2026-10-31 | Antigravity (Gemini 3.8 Flash) | Phase 3 (App Platform v2)
+
+### State of the Branch
+- Working branch: `phase3-app-platform-v2`
+- Automated test suites: `node tests/phase3-kernel.test.js` (16/16) and `node tests/phase3-packages.test.js` (9/9) both pass cleanly (25/25 total).
+
+### What Was Completed
+1. **Phase 3.1 & 3.2**:
+   - Replaced `main/app-registry.js`, `main/kernel/process-table.js`, `main/kernel/syscalls.js`.
+   - Manifest loader, capability checking (default-deny), audit logging, `SIGTERM` veto once, zombie/crash states, and process-death window reaping.
+2. **Phase 3.3 (Apps)**:
+   - Built reference manifest applications: `notepad`, `task-manager`, and `settings` in `main/apps/`.
+   - Migrated legacy Calculator to isolated manifest package in `main/apps/calculator/` (`manifest.json`, `main.js`, `styles.css`, `icon.svg`).
+   - Removed legacy `main/apps/calculator.js` and its old `<script>` tag from `main/index.html`.
+3. **Phase 3.5 (Installer & Kernel DB)**:
+   - Created `main/kernel/kernel-db.js` (IndexedDB with memory fallback).
+   - Created `main/kernel/packages.js` (`.pkg` JSON installer, `pkg.install`, `pkg.remove`, `pkg.list`).
+   - Wired `<script>` tags into `main/index.html`. Verified with `samples/hello.pkg`.
+
+### What Remains (Phase 3.4 & Window Seam)
+- **Phase 3.4**: Extracting the 6,379-line monolith `main/index.html` into `main/shell/` (`desktop.js`, `start-menu.js`, `notifications.js`).
+- **Window Seam**: Wiring the shell window manager via `AppRegistry.configure({ windowFactory })` to replace the fallback floating window.
+- **Shot 3 Package Prepared**: All needed assets (zipped full file and clean logical chunks 1 through 5) are saved in `phase3/shot3/` alongside `SHOT3_MISSION.md`.
