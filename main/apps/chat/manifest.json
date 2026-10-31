@@ -1,0 +1,10 @@
+{
+  "id": "chat",
+  "name": "Chat",
+  "version": "1.0.0",
+  "description": "IRC-style virtual chat rooms over the r3dOS internal network.",
+  "entry": "app.js",
+  "icon": "💬",
+  "capabilities": ["net.request", "sys.notify"],
+  "windowOptions": { "width": 620, "height": 460, "title": "Chat" }
+}

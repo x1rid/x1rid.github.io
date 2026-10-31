@@ -15,9 +15,9 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '20261031.p4';
+  const VERSION = '20261031.p5';
   const DB_NAME = 'kernel-db';
-  const DB_VERSION = 2;
+  const DB_VERSION = 3;
   const SCHEMA_VERSION = 1;
   const AUDIT_MAX = 5000;
   const TRIM_EVERY = 100;
@@ -27,7 +27,10 @@
     installed_apps: { keyPath: 'id' },
     autostart_entries: { keyPath: 'id' },
     scheduled_tasks: { keyPath: 'id' },
-    hibernate_snapshot: { keyPath: 'id' }
+    hibernate_snapshot: { keyPath: 'id' },
+    mailbox: { keyPath: 'id' },
+    chat_messages: { keyPath: 'id' },
+    user_prefs: { keyPath: 'id' }
   };
 
   // target db version -> fn(db, tx). Add entries here; never edit old ones.
@@ -39,6 +42,11 @@
     },
     2: function (db) {
       ['autostart_entries', 'scheduled_tasks', 'hibernate_snapshot'].forEach(function (name) {
+        if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, STORES[name]);
+      });
+    },
+    3: function (db) {
+      ['mailbox', 'chat_messages', 'user_prefs'].forEach(function (name) {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, STORES[name]);
       });
     }

@@ -1,0 +1,10 @@
+{
+  "id": "mail",
+  "name": "Mail",
+  "version": "1.0.0",
+  "description": "Read and send virtual email over the r3dOS internal network.",
+  "entry": "app.js",
+  "icon": "✉",
+  "capabilities": ["net.request", "fs.write:user", "sys.notify"],
+  "windowOptions": { "width": 680, "height": 500, "title": "Mail" }
+}

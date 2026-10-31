@@ -1,0 +1,1 @@
+{ "id": "win95", "name": "Windows 95", "vars": { "--os-bg": "#008080", "--os-surface": "#c0c0c0", "--os-accent": "#000080", "--os-text": "#000", "--os-border": "#808080", "--os-taskbar-bg": "#c0c0c0", "--os-window-bg": "#c0c0c0", "--os-window-header": "#000080" } }

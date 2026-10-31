@@ -1,0 +1,10 @@
+{
+  "id": "dmesg",
+  "name": "dmesg",
+  "version": "1.0.0",
+  "description": "Live stream of kernel events (like Linux dmesg).",
+  "entry": "app.js",
+  "icon": "🖥",
+  "capabilities": ["sys.info"],
+  "windowOptions": { "width": 680, "height": 420, "title": "dmesg — Kernel Ring Buffer" }
+}

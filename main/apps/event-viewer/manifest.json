@@ -1,0 +1,10 @@
+{
+  "id": "event-viewer",
+  "name": "Event Viewer",
+  "version": "1.0.0",
+  "description": "Browse the kernel audit log and event stream.",
+  "entry": "app.js",
+  "icon": "📋",
+  "capabilities": ["sys.info"],
+  "windowOptions": { "width": 720, "height": 520, "title": "Event Viewer" }
+}

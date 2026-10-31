@@ -80,14 +80,19 @@
     'power.shutdown': null,
     'power.state': null,
     'net.status': 'net.simulated',
-    'net.fetch': 'net.simulated'
+    'net.fetch': 'net.simulated',
+    'net.request': 'net.simulated',
+    'sys.theme.get': null,
+    'sys.theme.set': null,
+    'sys.sound.play': null,
+    'sys.wm.setLayout': null
   };
 
   // Phase 3 calls that are gated by capabilities only (L2 rules don't know them yet).
-  // Phase 4 power + elevation calls are also cap-only (open to all � no L2 rule).
+  // Phase 4 power + elevation calls are also cap-only (open to all � no L2 rule).
   const CAP_ONLY_CALLS = new Set([
     'sys.info', 'sys.clipboard.get', 'sys.clipboard.set',
-    'sys.settings.get', 'sys.settings.set', 'net.status', 'net.fetch',
+    'sys.settings.get', 'sys.settings.set', 'net.status', 'net.fetch', 'net.request', 'sys.theme.get', 'sys.theme.set', 'sys.sound.play', 'sys.wm.setLayout',
     'sec.elevate', 'power.sleep', 'power.hibernate', 'power.restart', 'power.shutdown', 'power.state'
   ]);
 
@@ -349,6 +354,39 @@
 
   SYSCALL_HANDLERS.set('net.fetch', async function (ctx, args) {
     throw OsErr('EPERM', 'Network is simulated; real requests are not available', { url: args && args.url });
+  });
+
+  SYSCALL_HANDLERS.set('net.request', async function (ctx, args) {
+    if (!root.NetService) throw OsErr('ENOSYS', 'NetService not available');
+    return root.NetService.request(args && args.url, args);
+  });
+
+  // ── sys.theme.* ────────────────────────────────────────────────────────
+  SYSCALL_HANDLERS.set('sys.theme.get', async function () {
+    if (!root.ThemeService) throw OsErr('ENOSYS', 'ThemeService not available');
+    return { theme: root.ThemeService.getActive(), list: root.ThemeService.list() };
+  });
+
+  SYSCALL_HANDLERS.set('sys.theme.set', async function (ctx, args) {
+    if (!root.ThemeService) throw OsErr('ENOSYS', 'ThemeService not available');
+    if (!args || !args.themeId) throw OsErr('EINVAL', 'Missing themeId');
+    return root.ThemeService.apply(args.themeId);
+  });
+
+  // ── sys.sound.* ────────────────────────────────────────────────────────
+  SYSCALL_HANDLERS.set('sys.sound.play', async function (ctx, args) {
+    if (!root.SoundService) throw OsErr('ENOSYS', 'SoundService not available');
+    if (!args || !args.event) throw OsErr('EINVAL', 'Missing sound event');
+    root.SoundService.play(args.event);
+    return { played: true };
+  });
+
+  // ── sys.wm.* ───────────────────────────────────────────────────────────
+  SYSCALL_HANDLERS.set('sys.wm.setLayout', async function (ctx, args) {
+    if (!root.WMLayout) throw OsErr('ENOSYS', 'WMLayout not available');
+    if (!args || !args.layout) throw OsErr('EINVAL', 'Missing layout');
+    root.WMLayout.setLayout(args.layout);
+    return { layout: root.WMLayout.getActive() };
   });
 
   // ── sec.* ───────────────────────────────────────────────────────────────

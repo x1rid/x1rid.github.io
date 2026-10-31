@@ -1,0 +1,1 @@
+{ "id": "macos", "name": "macOS", "vars": { "--os-bg": "#1e1e2e", "--os-surface": "#2a2a3e", "--os-accent": "#007aff", "--os-text": "#f5f5f7", "--os-border": "#3a3a4e", "--os-taskbar-bg": "#1a1a2a", "--os-window-bg": "#242438", "--os-window-header": "#2a2a3e" } }
