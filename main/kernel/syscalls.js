@@ -192,8 +192,60 @@
     const vfs = root.VFS || (root.Kernel && root.Kernel.legacy ? root.Kernel.legacy.vfs : null);
     if (!vfs) throw OsErr('EBUSY', 'Filesystem unavailable');
 
-    const res = await vfs.writeFile(args.path, args.content);
+    let res;
+    // Check if path exists
+    let existingNode = null;
+    try {
+      existingNode = await vfs.resolvePath(args.path);
+    } catch (_) {}
+
+    if (existingNode) {
+      if (existingNode.type === 'directory') throw OsErr('EISDIR', 'Is a directory', { path: args.path });
+      res = await vfs.writeFile(existingNode.id, args.content);
+    } else {
+      // Create new file: resolve parent directory
+      const cleanPath = String(args.path).replace(/\\/g, '/');
+      const segments = cleanPath.split('/').filter(Boolean);
+      const filename = segments.pop();
+      const parentPath = segments.length === 0 ? '/' : (cleanPath.startsWith('/') ? '/' + segments.join('/') : segments.join('/'));
+
+      let parentNode = null;
+      try {
+        parentNode = await vfs.resolvePath(parentPath);
+      } catch (_) {}
+
+      if (!parentNode) {
+        // Fallback: try C:\ drive or Desktop if parent not found
+        const desktopId = vfs.getKnownFolder ? vfs.getKnownFolder('desktop') : null;
+        if (desktopId) {
+          parentNode = vfs.getNode ? vfs.getNode(desktopId) : null;
+        }
+      }
+
+      if (!parentNode) throw OsErr('ENOENT', 'Parent directory not found for ' + args.path, { path: args.path });
+      res = await vfs.createFile(parentNode.id, filename, args.content);
+    }
+
     return { path: args.path, written: true, node: res };
+  });
+
+  SYSCALL_HANDLERS.set('fs.watch', async function (ctx, args) {
+    if (!args || !args.path) throw OsErr('EINVAL', 'Missing path argument');
+    if (typeof args.callback !== 'function') throw OsErr('EINVAL', 'Missing or invalid callback argument');
+    const vfs = root.VFS || (root.Kernel && root.Kernel.legacy ? root.Kernel.legacy.vfs : null);
+    if (!vfs) throw OsErr('EBUSY', 'Filesystem unavailable');
+
+    if (typeof vfs.watch !== 'function') {
+      // Fallback if mock vfs only has subscribe
+      if (typeof vfs.subscribe === 'function') {
+        const unsub = vfs.subscribe(args.callback);
+        return { path: args.path, unsubscribe: unsub };
+      }
+      throw OsErr('ENOSYS', 'VFS does not support watch');
+    }
+
+    const unsub = await vfs.watch(args.path, args.callback);
+    return { path: args.path, unsubscribe: unsub };
   });
 
   // ── Core Syscall Dispatcher ─────────────────────────────────────────────

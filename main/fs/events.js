@@ -56,6 +56,17 @@
           console.error('[VfsEvents] Error in event listener callback:', err, event);
         }
       }
+
+      // Bridge directly to KernelEvents bus if available (Golden Rule 9 / §5.4 / §6.3)
+      try {
+        const bus = (typeof window !== 'undefined' ? window.KernelEvents : null) ||
+                    (typeof globalThis !== 'undefined' ? globalThis.KernelEvents : null);
+        if (bus && typeof bus.emit === 'function' && event.type) {
+          bus.emit(event.type, event);
+        }
+      } catch (e) {
+        // Isolation: never let bus bridging disrupt VFS
+      }
     }
 
     /**

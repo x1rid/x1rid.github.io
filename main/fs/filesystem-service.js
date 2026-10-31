@@ -277,6 +277,65 @@
       return this.events.subscribe(listener);
     }
 
+    /**
+     * Watch a path (directory or file) for filesystem events (OS_FOUNDATION §5.5).
+     * Fires whenever nodes under the watched path or the path itself are created,
+     * updated, renamed, moved, or deleted.
+     * @param {string} targetPath - Path to watch
+     * @param {function(object): void} callback - Listener callback
+     * @returns {Promise<function(): void>} Unsubscribe function
+     */
+    async watch(targetPath, callback) {
+      if (typeof callback !== 'function') {
+        throw new FsError('INVALID_PARAMETER', 'watch requires a callback function');
+      }
+
+      const cleanPath = String(targetPath || '').trim() || 'C:\\';
+      let watchedNode = null;
+      try {
+        watchedNode = await this.resolvePath(cleanPath);
+      } catch (_) {
+        // Node might not exist yet; path-based matching can still watch parent
+      }
+
+      const watchedId = watchedNode ? watchedNode.id : null;
+
+      const unsubscribe = this.subscribe((event) => {
+        if (!event) return;
+
+        // Check if event pertains to watched target
+        let matches = false;
+
+        if (watchedId) {
+          // Direct match: node modified, deleted, renamed, etc.
+          if (event.nodeId === watchedId) {
+            matches = true;
+          }
+          // Child event: created inside watched directory, removed from it, etc.
+          else if (event.parentId === watchedId || event.oldParentId === watchedId) {
+            matches = true;
+          }
+          // Descendant match: check if the event node is inside watched directory
+          else if (event.nodeId && this._isDescendant(watchedId, event.nodeId)) {
+            matches = true;
+          }
+        } else {
+          // Path doesn't resolve to a node yet; match all root/top-level events
+          matches = true;
+        }
+
+        if (matches) {
+          try {
+            callback(Object.assign({ watchedPath: cleanPath }, event));
+          } catch (err) {
+            console.error('[VirtualFS.watch] Listener callback threw:', err);
+          }
+        }
+      });
+
+      return unsubscribe;
+    }
+
     /* ------------------------------------------------------------
        Internal Validation Helpers
        ------------------------------------------------------------ */

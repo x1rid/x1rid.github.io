@@ -1225,6 +1225,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (command === 'echo') {
+                const redirMatch = arg.match(/^(.*?)\s*(>>|>)\s*(.+)$/);
+                if (redirMatch) {
+                    const text = redirMatch[1].trim();
+                    const isAppend = redirMatch[2] === '>>';
+                    const targetName = redirMatch[3].trim().replace(/^['"]|['"]$/g, '');
+                    const targetPath = resolvePath(targetName);
+
+                    (async () => {
+                        try {
+                            let contentToWrite = text;
+                            if (isAppend) {
+                                try {
+                                    const prev = await readPath(targetPath);
+                                    contentToWrite = prev ? `${prev}\n${text}` : text;
+                                } catch (_) {}
+                            }
+                            await writePath(targetPath, contentToWrite);
+                        } catch (err) {
+                            appendTextLine(formatError(err), 'terminal-muted');
+                        }
+                    })();
+                    return;
+                }
+
                 if (arg) appendTextLine(arg);
                 return;
             }
