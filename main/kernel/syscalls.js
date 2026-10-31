@@ -5,36 +5,144 @@
  * @needs [ 'KernelClock', 'KernelEvents', 'KernelLogger', 'KernelProcessTable', 'SecurityPermissions', 'SecurityAudit', 'OsError' ]
  * @emits [ 'domain:verb-noun' ]
  *
- * Spec reference: OS_FOUNDATION.md §5.3, §6.1, §8 Phase 1.5
+ * Spec reference: OS_FOUNDATION.md §5.3, §6.1, §8 Phase 1.5 + Phase 3 (3.2 / 3.3)
  *
  * Authoritative Syscall Layer. The only door for apps to interact with OS subsystems.
  * Every syscall executes:
  *   1. Validation of arguments & context
- *   2. Permission / capability check via L2 (default-deny)
+ *   2. Capability check (Phase 3) + permission check via L2 (default-deny)
  *   3. Dispatch to underlying implementation
- *   4. Audit logging if sensitive
+ *   4. Audit logging (all denials + sensitive successes)
  *   5. Event emission
  *   6. Standard return: { ok: true, value } or throws structured OsError
+ *
+ * Phase 3 additions:
+ *   - Capability grants: ctx.pid -> process record caps. Missing cap -> CAPABILITY_DENIED.
+ *     Caps look like 'fs.read:user'. '*' (legacy apps only) grants everything; 'fs.*' style
+ *     prefix wildcards are supported for kernel/first-party use.
+ *   - Audit: in-memory ring buffer + SecurityAudit.record + KernelDB.append('audit', ...) when 3.5 lands.
+ *   - New calls: sys.info, sys.clipboard.get/set, sys.settings.get/set, net.* (simulated stubs).
+ *   - proc.spawn can never grant caps the caller doesn't hold (no privilege escalation).
+ *
+ * Trusted callers: ctx == null or ctx.pid === 1 (init/kernel) skip capability checks.
  *
  * Node-loadable for unit testing.
  */
 (function (root) {
   'use strict';
 
-  const VERSION = '20261031';
+  const VERSION = '20261031.p3';
 
   const SYSCALL_HANDLERS = new Map();
   let _totalSyscalls = 0;
   let _deniedSyscalls = 0;
+  let _capMode = 'enforce'; // 'enforce' | 'audit' (audit = log would-be denials but allow; for migration/debug)
 
   function OsErr(code, msg, detail) {
     if (root.OsError) {
       return new root.OsError(code, msg, detail);
     }
     const e = new Error(msg || code);
+    e.name = 'OsError';
     e.code = code;
     e.detail = detail;
     return e;
+  }
+
+  // ── Capability model ────────────────────────────────────────────────────
+  // syscall name -> capability string the caller must hold. null = open to everyone.
+  const CAP_REQUIRED = {
+    'fs.stat': 'fs.read:user',
+    'fs.list': 'fs.read:user',
+    'fs.read': 'fs.read:user',
+    'fs.watch': 'fs.read:user',
+    'fs.write': 'fs.write:user',
+    'fs.remove': 'fs.write:user',
+    'proc.list': 'proc.list',
+    'proc.info': 'proc.list',
+    'proc.spawn': 'proc.spawn',
+    'proc.kill': 'proc.kill',
+    'proc.signal': 'proc.kill',
+    'sys.time': null,
+    'sys.log': null,
+    'sys.notify': 'sys.notify',
+    'sys.info': 'sys.info',
+    'sys.clipboard.get': 'sys.clipboard',
+    'sys.clipboard.set': 'sys.clipboard',
+    'sys.settings.get': 'sys.settings:read',
+    'sys.settings.set': 'sys.settings:write',
+    'sec.whoami': null,
+    'sec.check': null,
+    'net.status': 'net.simulated',
+    'net.fetch': 'net.simulated'
+  };
+
+  // Phase 3 calls that are gated by capabilities only (L2 rules don't know them yet).
+  const CAP_ONLY_CALLS = new Set([
+    'sys.info', 'sys.clipboard.get', 'sys.clipboard.set',
+    'sys.settings.get', 'sys.settings.set', 'net.status', 'net.fetch'
+  ]);
+
+  // Successful calls worth an audit line.
+  const AUDIT_ON_ALLOW = new Set(['fs.write', 'fs.remove', 'proc.spawn', 'proc.kill', 'proc.signal', 'sys.settings.set']);
+
+  function requiredCap(name) {
+    if (Object.prototype.hasOwnProperty.call(CAP_REQUIRED, name)) return CAP_REQUIRED[name];
+    return name; // unknown/new call: default-deny, caller needs a cap named after the call
+  }
+
+  function capGranted(caps, required) {
+    if (!required) return true;
+    if (!Array.isArray(caps)) return false;
+    for (let i = 0; i < caps.length; i += 1) {
+      const c = String(caps[i]);
+      if (c === required) return true;
+      if (c.charAt(c.length - 1) === '*' && required.indexOf(c.slice(0, -1)) === 0) return true;
+    }
+    return false;
+  }
+
+  function isTrusted(ctx) {
+    return !ctx || ctx.pid === 1;
+  }
+
+  // The process table is the source of truth for caps; ctx.caps is only a fallback
+  // for pids the table doesn't know (unit tests, early boot).
+  function resolveCaps(ctx) {
+    if (ctx && typeof ctx.pid === 'number' && root.KernelProcessTable) {
+      const rec = root.KernelProcessTable.get(ctx.pid);
+      if (rec) return rec.caps;
+    }
+    return ctx && Array.isArray(ctx.caps) ? ctx.caps : [];
+  }
+
+  // ── Audit ───────────────────────────────────────────────────────────────
+  const AUDIT_MAX = 500;
+  const _auditBuffer = [];
+
+  function audit(entry) {
+    const rec = Object.assign({ at: root.KernelClock && root.KernelClock.now ? root.KernelClock.now() : Date.now() }, entry);
+    _auditBuffer.push(rec);
+    if (_auditBuffer.length > AUDIT_MAX) _auditBuffer.shift();
+
+    if (root.SecurityAudit && typeof root.SecurityAudit.record === 'function') {
+      try {
+        root.SecurityAudit.record({
+          action: rec.call ? rec.call.replace('.', ':') : rec.action,
+          resource: rec.resource || '*',
+          actor: { type: 'process', pid: rec.pid, uid: rec.uid },
+          result: rec.result,
+          reason: rec.reason
+        });
+      } catch (_) {}
+    }
+    // 3.5: kernel-db audit table. Safe no-op until KernelDB exists.
+    if (root.KernelDB && typeof root.KernelDB.append === 'function') {
+      try {
+        const p = root.KernelDB.append('audit', rec);
+        if (p && typeof p.catch === 'function') p.catch(function () {});
+      } catch (_) {}
+    }
   }
 
   // ── Register Syscall Handlers ───────────────────────────────────────────
@@ -42,7 +150,9 @@
   // ── proc.* ──────────────────────────────────────────────────────────────
   SYSCALL_HANDLERS.set('proc.list', async function (ctx, args) {
     if (!root.KernelProcessTable) throw OsErr('EBUSY', 'Process table unavailable');
-    return root.KernelProcessTable.list(args ? args.filter : null);
+    // accepts { filter: {...} } or the filter fields directly: { state:'running' }
+    const filter = args && typeof args === 'object' ? (args.filter || args) : null;
+    return root.KernelProcessTable.list(filter);
   });
 
   SYSCALL_HANDLERS.set('proc.info', async function (ctx, args) {
@@ -55,11 +165,26 @@
 
   SYSCALL_HANDLERS.set('proc.spawn', async function (ctx, args) {
     if (!root.KernelProcessTable) throw OsErr('EBUSY', 'Process table unavailable');
-    return root.KernelProcessTable.spawn(args);
+    const spec = Object.assign({}, args);
+    const requested = Array.isArray(spec.caps) ? spec.caps.map(String) : [];
+    const callerCaps = isTrusted(ctx) ? ['*'] : resolveCaps(ctx);
+
+    // A process can only hand out caps it holds itself.
+    const notHeld = requested.filter(function (c) { return !capGranted(callerCaps, c); });
+    if (notHeld.length) {
+      throw OsErr('CAPABILITY_DENIED', 'Cannot grant capabilities the caller does not hold', {
+        cap: notHeld[0], denied: notHeld, pid: ctx ? ctx.pid : null
+      });
+    }
+    spec.caps = requested;
+    if (ctx && typeof ctx.pid === 'number') spec.ppid = ctx.pid;
+    if (ctx && ctx.uid) spec.uid = ctx.uid; // can't spawn as someone else
+    return root.KernelProcessTable.spawn(spec);
   });
 
   SYSCALL_HANDLERS.set('proc.kill', async function (ctx, args) {
     if (!args || typeof args.pid !== 'number') throw OsErr('EINVAL', 'Missing pid argument');
+    if (args.pid <= 1) throw OsErr('EPERM', 'Cannot kill init', { pid: args.pid });
     if (!root.KernelProcessTable) throw OsErr('EBUSY', 'Process table unavailable');
     const ok = root.KernelProcessTable.kill(args.pid, args.exitCode);
     if (!ok) throw OsErr('ESRCH', 'No such process to kill', { pid: args.pid });
@@ -68,6 +193,7 @@
 
   SYSCALL_HANDLERS.set('proc.signal', async function (ctx, args) {
     if (!args || typeof args.pid !== 'number' || !args.signal) throw OsErr('EINVAL', 'Missing pid or signal');
+    if (args.pid <= 1) throw OsErr('EPERM', 'Cannot signal init', { pid: args.pid });
     if (!root.KernelProcessTable) throw OsErr('EBUSY', 'Process table unavailable');
     const ok = root.KernelProcessTable.signal(args.pid, args.signal);
     if (!ok) throw OsErr('ESRCH', 'No such process to signal', { pid: args.pid });
@@ -103,6 +229,118 @@
       }, { pid: ctx ? ctx.pid : null });
     }
     return { sent: true };
+  });
+
+  SYSCALL_HANDLERS.set('sys.info', async function (ctx) {
+    const clock = root.KernelClock;
+    const sum = root.KernelProcessTable && typeof root.KernelProcessTable.summary === 'function'
+      ? root.KernelProcessTable.summary()
+      : { processCount: 0, runningCount: 0, zombieCount: 0, totalMemBytes: 0, totalSyscalls: 0 };
+    return {
+      name: 'OS Simulator',
+      kernelVersion: VERSION,
+      uid: ctx && ctx.uid ? ctx.uid : 'guest',
+      timestamp: clock ? clock.now() : Date.now(),
+      processCount: sum.processCount,
+      runningCount: sum.runningCount,
+      zombieCount: sum.zombieCount,
+      totalMemBytes: sum.totalMemBytes,
+      syscalls: { total: _totalSyscalls, denied: _deniedSyscalls }
+    };
+  });
+
+  // Simulated clipboard (in-memory, never touches the host clipboard).
+  const CLIP_MAX = 1024 * 1024;
+  let _clipboard = { text: '', updatedAt: null };
+
+  SYSCALL_HANDLERS.set('sys.clipboard.get', async function () {
+    return { text: _clipboard.text, updatedAt: _clipboard.updatedAt };
+  });
+
+  SYSCALL_HANDLERS.set('sys.clipboard.set', async function (ctx, args) {
+    if (!args || typeof args.text !== 'string') throw OsErr('EINVAL', 'text must be a string');
+    if (args.text.length > CLIP_MAX) throw OsErr('EINVAL', 'Clipboard payload too large');
+    _clipboard = { text: args.text, updatedAt: root.KernelClock && root.KernelClock.now ? root.KernelClock.now() : Date.now() };
+    return { set: true, length: args.text.length };
+  });
+
+  // Settings: per-uid key/value. Interim persistence = localStorage; moves to profile-db in 3.5.
+  const SETTING_KEY_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
+  const SETTING_VALUE_MAX = 16 * 1024;
+  const _settings = new Map(); // uid -> Map<key,value>
+
+  function settingsFor(uid) {
+    if (_settings.has(uid)) return _settings.get(uid);
+    const m = new Map();
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('os.settings.' + uid);
+        if (raw) {
+          const obj = JSON.parse(raw);
+          Object.keys(obj).forEach(function (k) { m.set(k, obj[k]); });
+        }
+      }
+    } catch (_) {}
+    _settings.set(uid, m);
+    return m;
+  }
+
+  function persistSettings(uid, m) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('os.settings.' + uid, JSON.stringify(Object.fromEntries(m)));
+      }
+    } catch (_) {}
+  }
+
+  SYSCALL_HANDLERS.set('sys.settings.get', async function (ctx, args) {
+    const uid = String((ctx && ctx.uid) || 'owner');
+    const m = settingsFor(uid);
+    if (args && args.key !== undefined) {
+      if (!SETTING_KEY_RE.test(String(args.key))) throw OsErr('EINVAL', 'Invalid settings key');
+      const key = String(args.key);
+      return { key: key, exists: m.has(key), value: m.has(key) ? m.get(key) : null };
+    }
+    return { settings: Object.fromEntries(m) };
+  });
+
+  SYSCALL_HANDLERS.set('sys.settings.set', async function (ctx, args) {
+    if (!args || (args.key === undefined && (!args.values || typeof args.values !== 'object'))) {
+      throw OsErr('EINVAL', 'Provide { key, value } or { values: {...} }');
+    }
+    const pairs = args.key !== undefined ? [[String(args.key), args.value]] : Object.entries(args.values);
+    if (!pairs.length) throw OsErr('EINVAL', 'Nothing to set');
+
+    const clean = [];
+    pairs.forEach(function (pair) {
+      const key = pair[0];
+      if (!SETTING_KEY_RE.test(key)) throw OsErr('EINVAL', 'Invalid settings key: ' + key);
+      let json;
+      try { json = JSON.stringify(pair[1]); } catch (_) { json = undefined; }
+      if (json === undefined) throw OsErr('EINVAL', 'Value for ' + key + ' is not JSON-serializable');
+      if (json.length > SETTING_VALUE_MAX) throw OsErr('EINVAL', 'Value for ' + key + ' is too large');
+      clean.push([key, JSON.parse(json)]);
+    });
+
+    const uid = String((ctx && ctx.uid) || 'owner');
+    const m = settingsFor(uid);
+    clean.forEach(function (pair) { m.set(pair[0], pair[1]); });
+    persistSettings(uid, m);
+
+    const keys = clean.map(function (p) { return p[0]; });
+    if (root.KernelEvents && typeof root.KernelEvents.emit === 'function') {
+      root.KernelEvents.emit('sys:settings-changed', { keys: keys, uid: uid }, { pid: ctx ? ctx.pid : null });
+    }
+    return { set: keys };
+  });
+
+  // ── net.* (simulated network only — never touches the real host network) ─
+  SYSCALL_HANDLERS.set('net.status', async function () {
+    return { simulated: true, online: false, interfaces: [] };
+  });
+
+  SYSCALL_HANDLERS.set('net.fetch', async function (ctx, args) {
+    throw OsErr('EPERM', 'Network is simulated; real requests are not available', { url: args && args.url });
   });
 
   // ── sec.* ───────────────────────────────────────────────────────────────
@@ -226,6 +464,9 @@
       res = await vfs.createFile(parentNode.id, filename, args.content);
     }
 
+    if (root.KernelEvents && typeof root.KernelEvents.emit === 'function') {
+      root.KernelEvents.emit('fs:file-saved', { path: args.path }, { pid: ctx ? ctx.pid : null });
+    }
     return { path: args.path, written: true, node: res };
   });
 
@@ -257,10 +498,25 @@
       throw OsErr('EINVAL', 'Unknown syscall: ' + name, { call: name });
     }
 
-    // 1. Permission Check via L2 Security
-    if (root.SecurityPermissions) {
+    const pid = ctx && typeof ctx.pid === 'number' ? ctx.pid : null;
+    const uid = ctx && ctx.uid ? ctx.uid : 'guest';
+    const resource = (args && (args.path || args.resource)) || '*';
+
+    // 1. Capability check (Phase 3)
+    const cap = requiredCap(name);
+    if (!isTrusted(ctx) && cap && !capGranted(resolveCaps(ctx), cap)) {
+      _deniedSyscalls += 1;
+      const enforcing = _capMode === 'enforce';
+      audit({ call: name, resource: resource, pid: pid, uid: uid, cap: cap,
+              result: enforcing ? 'deny' : 'would-deny', reason: 'CAPABILITY_DENIED' });
+      if (enforcing) {
+        throw OsErr('CAPABILITY_DENIED', 'Capability denied', { cap: cap, pid: pid, call: name });
+      }
+    }
+
+    // 2. Permission Check via L2 Security (skipped for cap-only Phase 3 calls)
+    if (root.SecurityPermissions && !CAP_ONLY_CALLS.has(name)) {
       const secAction = name.replace('.', ':'); // fs.read -> fs:read
-      const resource = (args && (args.path || args.resource)) || '*';
 
       const perm = root.SecurityPermissions.check({
         user: ctx ? ctx.uid : 'guest',
@@ -271,15 +527,8 @@
 
       if (!perm.allowed) {
         _deniedSyscalls += 1;
-        if (root.SecurityAudit) {
-          root.SecurityAudit.record({
-            action: secAction,
-            resource: resource,
-            actor: { type: 'process', pid: ctx ? ctx.pid : null, uid: ctx ? ctx.uid : 'guest' },
-            result: 'deny',
-            reason: perm.reason || 'CAPABILITY_DENIED'
-          });
-        }
+        audit({ call: name, resource: resource, pid: pid, uid: uid,
+                result: 'deny', reason: perm.reason || 'L2_DENIED' });
         throw OsErr('EACCES', 'Permission denied for syscall ' + name, {
           call: name,
           reason: perm.reason
@@ -287,13 +536,16 @@
       }
     }
 
-    // 2. Dispatch
+    // 3. Dispatch
     const handler = SYSCALL_HANDLERS.get(name);
     try {
       const result = await handler(ctx, args);
       // Account syscall stats to calling process
-      if (ctx && typeof ctx.pid === 'number' && root.KernelProcessTable) {
-        root.KernelProcessTable.updateStats(ctx.pid, { syscalls: 1 });
+      if (pid !== null && root.KernelProcessTable) {
+        root.KernelProcessTable.updateStats(pid, { syscalls: 1 });
+      }
+      if (AUDIT_ON_ALLOW.has(name)) {
+        audit({ call: name, resource: resource, pid: pid, uid: uid, result: 'allow' });
       }
       return { ok: true, value: result };
     } catch (err) {
@@ -312,11 +564,24 @@
     ready: ready,
 
     syscall: syscall,
-    register: function (name, fn) {
-      if (typeof fn === 'function') SYSCALL_HANDLERS.set(name, fn);
+    register: function (name, fn, requiredCapability) {
+      if (typeof fn !== 'function') return;
+      SYSCALL_HANDLERS.set(name, fn);
+      if (requiredCapability !== undefined) CAP_REQUIRED[name] = requiredCapability; // else default-deny by call name
     },
     listCalls: function () {
       return Array.from(SYSCALL_HANDLERS.keys());
+    },
+    capabilityFor: requiredCap,
+    setCapabilityMode: function (mode) {
+      if (mode !== 'enforce' && mode !== 'audit') throw OsErr('EINVAL', 'mode must be "enforce" or "audit"');
+      _capMode = mode;
+      return _capMode;
+    },
+    capabilityMode: function () { return _capMode; },
+    auditLog: function (limit) {
+      const n = typeof limit === 'number' && limit > 0 ? limit : AUDIT_MAX;
+      return _auditBuffer.slice(-n);
     },
 
     diagnostics: function () {
@@ -324,7 +589,9 @@
         version: VERSION,
         availableSyscalls: SYSCALL_HANDLERS.size,
         totalSyscallsExecuted: _totalSyscalls,
-        deniedSyscalls: _deniedSyscalls
+        deniedSyscalls: _deniedSyscalls,
+        capabilityMode: _capMode,
+        auditBuffered: _auditBuffer.length
       };
     }
   });

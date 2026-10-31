@@ -1,0 +1,7 @@
+.np-wrap{display:flex;flex-direction:column;height:100%;font:14px system-ui,sans-serif}
+.np-bar{display:flex;gap:6px;padding:6px;background:#262932;flex:0 0 auto}
+.np-bar input{flex:1;min-width:0;background:#14161b;color:inherit;border:1px solid #3a3d48;border-radius:4px;padding:4px 6px}
+.np-bar button{background:#3a3d48;color:inherit;border:0;border-radius:4px;padding:4px 10px;cursor:pointer}
+.np-bar button:hover{background:#4a4e5c}
+.np-text{flex:1 1 auto;resize:none;border:0;outline:0;padding:8px;background:#14161b;color:inherit;font:13px ui-monospace,Consolas,monospace}
+.np-status{padding:3px 8px;font-size:12px;background:#262932;opacity:.85;flex:0 0 auto}

@@ -1,0 +1,1 @@
+{"manifestVersion":1,"id":"notepad","name":"Notepad","version":"1.0.0","kind":"app","entry":"main.js","styles":["styles.css"],"icon":"assets/icon.svg","multiple":true,"fileTypes":["txt"],"capabilities":["fs.read:user","fs.write:user","sys.clipboard"],"window":{"width":640,"height":420,"resizable":true},"personality":["windows","linux"]}
