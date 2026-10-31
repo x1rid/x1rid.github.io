@@ -1,0 +1,1 @@
+{"manifestVersion":1,"id":"task-manager","name":"Task Manager","version":"1.0.0","kind":"app","entry":"main.js","styles":["styles.css"],"multiple":false,"capabilities":["proc.list","proc.kill","sys.info"],"window":{"width":720,"height":460,"resizable":true},"personality":["windows","linux"]}

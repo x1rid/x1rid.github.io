@@ -1,0 +1,26 @@
+{
+  "pkgVersion": 1,
+  "manifest": {
+    "manifestVersion": 1,
+    "id": "hello",
+    "name": "Hello",
+    "version": "1.0.0",
+    "kind": "app",
+    "entry": "main.js",
+    "styles": [
+      "styles.css"
+    ],
+    "capabilities": [
+      "sys.clipboard"
+    ],
+    "window": {
+      "width": 320,
+      "height": 160,
+      "resizable": true
+    }
+  },
+  "files": {
+    "main.js": "window.OSApps.register('hello',{async main(proc){const win=await proc.win.open({title:'Hello'});const p=document.createElement('p');p.className='hello-msg';p.textContent='Hello from an installed .pkg! pid '+proc.pid+', caps: '+proc.caps.join(', ');win.root.appendChild(p);}});",
+    "styles.css": ".hello-msg{padding:16px;font:14px system-ui,sans-serif}"
+  }
+}

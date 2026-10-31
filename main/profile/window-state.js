@@ -272,11 +272,39 @@
     return activeBridge ? activeBridge.flush() : Promise.resolve(false);
   }
 
+  /**
+   * exportAll() — returns the active bridge's current window snapshot,
+   * suitable for storing in a hibernate snapshot.
+   * @returns {Object|null}
+   */
+  function exportAll() {
+    return activeBridge ? activeBridge.snapshot() : null;
+  }
+
+  /**
+   * importAll(data) — restores window positions from a hibernate snapshot object.
+   * Merges the saved window map into ProfileState.windows so the next shellBoot
+   * will pick it up via the existing restorePersistedWindows path.
+   * @param {Object} data  — the windows map previously returned by exportAll()
+   */
+  function importAll(data) {
+    if (!data || typeof data !== 'object') return;
+    try {
+      if (window.ProfileState) {
+        window.ProfileState.windows = clone(data);
+        if (!window.ProfileState.apps) window.ProfileState.apps = {};
+        window.ProfileState.apps.windowsInitialized = true;
+      }
+    } catch (_) {}
+  }
+
   window.ProfileWindowState = {
     create: create,
     snapshot: snapshotWindows,
     snapshotActive: snapshotActive,
-    flushActive: flushActive
+    flushActive: flushActive,
+    exportAll: exportAll,
+    importAll: importAll
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

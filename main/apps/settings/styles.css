@@ -1,0 +1,11 @@
+.st-wrap{padding:12px 16px;font:14px system-ui,sans-serif;display:flex;flex-direction:column;gap:14px}
+.st-wrap h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;opacity:.7}
+.st-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.st-row label{width:130px;flex:0 0 auto}
+.st-row input,.st-row select{background:#14161b;color:inherit;border:1px solid #3a3d48;border-radius:4px;padding:4px 6px;min-width:0}
+.st-row .st-key{flex:0 0 150px}
+.st-row .st-val{flex:1}
+.st-wrap button{background:#3a3d48;color:inherit;border:0;border-radius:4px;padding:4px 10px;cursor:pointer}
+.st-wrap button:hover{background:#4a4e5c}
+.st-msg{min-height:18px;font-size:12px;opacity:.85}
+.st-err{color:#ff8a80}

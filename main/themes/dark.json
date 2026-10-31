@@ -1,0 +1,1 @@
+{ "id": "dark", "name": "Dark", "vars": { "--os-bg": "#0a0a0a", "--os-surface": "#111", "--os-accent": "#6c63ff", "--os-text": "#e0e0e0", "--os-border": "#222", "--os-taskbar-bg": "#050505", "--os-window-bg": "#0d0d0d", "--os-window-header": "#111" } }

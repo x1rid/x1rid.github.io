@@ -1,0 +1,1 @@
+{ "id": "hacker", "name": "Hacker", "vars": { "--os-bg": "#000", "--os-surface": "#001100", "--os-accent": "#00ff41", "--os-text": "#00ff41", "--os-border": "#003300", "--os-taskbar-bg": "#000", "--os-window-bg": "#000d00", "--os-window-header": "#001a00" } }

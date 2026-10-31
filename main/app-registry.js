@@ -5,7 +5,7 @@
  * The shell owns window DOM nodes. This module owns the logical application
  * contract and the list of running application instances:
  *
- *   register(def)                   register an application definition
+ *   register(def)                   register an application definition (legacy inline apps)
  *   get(id) / list() / has(id)      inspect definitions
  *   launch(id, options)             start, focus, or restore an application
  *   focus(id) / minimize(id)        control a running instance
@@ -15,7 +15,16 @@
  *   running()                       snapshots of running instances
  *   context()                       active profile + VFS for launch handlers
  *
- * A definition supplies:
+ * Phase 3.1 additions (manifest apps):
+ *   loadApp(id) / loadApps(ids)     fetch apps/<id>/manifest.json, inject styles, load entry script
+ *   OSApps.register(id, impl)       called by an app's entry script: { async main(proc, args) }
+ *   validateManifest(obj)           manifestVersion 1 schema check
+ *   adaptRetroApps()                non-destructive bridge so window.RetroApps keeps working
+ *
+ * Phase 3.2 additions: every process is spawned with caps from the manifest
+ * (`capabilities`). Legacy inline definitions get ['*'] so nothing breaks until migrated.
+ *
+ * A legacy definition supplies:
  *   id, name, tagline, meta, icon, source, kind, fileTypes, multiple,
  *   launch(context, options) -> window
  *
@@ -24,10 +33,11 @@
  * instance (the shell terminal does this). Singleton launches focus or restore
  * the existing instance instead of creating a second window.
  *
- * The registry does not create windows itself and never touches persistence.
- * The shell supplies its window manager through configure(); running windows
- * remain addressable by window id so the registry stays useful even after a
- * node has been removed.
+ * Window creation: the shell supplies configure({ windowFactory(opts) -> win, windowManager }).
+ * `win` needs { id, root, node?, closed, onClose, close(), setTitle?(), focus?() }.
+ * If no factory is configured a plain floating-div fallback is used so manifest apps still run.
+ *
+ * The registry never touches persistence.
  */
 
 (function (window) {
@@ -35,8 +45,16 @@
 
     const definitions = new Map();
     const running = new Map();
+    const pendingManifests = new Map();
+    const loading = new Map();
     let services = {};
     let sequence = 0;
+    let winSeq = 0;
+    let zTop = 1000;
+
+    const LEGACY_CAPS = ['*'];
+    const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+    const DEFAULT_BASE = 'apps/';
 
     function normalizeId(value) {
         return String(value == null ? '' : value).trim().toLowerCase();
@@ -88,10 +106,57 @@
         };
     }
 
+    // ── Manifest validation ────────────────────────────────────────────────
+
+    function safeRelPath(p) {
+        return typeof p === 'string' && p.length > 0 &&
+            !/^([a-z][a-z0-9+.-]*:|\/|\\)/i.test(p) &&
+            p.split(/[\\/]/).indexOf('..') === -1;
+    }
+
+    function validateManifest(m) {
+        const errors = [];
+        if (!m || typeof m !== 'object' || Array.isArray(m)) {
+            return { ok: false, errors: ['manifest must be an object'], id: '' };
+        }
+        const id = normalizeId(m.id);
+        if (m.manifestVersion !== 1) errors.push('manifestVersion must be 1');
+        if (!ID_RE.test(id)) errors.push('id must match ' + ID_RE);
+        if (typeof m.name !== 'string' || !m.name.trim()) errors.push('name is required');
+        if (m.kind != null && m.kind !== 'app') errors.push('only kind "app" is supported in Phase 3');
+        if (!safeRelPath(m.entry)) errors.push('entry must be a relative path inside the app folder');
+        if (m.styles != null && (!Array.isArray(m.styles) || !m.styles.every(safeRelPath))) {
+            errors.push('styles must be an array of relative paths');
+        }
+        if (m.icon != null && !safeRelPath(m.icon)) errors.push('icon must be a relative path');
+        if (m.capabilities != null) {
+            if (!Array.isArray(m.capabilities) || !m.capabilities.every(function (c) {
+                return typeof c === 'string' && c.length > 0 && c.indexOf('*') === -1;
+            })) {
+                errors.push('capabilities must be an array of non-empty strings without wildcards');
+            }
+        }
+        if (m.window != null && (typeof m.window !== 'object' || Array.isArray(m.window))) {
+            errors.push('window must be an object');
+        }
+        return { ok: errors.length === 0, errors: errors, id: id };
+    }
+
+    function normalizeCaps(value, fallback) {
+        if (!Array.isArray(value)) return fallback.slice();
+        const seen = new Set();
+        value.forEach(function (c) { if (c != null) seen.add(String(c)); });
+        return Array.from(seen);
+    }
+
+    // ── Definitions ────────────────────────────────────────────────────────
+
     function normalizeDefinition(input) {
         if (!input || typeof input !== 'object') return null;
         const id = normalizeId(input.id);
         if (!id || typeof input.launch !== 'function') return null;
+
+        const manifest = input.manifest && typeof input.manifest === 'object' ? input.manifest : null;
 
         return {
             id: id,
@@ -105,7 +170,15 @@
             fileTypes: normalizeFileTypes(input.fileTypes),
             multiple: Boolean(input.multiple || input.allowMultiple),
             hidden: Boolean(input.hidden),
+            version: stringValue(input.version, ''),
+            personality: Array.isArray(input.personality) ? input.personality.map(String) : [],
+            manifest: manifest,
+            legacy: !manifest,
+            installed: Boolean(input.installed),
+            // manifest apps declare caps; legacy inline apps keep full access until migrated
+            capabilities: manifest ? normalizeCaps(input.capabilities, []) : normalizeCaps(input.capabilities, LEGACY_CAPS),
             launch: input.launch,
+            start: typeof input.start === 'function' ? input.start : null,
             focus: typeof input.focus === 'function' ? input.focus : null,
             minimize: typeof input.minimize === 'function' ? input.minimize : null,
             restore: typeof input.restore === 'function' ? input.restore : null,
@@ -126,7 +199,12 @@
             frame: definition.frame,
             fileTypes: definition.fileTypes.slice(),
             multiple: definition.multiple,
-            hidden: definition.hidden
+            hidden: definition.hidden,
+            version: definition.version,
+            personality: definition.personality.slice(),
+            capabilities: definition.capabilities.slice(),
+            legacy: definition.legacy,
+            installed: definition.installed
         };
     }
 
@@ -143,6 +221,7 @@
             return definitions.get(definition.id);
         }
         definitions.set(definition.id, definition);
+        emit('os:apps-changed', { added: definition.id });
         return definition;
     }
 
@@ -150,6 +229,7 @@
         const key = normalizeId(id);
         if (!key || !definitions.has(key)) return false;
         definitions.delete(key);
+        emit('os:apps-changed', { removed: key });
         return true;
     }
 
@@ -192,13 +272,22 @@
         }
     }
 
+    function kernelEmit(name, payload, pid) {
+        try {
+            if (window.KernelEvents && typeof window.KernelEvents.emit === 'function') {
+                window.KernelEvents.emit(name, payload, { pid: pid });
+            }
+        } catch (_error) { /* never let telemetry break the app */ }
+    }
+
     function runningSnapshot(instance) {
         return {
             key: instance.key,
             appId: instance.appId,
             windowId: instance.windowId,
             profileId: instance.profileId,
-            startedAt: instance.startedAt
+            startedAt: instance.startedAt,
+            pid: instance.pid
         };
     }
 
@@ -229,6 +318,22 @@
         return matches.length ? matches[matches.length - 1] : null;
     }
 
+    // ── Process table bridge ───────────────────────────────────────────────
+
+    // When a process dies (Task Manager "End task", crash reap, proc.kill) close its windows.
+    function reapWindows(_record, windowIds) {
+        windowIds.forEach(function (windowId) {
+            const instance = running.get(String(windowId));
+            if (instance && !instance.closed) closeInstance(instance);
+        });
+    }
+
+    function ensureReaper() {
+        if (window.KernelProcessTable && typeof window.KernelProcessTable.setReaper === 'function') {
+            window.KernelProcessTable.setReaper(reapWindows);
+        }
+    }
+
     function attachWindow(appId, win, options) {
         const definition = get(appId);
         if (!definition || !win || typeof win !== 'object') return null;
@@ -245,15 +350,18 @@
         const context = activeContext();
         const cleanup = typeof win.onClose === 'function' ? win.onClose : null;
 
-        // Hook KernelProcessTable to associate a monotonic PID (§5.1, §8 Phase 1.4)
+        // Associate a monotonic PID and grant the manifest's capabilities (§5.1, 3.2)
         let proc = null;
         if (window.KernelProcessTable && typeof window.KernelProcessTable.spawn === 'function') {
+            ensureReaper();
             try {
                 proc = window.KernelProcessTable.spawn({
                     appId: definition.id,
                     name: definition.name,
+                    kind: 'app',
                     windows: [windowId],
-                    uid: context.profileId || 'owner'
+                    uid: context.profileId || 'owner',
+                    caps: definition.capabilities
                 });
             } catch (err) {
                 console.warn('[AppRegistry] KernelProcessTable.spawn error:', err);
@@ -271,6 +379,7 @@
             startedAt: Date.now(),
             closed: false,
             cleanup: cleanup,
+            exitHooks: [],
             sequence: ++sequence
         };
 
@@ -288,7 +397,8 @@
         };
 
         running.set(windowId, instance);
-        emit('site:appopen', runningSnapshot(instance));
+        emit('site:appopen', runningSnapshot(instance));                       // legacy alias
+        kernelEmit('win:opened', { windowId: windowId, appId: definition.id, pid: instance.pid }, instance.pid);
         return instance;
     }
 
@@ -298,13 +408,19 @@
         if (!instance) return false;
         running.delete(key);
 
-        // Notify KernelProcessTable of window detachment
+        instance.exitHooks.splice(0).forEach(function (hook) {
+            try { hook(reason || 'closed'); } catch (error) {
+                console.warn('[AppRegistry] exit hook failed for ' + instance.appId + ':', error);
+            }
+        });
+
+        // Notify KernelProcessTable of window detachment (emits proc:exited when last window goes)
         if (window.KernelProcessTable && typeof window.KernelProcessTable.detachWindow === 'function') {
             try {
                 window.KernelProcessTable.detachWindow(key);
             } catch (_) {}
         }
-        emit('site:appclose', {
+        emit('site:appclose', {                                                // legacy alias of proc:exited
             key: instance.key,
             appId: instance.appId,
             windowId: instance.windowId,
@@ -324,6 +440,27 @@
         if (services.windowManager &&
             typeof services.windowManager.focus === 'function') {
             services.windowManager.focus(instance.windowId, focusTarget !== false);
+            return true;
+        }
+        if (instance.window && typeof instance.window.focus === 'function') {
+            instance.window.focus();
+            return true;
+        }
+        return false;
+    }
+
+    function closeInstance(instance) {
+        if (!instance) return false;
+        if (instance.definition && instance.definition.close) {
+            return instance.definition.close(activeContext(), instance) !== false;
+        }
+        if (services.windowManager &&
+            typeof services.windowManager.close === 'function') {
+            services.windowManager.close(instance.windowId);
+            return true;
+        }
+        if (instance.window && typeof instance.window.close === 'function') {
+            instance.window.close();
             return true;
         }
         return false;
@@ -360,17 +497,26 @@
         if (win.window && win.window.node) win = win.window;
         if (!win || typeof win !== 'object') return null;
 
-        attachWindow(definition.id, win, {
+        const instance = attachWindow(definition.id, win, {
             windowId: options.windowId || win.id
         });
 
-        emit('site:applaunch', {
+        emit('site:applaunch', {                                               // legacy alias of proc:spawned
             key: String(options.windowId || win.id || definition.id),
             appId: definition.id,
             windowId: String(win.id || ''),
             profileId: context.profileId,
             restoring: Boolean(options.restoring)
         });
+
+        // Manifest apps: run main(proc, args) now that a pid + caps exist.
+        if (instance && typeof definition.start === 'function') {
+            try {
+                definition.start(instance, options);
+            } catch (error) {
+                handleCrash(instance, error);
+            }
+        }
         return win;
     }
 
@@ -407,17 +553,7 @@
     }
 
     function close(target) {
-        const instance = resolveInstance(target);
-        if (!instance) return false;
-        if (instance.definition && instance.definition.close) {
-            return instance.definition.close(activeContext(), instance) !== false;
-        }
-        if (services.windowManager &&
-            typeof services.windowManager.close === 'function') {
-            services.windowManager.close(instance.windowId);
-            return true;
-        }
-        return false;
+        return closeInstance(resolveInstance(target));
     }
 
     function runningInstances() {
@@ -446,6 +582,402 @@
         return activeContext();
     }
 
+    // ── Manifest apps: window + process facade ─────────────────────────────
+
+    function defaultWindowFactory(opts) {
+        const id = 'appwin-' + (++winSeq);
+        const node = document.createElement('div');
+        node.setAttribute('data-window-id', id);
+        node.style.cssText = 'position:fixed;display:flex;flex-direction:column;box-sizing:border-box;' +
+            'background:#1b1d23;color:#e8e8ee;border:1px solid #3a3d48;border-radius:8px;overflow:hidden;' +
+            'box-shadow:0 12px 40px rgba(0,0,0,.45);font:14px system-ui,sans-serif;' +
+            'left:' + (60 + (winSeq * 28) % 220) + 'px;top:' + (50 + (winSeq * 28) % 160) + 'px;' +
+            'width:' + (Number(opts.width) || 640) + 'px;height:' + (Number(opts.height) || 420) + 'px;' +
+            'max-width:96vw;max-height:92vh;z-index:' + (++zTop) + ';' +
+            (opts.resizable === false ? '' : 'resize:both;');
+
+        const bar = document.createElement('div');
+        bar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 10px;' +
+            'background:#262932;cursor:move;user-select:none;flex:0 0 auto;';
+        const titleEl = document.createElement('span');
+        titleEl.textContent = opts.title || 'Window';
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '\u2715';
+        closeBtn.setAttribute('aria-label', 'Close');
+        closeBtn.style.cssText = 'background:none;border:0;color:inherit;cursor:pointer;font-size:14px;';
+        bar.appendChild(titleEl);
+        bar.appendChild(closeBtn);
+
+        const rootEl = document.createElement('div');
+        rootEl.style.cssText = 'flex:1 1 auto;overflow:auto;position:relative;';
+
+        node.appendChild(bar);
+        node.appendChild(rootEl);
+        document.body.appendChild(node);
+
+        const win = {
+            id: id,
+            node: node,
+            root: rootEl,
+            closed: false,
+            onClose: null,
+            setTitle: function (t) { titleEl.textContent = String(t); },
+            focus: function () { node.style.zIndex = String(++zTop); },
+            close: function () {
+                if (win.closed) return;
+                win.closed = true;
+                if (node.parentNode) node.parentNode.removeChild(node);
+                if (typeof win.onClose === 'function') win.onClose();
+            }
+        };
+
+        closeBtn.addEventListener('click', function () { win.close(); });
+        node.addEventListener('mousedown', function () { win.focus(); });
+        bar.addEventListener('mousedown', function (ev) {
+            if (ev.target === closeBtn) return;
+            const rect = node.getBoundingClientRect();
+            const dx = ev.clientX - rect.left;
+            const dy = ev.clientY - rect.top;
+            function move(e) {
+                node.style.left = Math.max(0, e.clientX - dx) + 'px';
+                node.style.top = Math.max(0, e.clientY - dy) + 'px';
+            }
+            function up() {
+                document.removeEventListener('mousemove', move);
+                document.removeEventListener('mouseup', up);
+            }
+            document.addEventListener('mousemove', move);
+            document.addEventListener('mouseup', up);
+        });
+
+        return win;
+    }
+
+    function createAppWindow(manifest) {
+        const factory = typeof services.windowFactory === 'function' ? services.windowFactory : defaultWindowFactory;
+        const w = manifest.window || {};
+        const win = factory({
+            appId: manifest.id,
+            title: manifest.name,
+            width: w.width || 640,
+            height: w.height || 420,
+            resizable: w.resizable !== false,
+            icon: manifest.icon || ''
+        });
+        if (!win || !win.root) throw new Error('windowFactory must return a window with a .root element');
+        return win;
+    }
+
+    function handleCrash(inst, error) {
+        console.error('[AppRegistry] ' + inst.appId + ' crashed:', error);
+        if (window.KernelProcessTable && typeof window.KernelProcessTable.crash === 'function' && inst.pid != null) {
+            window.KernelProcessTable.crash(inst.pid, error);
+        }
+        try {
+            const rootEl = inst.window && inst.window.root;
+            if (rootEl) {
+                rootEl.textContent = 'This app crashed: ' + (error && error.message ? error.message : String(error));
+            }
+        } catch (_) { /* window may be gone */ }
+    }
+
+    function startApp(inst, impl, options) {
+        const pid = inst.pid;
+        const win = inst.window;
+        const table = window.KernelProcessTable;
+        const record = pid != null && table ? table.get(pid) : null;
+        const uid = inst.profileId || 'owner';
+
+        const winApi = {
+            id: win.id,
+            root: win.root,
+            setTitle: function (t) { if (typeof win.setTitle === 'function') win.setTitle(String(t)); },
+            focus: function () { focusInstance(inst, true); },
+            close: function () { closeInstance(inst); }
+        };
+
+        const proc = {
+            pid: pid,
+            appId: inst.appId,
+            uid: uid,
+            args: options && options.args !== undefined ? options.args : (options || {}),
+            cwd: record ? record.cwd : '',
+            env: record ? record.env : {},
+            get caps() {
+                const rec = pid != null && table ? table.get(pid) : null;
+                return rec ? rec.caps : inst.definition.capabilities.slice();
+            },
+            // Phase 3: one window per process. Repeated open() returns the same window.
+            win: {
+                open: function (opts) {
+                    if (opts && opts.title) winApi.setTitle(opts.title);
+                    return Promise.resolve(winApi);
+                }
+            },
+            syscall: function (name, args) {
+                if (!window.Kernel || typeof window.Kernel.syscall !== 'function') {
+                    return Promise.reject(new Error('Kernel syscalls unavailable'));
+                }
+                return window.Kernel.syscall({ pid: pid, uid: uid, caps: proc.caps }, name, args)
+                    .then(function (r) { return r.value; });
+            },
+            onSignal: function (sig, handler) {
+                return pid != null && table ? table.onSignal(pid, sig, handler) : false;
+            },
+            onExit: function (fn) {
+                if (typeof fn === 'function') inst.exitHooks.push(fn);
+            },
+            exit: function (code) {
+                if (pid != null && table) table.kill(pid, code);
+                else closeInstance(inst);
+            }
+        };
+
+        const failed = function (err) { handleCrash(inst, err); };
+        try {
+            const result = impl.main(proc, proc.args);
+            if (result && typeof result.then === 'function') result.then(null, failed);
+        } catch (err) {
+            failed(err);
+        }
+    }
+
+    function buildManifestDefinition(manifest, impl, pending) {
+        const w = manifest.window || {};
+        return {
+            id: manifest.id,
+            name: manifest.name,
+            tagline: stringValue(manifest.tagline, ''),
+            meta: manifest.version ? 'v' + manifest.version : '',
+            icon: pending.iconUrl !== undefined ? pending.iconUrl : (manifest.icon ? pending.base + manifest.icon : ''),
+            installed: Boolean(pending.installed),
+            source: 'MANIFEST',
+            kind: 'app',
+            version: stringValue(manifest.version, ''),
+            fileTypes: manifest.fileTypes,
+            multiple: Boolean(manifest.multiple),
+            personality: manifest.personality,
+            capabilities: manifest.capabilities || [],
+            manifest: Object.assign({}, manifest, { window: Object.assign({}, w) }),
+            launch: function () { return createAppWindow(manifest); },
+            start: function (inst, options) { startApp(inst, impl, options); }
+        };
+    }
+
+    // ── Manifest loading ───────────────────────────────────────────────────
+
+    // Called from an app's entry script: window.OSApps.register('notepad', { async main(proc, args) {} })
+    function registerImpl(id, impl) {
+        const key = normalizeId(id);
+        const pending = pendingManifests.get(key);
+        if (!pending) {
+            console.warn('[OSApps] register("' + key + '") ignored: no manifest is loading for it. Use AppRegistry.loadApp("' + key + '").');
+            return null;
+        }
+        if (!impl || typeof impl.main !== 'function') {
+            console.warn('[OSApps] register("' + key + '") ignored: impl.main(proc, args) is required.');
+            return null;
+        }
+        return register(buildManifestDefinition(pending.manifest, impl, pending));
+    }
+
+    function fetchManifest(key, base) {
+        const inline = window.OSManifests && window.OSManifests[key];
+        if (inline) return Promise.resolve(JSON.parse(JSON.stringify(inline)));
+        if (typeof fetch !== 'function') return Promise.reject(new Error('fetch is unavailable'));
+        return fetch(base + 'manifest.json', { cache: 'no-cache' }).then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        }).catch(function (err) {
+            throw new Error('Could not load ' + base + 'manifest.json (' + (err && err.message) + '). ' +
+                'Opened via file://? Serve the folder (python -m http.server) or define window.OSManifests.' + key + '.');
+        });
+    }
+
+    function addStyle(appId, href) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.setAttribute('data-os-app', appId);
+        document.head.appendChild(link);
+    }
+
+    function loadScript(src) {
+        return new Promise(function (resolve, reject) {
+            const s = document.createElement('script');
+            s.src = src;
+            s.onload = function () { resolve(); };
+            s.onerror = function () { reject(new Error('Failed to load script ' + src)); };
+            document.head.appendChild(s);
+        });
+    }
+
+    function loadApp(id, opts) {
+        const key = normalizeId(id);
+        if (!ID_RE.test(key)) return Promise.reject(new Error('Invalid app id: ' + String(id)));
+        if (definitions.has(key)) return Promise.resolve(definitions.get(key));
+        if (loading.has(key)) return loading.get(key);
+
+        const root = String((opts && opts.base) || DEFAULT_BASE).replace(/\/*$/, '/');
+        const base = root + key + '/';
+
+        const p = fetchManifest(key, base).then(function (manifest) {
+            const check = validateManifest(manifest);
+            if (!check.ok) throw new Error('Invalid manifest for ' + key + ': ' + check.errors.join('; '));
+            if (check.id !== key) throw new Error('Manifest id "' + check.id + '" does not match folder "' + key + '"');
+
+            const clean = Object.assign({}, manifest, {
+                id: key,
+                kind: 'app',
+                fileTypes: normalizeFileTypes(manifest.fileTypes),
+                capabilities: normalizeCaps(manifest.capabilities, []),
+                personality: Array.isArray(manifest.personality) ? manifest.personality.map(String) : []
+            });
+            pendingManifests.set(key, { manifest: clean, base: base });
+            (clean.styles || []).forEach(function (href) { addStyle(key, base + href); });
+            return loadScript(base + clean.entry);
+        }).then(function () {
+            const def = definitions.get(key);
+            if (!def) throw new Error('Entry script for "' + key + '" never called OSApps.register("' + key + '", ...)');
+            return def;
+        }).then(function (def) {
+            loading.delete(key);
+            pendingManifests.delete(key);
+            return def;
+        }, function (err) {
+            loading.delete(key);
+            pendingManifests.delete(key);
+            throw err;
+        });
+
+        loading.set(key, p);
+        return p;
+    }
+
+    function loadApps(ids, opts) {
+        const list = Array.isArray(ids) ? ids : [];
+        return Promise.all(list.map(function (id) {
+            return loadApp(id, opts).then(function (def) {
+                return { id: normalizeId(id), ok: true, definition: def };
+            }, function (err) {
+                console.error('[AppRegistry] ' + id + ' failed to load:', err);
+                return { id: normalizeId(id), ok: false, error: err };
+            });
+        }));
+    }
+
+    // ── Installed packages (3.5): code comes from kernel-db, not the network ─
+    function addInlineStyle(appId, cssText) {
+        const el = document.createElement('style');
+        el.setAttribute('data-os-app', appId);
+        el.textContent = cssText;
+        document.head.appendChild(el);
+    }
+
+    function unloadInstalled(id) {
+        const key = normalizeId(id);
+        runningFor(key).forEach(function (inst) { closeInstance(inst); });
+        try {
+            Array.prototype.forEach.call(document.querySelectorAll('[data-os-app="' + key + '"]'), function (el) {
+                if (el.parentNode) el.parentNode.removeChild(el);
+            });
+        } catch (_) { /* no DOM */ }
+        return unregister(key);
+    }
+
+    function loadInstalled(record) {
+        const key = normalizeId(record && record.id);
+        if (!ID_RE.test(key)) return Promise.reject(new Error('Invalid installed app id'));
+        const check = validateManifest(record.manifest);
+        if (!check.ok) return Promise.reject(new Error('Invalid manifest for ' + key + ': ' + check.errors.join('; ')));
+        const existing = definitions.get(key);
+        if (existing && !existing.installed) return Promise.reject(new Error('"' + key + '" is a built-in app'));
+        if (existing) unloadInstalled(key); // upgrade in place
+
+        const files = record.files || {};
+        const manifest = Object.assign({}, record.manifest, {
+            id: key,
+            kind: 'app',
+            fileTypes: normalizeFileTypes(record.manifest.fileTypes),
+            capabilities: normalizeCaps(record.grantedCaps, []),   // granted, not merely requested
+            personality: Array.isArray(record.manifest.personality) ? record.manifest.personality.map(String) : []
+        });
+        const code = files[manifest.entry];
+        if (typeof code !== 'string') return Promise.reject(new Error('Package ' + key + ' is missing its entry file'));
+
+        let iconUrl = '';
+        if (manifest.icon && /\.svg$/i.test(manifest.icon) && typeof files[manifest.icon] === 'string') {
+            iconUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(files[manifest.icon]);
+        }
+        pendingManifests.set(key, { manifest: manifest, base: '', iconUrl: iconUrl, installed: true });
+        (manifest.styles || []).forEach(function (href) {
+            if (typeof files[href] === 'string') addInlineStyle(key, files[href]);
+        });
+
+        const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+        const done = function () { URL.revokeObjectURL(url); pendingManifests.delete(key); };
+        return loadScript(url).then(function () {
+            const def = definitions.get(key);
+            done();
+            if (!def) throw new Error('Entry script for "' + key + '" never called OSApps.register("' + key + '", ...)');
+            return def;
+        }, function (err) { done(); throw err; });
+    }
+
+    let packagesWired = false;
+    function wirePackages() {
+        const P = window.KernelPackages;
+        if (!P || packagesWired) return Promise.resolve([]);
+        packagesWired = true;
+        P.addGuard(function (record) {
+            const d = definitions.get(normalizeId(record.id));
+            if (d && !d.installed) {
+                const msg = '"' + record.id + '" is a built-in app and cannot be replaced by a package';
+                throw window.OsError ? new window.OsError('EBUSY', msg, { id: record.id })
+                    : Object.assign(new Error(msg), { name: 'OsError', code: 'EBUSY' });
+            }
+        });
+        P.onInstalled(loadInstalled);
+        P.onRemoved(unloadInstalled);
+        return P.listInstalled().then(function (records) {
+            return Promise.all(records.map(function (r) {
+                return loadInstalled(r).catch(function (err) {
+                    console.error('[AppRegistry] installed app ' + (r && r.id) + ' failed to load:', err);
+                });
+            }));
+        }, function (err) {
+            console.warn('[AppRegistry] could not read installed apps:', err && err.message);
+            return [];
+        });
+    }
+
+    // Discover apps from apps/index.json ({ "apps": ["notepad", ...] }) or window.OSAppList.
+    function autoload(opts) {
+        const base = String((opts && opts.base) || DEFAULT_BASE).replace(/\/*$/, '/');
+        const fromGlobal = Array.isArray(window.OSAppList) ? Promise.resolve(window.OSAppList) : null;
+        const source = fromGlobal || (typeof fetch === 'function'
+            ? fetch(base + 'index.json', { cache: 'no-cache' }).then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            }).then(function (j) { return Array.isArray(j) ? j : (j && j.apps) || []; })
+            : Promise.resolve([]));
+        return source.then(function (ids) { return loadApps(ids, opts); }, function (err) {
+            console.warn('[AppRegistry] app discovery skipped:', err && err.message);
+            return [];
+        });
+    }
+
+    // ── RetroApps adapter (never overwrites what index.html already defines) ─
+    function adaptRetroApps() {
+        const retro = window.RetroApps;
+        if (!retro || typeof retro !== 'object') return false;
+        if (typeof retro.register !== 'function') retro.register = register;
+        if (typeof retro.launch !== 'function') retro.launch = launch;
+        if (typeof retro.list !== 'function') retro.list = list;
+        if (typeof retro.has !== 'function') retro.has = has;
+        return true;
+    }
+
     window.AppRegistry = {
         register: register,
         unregister: unregister,
@@ -463,7 +995,34 @@
         running: runningInstances,
         instance: instance,
         context: context,
-        configure: configure
+        configure: configure,
+        // Phase 3.1
+        loadApp: loadApp,
+        loadApps: loadApps,
+        autoload: autoload,
+        validateManifest: validateManifest,
+        adaptRetroApps: adaptRetroApps,
+        // Phase 3.5
+        loadInstalled: loadInstalled,
+        unloadInstalled: unloadInstalled,
+        wirePackages: wirePackages
     };
+
+    window.OSApps = Object.assign(window.OSApps || {}, {
+        register: registerImpl,
+        load: loadApp,
+        loadAll: loadApps
+    });
+
+    adaptRetroApps();
+    if (typeof document !== 'undefined' && document.addEventListener) {
+        const boot = function () {
+            adaptRetroApps();
+            const first = window.OSAutoloadApps !== false ? autoload() : Promise.resolve([]);
+            first.then(wirePackages);
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+        else setTimeout(boot, 0);
+    }
 
 })(typeof window !== 'undefined' ? window : globalThis);

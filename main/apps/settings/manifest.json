@@ -1,0 +1,1 @@
+{"manifestVersion":1,"id":"settings","name":"Settings","version":"1.0.0","kind":"app","entry":"main.js","styles":["styles.css"],"multiple":false,"capabilities":["sys.settings:read","sys.settings:write","sys.notify"],"window":{"width":560,"height":440,"resizable":true},"personality":["windows","linux"]}

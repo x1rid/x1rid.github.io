@@ -1,0 +1,103 @@
+.calc {
+    width: min(330px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+.calc-display {
+    padding: 10px 12px;
+    border: 1px solid var(--line-hi, #3a2254);
+    background: var(--surface-3, #150a24);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+    font-family: 'Courier New', monospace;
+    font-variant-numeric: tabular-nums;
+    transition: border-color 0.15s ease;
+}
+
+.calc-display.is-focused {
+    border-color: var(--signal-active, #c084fc);
+}
+
+.calc-expression {
+    min-height: 1.2em;
+    overflow: hidden;
+    color: var(--ink-50, #a08bb8);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-align: right;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.calc-value {
+    overflow: hidden;
+    color: var(--ink-90, #f1e8fc);
+    font-size: 1.85rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-align: right;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.calc-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+}
+
+.calc-key {
+    min-height: 44px;
+    padding: 4px;
+    border: 1px solid var(--line-hi, #3a2254);
+    border-radius: 0;
+    background: var(--surface-2, #1c0e30);
+    color: var(--ink-90, #f1e8fc);
+    font: 700 1rem 'Courier New', monospace;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.calc-key:hover,
+.calc-key:focus-visible {
+    border-color: var(--signal-active, #c084fc);
+    background: rgba(192, 132, 252, 0.09);
+}
+
+.calc-key:active {
+    transform: translateY(1px);
+}
+
+.calc-key--fn {
+    background: var(--surface-3, #150a24);
+    color: var(--ink-70, #cfbde6);
+    font-size: 0.85rem;
+}
+
+.calc-key--op {
+    color: var(--signal-active, #c084fc);
+}
+
+.calc-key--eq {
+    border-color: var(--signal-active, #c084fc);
+    background: var(--signal-active, #c084fc);
+    color: #180a2b;
+    font-weight: 800;
+}
+
+.calc-key--eq:hover,
+.calc-key--eq:focus-visible {
+    background: #d5a9ff;
+    color: #180a2b;
+}
+
+/* scoped (the legacy rule was global .app-hint) so it can't leak out of the window */
+.calc .app-hint {
+    font-size: 0.75rem;
+    color: var(--ink-50, #a08bb8);
+    margin: 4px 0 0;
+    text-align: center;
+}

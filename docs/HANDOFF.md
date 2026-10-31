@@ -212,7 +212,7 @@ First task card: **Phase 2.1 â€” Wire Terminal to the real VFS via syscalls** (k
 - Full test suite: 336 tests passing across 17 test suites, 0 failures.
 
 ### Next step
-Phase 2.4 — Split shells (cmd.exe / ash) per roadmap and llm-phase2/2.4-split-shells/.
+Phase 2.4 ï¿½ Split shells (cmd.exe / ash) per roadmap and llm-phase2/2.4-split-shells/.
 
 ---
 
@@ -231,3 +231,109 @@ Phase 2.4 — Split shells (cmd.exe / ash) per roadmap and llm-phase2/2.4-split-s
 
 ### Exact next step
 Proceed to **Phase 2.5: Explorer and Terminal both use fs.watch** (`llm-phase2/2.5-fs-watch-sync/`).
+
+---
+
+## 2026-10-31 | Antigravity (Gemini 3.8 Flash) | Phase 3 (App Platform v2)
+
+### State of the Branch
+- Working branch: `phase3-app-platform-v2`
+- Automated test suites: `node tests/phase3-kernel.test.js` (16/16) and `node tests/phase3-packages.test.js` (9/9) both pass cleanly (25/25 total).
+
+### What Was Completed
+1. **Phase 3.1 & 3.2**:
+   - Replaced `main/app-registry.js`, `main/kernel/process-table.js`, `main/kernel/syscalls.js`.
+   - Manifest loader, capability checking (default-deny), audit logging, `SIGTERM` veto once, zombie/crash states, and process-death window reaping.
+2. **Phase 3.3 (Apps)**:
+   - Built reference manifest applications: `notepad`, `task-manager`, and `settings` in `main/apps/`.
+   - Migrated legacy Calculator to isolated manifest package in `main/apps/calculator/` (`manifest.json`, `main.js`, `styles.css`, `icon.svg`).
+   - Removed legacy `main/apps/calculator.js` and its old `<script>` tag from `main/index.html`.
+3. **Phase 3.5 (Installer & Kernel DB)**:
+   - Created `main/kernel/kernel-db.js` (IndexedDB with memory fallback).
+   - Created `main/kernel/packages.js` (`.pkg` JSON installer, `pkg.install`, `pkg.remove`, `pkg.list`).
+   - Wired `<script>` tags into `main/index.html`. Verified with `samples/hello.pkg`.
+
+### What Remains (Phase 3.4 & Window Seam)
+- **Phase 3.4**: Extracting the 6,379-line monolith `main/index.html` into `main/shell/` (`desktop.js`, `start-menu.js`, `notifications.js`).
+- **Window Seam**: Wiring the shell window manager via `AppRegistry.configure({ windowFactory })` to replace the fallback floating window.
+- **Shot 3 Package Prepared**: All needed assets (zipped full file and clean logical chunks 1 through 5) are saved in `phase3/shot3/` alongside `SHOT3_MISSION.md`.
+
+---
+
+## 2026-10-31 | Claude (web) | Phase 3.4 Complete (Shell extraction + window seam)
+
+### What was done
+- Extracted the `main/index.html` inline shell into `main/shell/` (state, notifications, desktop, window-host,
+  programs, music, terminal-host, start-menu, apps, host-bridge, shortcuts-host, boot) + retro-apps.js,
+  vendor-programs.js, shell.css. `index.html` is now ~344 lines (257 of them body markup).
+- `shellWindowFactory` wired via `AppRegistry.configure({ windowFactory })`; manifest apps render in `win.root`.
+- `os:apps-changed` triggers launcher re-render.
+- Added `tests/shell-split.test.js` and `docs/tasks/012-shell-extraction.md`.
+
+### Notes
+- Shell files are classic scripts sharing one global lexical scope; boot.js must load last.
+- Verified in headless Chromium against the original (identical windows/z-order/rects/toast/search/show-desktop)
+  with stubs for repo files not available to the author. Run the full suite and the manual smoke checklist.
+
+## 2026-10-31 | Antigravity | Phase 4
+
+### What was done
+
+- **P4.1** — main/security/elevation.js (ElevationService): request/revoke/isElevated. UAC modal in main/shell/elevation-dialog.js. sec.elevate syscall wired. Node test env: ELEVATION_AUTO_GRANT=1 grants, else denies.
+- **P4.2** — main/kernel/autostart.js (AutostartService): register/unregister/list/run. KernelDB store utostart_entries. main/kernel/scheduler.js (KernelScheduler): schedule/cancel/list, supports interval/t/cron (*/N parser only). KernelDB store scheduled_tasks.
+- **P4.3** — main/kernel/power.js (PowerService): sleep/hibernate/restore/restart/shutdown/safeMode. KernelDB store hibernate_snapshot. Sleep overlay in main/shell/power-overlay.js. ProfileWindowState.exportAll() and importAll() added to main/profile/window-state.js.
+- **P4.4** — main/immersion/bios.js (BiosScreen): POST typewriter, F2/F8/any-key. main/immersion/boot-menu.js (BootMenuScreen): arrow-key boot entry selector. Both wired in shell/boot.js via ?bios=1 / ?restoring=hibernate URL params.
+- **KernelDB** bumped to v2; migration 2 adds 3 new stores.
+- **syscalls.js**: added sec.elevate + power.* handlers + CAP_ONLY_CALLS entries.
+- **Tests**: 408 passed, 1 pre-existing failure (syscalls.test.js — untouched). New: elevation (6), autostart (6), power (7).
+
+### What is NOT done (Phase 4 future work)
+- Real su/sudo/login shell commands wired to ElevationService
+- Cron full-field parsing (only */N * * * * and * * * * * supported)
+- Boot menu personality switching (Linux personality is a UI stub only)
+- Safe mode actually loading fewer scripts
+- Hibernate restore mid-session (only works on page reload with ?restoring=hibernate)
+
+### Exact next step
+Phase 5 per docs/OS_FOUNDATION.md or further Phase 4 polish per open items above.
+
+
+---
+
+## 2026-10-31 â€” Phase 5 Complete (Immersion Pass & Advanced Features)
+
+### Summary
+Phase 5 (5.1 through 5.5) of OS_FOUNDATION.md is complete. 18 new automated tests added, test suite now stands at 426 passed, 1 failed (1 pre-existing syscalls.test.js failure).
+
+### Key Deliverables
+- **5.1 Virtual Network & Fake Internet:**
+  - main/kernel/net-service.js (window.NetService): Simulated networking with online/offline toggle, request routing, event dispatching.
+  - main/kernel/fake-internet.js (window.FakeInternet): Fake routes for internal ping, internal homepage, package store listing (store.r3dos.internal/packages), package installation, fake email, and chat rooms.
+  - tests/net-service.test.js: 6 tests passing.
+- **5.2 Email & Chat Subsystems:**
+  - main/kernel/mail-service.js (window.MailService): Manages messages, persisted to mailbox store in KernelDB.
+  - main/apps/mail/: Manifest app (Inbox, Sent, Compose).
+  - main/apps/chat/: Manifest app (IRC-style rooms, channels #general, #dev, #random, simulated bot replies).
+- **5.3 Resource Simulation & Diagnostics:**
+  - main/kernel/resource-sim.js (window.ResourceSim): Dynamic fake CPU & RAM tracking for PIDs with jittering ticks and crash simulation.
+  - main/shell/crash-dialog.js (window.CrashDialog): Crash modal dialog triggered on process:crashed.
+  - main/apps/event-viewer/: Manifest app to inspect audit records and live event stream.
+  - main/apps/dmesg/: Manifest app streaming kernel logs/events in real time with pause/clear controls.
+  - tests/resource-sim.test.js: 5 tests passing.
+- **5.4 Theming Engine & Sound System:**
+  - main/kernel/theme-service.js (window.ThemeService): Applies CSS custom properties on :root across built-in themes (default, dark, hacker, win95, macos). Persisted to user_prefs.
+  - main/themes/: Theme definition files.
+  - main/kernel/sound-service.js (window.SoundService): Maps system events to sound pack effects with fallback to silent mode.
+  - tests/theme-service.test.js: 7 tests passing.
+- **5.5 Window Manager Layouts:**
+  - main/kernel/wm-layout.js (window.WMLayout): Layout calculation algorithms for floating, tiling, and stacked window arrangements.
+- **Kernel & Shell Integration:**
+  - main/kernel/kernel-db.js: Upgraded to DB_VERSION 3, adding mailbox, chat_messages, and user_prefs stores.
+  - main/kernel/syscalls.js: Added net.request, sys.theme.get, sys.theme.set, sys.sound.play, and sys.wm.setLayout syscalls.
+  - main/index.html & main/apps/index.json: Registered new kernel services and apps.
+
+### Verification
+```bash
+node tests/run-tests.js
+```
+Total: 426 passed, 1 failed (known pre-existing syscalls test).
