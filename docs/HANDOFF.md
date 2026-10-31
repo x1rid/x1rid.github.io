@@ -257,3 +257,20 @@ Proceed to **Phase 2.5: Explorer and Terminal both use fs.watch** (`llm-phase2/2
 - **Phase 3.4**: Extracting the 6,379-line monolith `main/index.html` into `main/shell/` (`desktop.js`, `start-menu.js`, `notifications.js`).
 - **Window Seam**: Wiring the shell window manager via `AppRegistry.configure({ windowFactory })` to replace the fallback floating window.
 - **Shot 3 Package Prepared**: All needed assets (zipped full file and clean logical chunks 1 through 5) are saved in `phase3/shot3/` alongside `SHOT3_MISSION.md`.
+
+---
+
+## 2026-10-31 | Claude (web) | Phase 3.4 Complete (Shell extraction + window seam)
+
+### What was done
+- Extracted the `main/index.html` inline shell into `main/shell/` (state, notifications, desktop, window-host,
+  programs, music, terminal-host, start-menu, apps, host-bridge, shortcuts-host, boot) + retro-apps.js,
+  vendor-programs.js, shell.css. `index.html` is now ~344 lines (257 of them body markup).
+- `shellWindowFactory` wired via `AppRegistry.configure({ windowFactory })`; manifest apps render in `win.root`.
+- `os:apps-changed` triggers launcher re-render.
+- Added `tests/shell-split.test.js` and `docs/tasks/012-shell-extraction.md`.
+
+### Notes
+- Shell files are classic scripts sharing one global lexical scope; boot.js must load last.
+- Verified in headless Chromium against the original (identical windows/z-order/rects/toast/search/show-desktop)
+  with stubs for repo files not available to the author. Run the full suite and the manual smoke checklist.
