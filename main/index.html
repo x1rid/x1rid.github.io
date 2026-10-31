@@ -4914,8 +4914,8 @@ window.ProfileReady.then(() => {
                 return true;
             }
 
-            if (command === 'ls') {
-                printLs(args.includes('-l'));
+            if (command === 'ls' || command === 'dir') {
+                printLs(args.includes('-l') || command === 'dir');
                 return true;
             }
 
@@ -5146,6 +5146,51 @@ window.ProfileReady.then(() => {
             }
 
             if (command === 'echo') {
+                const rawArgs = args.join(' ');
+                const redirMatch = rawArgs.match(/^(.*?)\s*(>>|>)\s*(.+)$/);
+                if (redirMatch) {
+                    const text = redirMatch[1].trim();
+                    const isAppend = redirMatch[2] === '>>';
+                    const targetFile = redirMatch[3].trim().replace(/^['"]|['"]$/g, '');
+                    const vfs = vfsReady();
+                    if (!vfs || !term.cwdId) {
+                        line('echo: filesystem not available', 'error');
+                        return true;
+                    }
+
+                    // Check if file already exists in cwd
+                    const children = vfs.getChildren(term.cwdId);
+                    const existing = children.find(c => c.name.toLowerCase() === targetFile.toLowerCase());
+
+                    if (existing) {
+                        if (isAppend) {
+                            vfs.readFile(existing.id).then(curr => {
+                                const prev = curr && curr.kind === 'text' ? curr.value : '';
+                                const updated = prev ? prev + '\n' + text : text;
+                                return vfs.writeFile(existing.id, updated);
+                            }).then(() => {
+                                line(`appended to ${targetFile}`, 'dim');
+                            }).catch(err => {
+                                line(`echo: ${err.message}`, 'error');
+                            });
+                        } else {
+                            vfs.writeFile(existing.id, text).then(() => {
+                                line(`wrote to ${targetFile}`, 'dim');
+                            }).catch(err => {
+                                line(`echo: ${err.message}`, 'error');
+                            });
+                        }
+                    } else {
+                        // Create new file
+                        vfs.createFile(term.cwdId, targetFile, text).then(() => {
+                            line(`created ${targetFile}`, 'dim');
+                        }).catch(err => {
+                            line(`echo: ${err.message}`, 'error');
+                        });
+                    }
+                    return true;
+                }
+
                 line(args.join(' '));
                 return true;
             }

@@ -1633,17 +1633,40 @@
     if (statusTarget) statusTarget.textContent = 'CONNECTING TO VFS…';
 
     window.VirtualFSReady.then(async (vfs) => {
-        // Subscribe to real-time events
-        vfs.subscribe((event) => {
+        // Subscribe to real-time events using fs.watch (OS_FOUNDATION §5.5, Phase 2.5)
+        const onFsChange = (event) => {
+            if (!event) return;
             if (event.parentId === state.currentId ||
                 event.nodeId === state.currentId ||
                 event.oldParentId === state.currentId ||
                 event.type === 'node-recycled' ||
-                event.type === 'node-restored') {
+                event.type === 'node-restored' ||
+                event.type === 'fs:node-created' ||
+                event.type === 'fs:node-updated' ||
+                event.type === 'fs:node-deleted' ||
+                event.type === 'fs:node-recycled' ||
+                event.type === 'fs:node-restored') {
                 render();
             }
             renderDesktopIcons();
-        });
+        };
+
+        if (typeof vfs.watch === 'function') {
+            vfs.watch('C:\\', onFsChange).catch(() => {
+                vfs.subscribe(onFsChange);
+            });
+        } else {
+            vfs.subscribe(onFsChange);
+        }
+
+        // Also connect to KernelEvents bus if present
+        if (window.KernelEvents && typeof window.KernelEvents.on === 'function') {
+            window.KernelEvents.on('fs:node-created', onFsChange);
+            window.KernelEvents.on('fs:node-updated', onFsChange);
+            window.KernelEvents.on('fs:node-deleted', onFsChange);
+            window.KernelEvents.on('fs:node-recycled', onFsChange);
+            window.KernelEvents.on('fs:node-restored', onFsChange);
+        }
 
         // Initial location: the profile's last Explorer folder, else Desktop.
         const lastFolder = (window.ProfileState && window.ProfileState.apps &&
