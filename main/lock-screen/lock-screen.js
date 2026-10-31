@@ -41,6 +41,7 @@
   const MAX_AVATAR_DIMENSION = 1024;
   const AVATAR_STORAGE_LIMIT = 600000;
   const AUTO_ENTER_KEY = 'desktop.lock.autoEnter';
+  const THEME_KEY = 'desktop.lock.theme';
   const MAX_ERRORS = 20;
 
   function safeSessionGet(key) {
@@ -128,6 +129,35 @@
     return messages[code] || messages.INVALID_CREDENTIALS;
   }
 
+  // Themes are presentation-only. Authentication and profile state remain
+  // entirely independent from this session-scoped preference.
+  const LockTheme = {
+    default: 'aurora',
+    _current: 'aurora',
+    themes: new Map([
+      ['aurora', { id: 'aurora', label: 'Aurora' }],
+      ['ember', { id: 'ember', label: 'Ember' }],
+      ['noir', { id: 'noir', label: 'Noir' }]
+    ]),
+    list() { return Array.from(this.themes.values()); },
+    current() { return this._current; },
+    register(id, meta) {
+      if (!id) return false;
+      this.themes.set(id, Object.assign({ id: id, label: id }, meta || {}));
+      return true;
+    },
+    apply(id, root) {
+      const target = root || document.getElementById('lock-screen');
+      const name = this.themes.has(id) ? id : this.default;
+      this._current = name;
+      if (target) target.dataset.lockTheme = name;
+      safeSessionSet(THEME_KEY, name);
+      return name;
+    },
+    restore(root) { return this.apply(safeSessionGet(THEME_KEY) || this.default, root); }
+  };
+  window.LockTheme = LockTheme;
+
   const LockScreenV2 = {
     ownsLockScreen: true,
     ready: null,
@@ -167,6 +197,8 @@
           : Promise.resolve());
         await this._loadSettings();
         await this._loadAvatars();
+        this._ensureChrome();
+        LockTheme.restore(this._root);
         this._bindEvents();
         this._applySettings();
         this._renderAccounts();
@@ -181,7 +213,11 @@
           const active = window.ProfileService ? window.ProfileService.getActiveProfile() : null;
           if (active && window.ProfileService.isUnlocked(active.id)) {
             await this._enterDesktop(true);
+          } else {
+            this._startGlance();
           }
+        } else {
+          this._startGlance();
         }
       } catch (error) {
         await this.cleanup();
@@ -205,6 +241,35 @@
     _listen(target, type, handler, options) {
       target.addEventListener(type, handler, options);
       this._listeners.push({ target: target, type: type, handler: handler, options: options });
+    },
+
+    _ensureChrome() {
+      const root = this._root;
+      if (!root) return;
+      if (!root.querySelector('.lock-wallpaper')) {
+        const wallpaper = el('div', 'lock-wallpaper');
+        wallpaper.setAttribute('aria-hidden', 'true');
+        wallpaper.appendChild(el('div', 'lock-wallpaper-glow'));
+        wallpaper.appendChild(el('div', 'lock-wallpaper-grain'));
+        root.insertBefore(wallpaper, root.firstChild);
+      }
+      if (!root.querySelector('.lock-unlock-hint')) {
+        const hint = el('div', 'lock-unlock-hint');
+        hint.setAttribute('aria-hidden', 'true');
+        hint.appendChild(el('span', 'uh-chevron'));
+        hint.appendChild(el('span', null, 'Click or press any key to sign in'));
+        root.appendChild(hint);
+      }
+      if (!root.querySelector('.lock-statusbar')) {
+        const status = el('div', 'lock-statusbar');
+        const identity = el('span', 'lock-statusbar-identity', 'r3d1 OS');
+        const settings = el('button', 'lock-statusbar-settings', 'Settings');
+        settings.type = 'button';
+        settings.dataset.lockAction = 'settings';
+        settings.setAttribute('aria-expanded', 'false');
+        status.append(identity, settings);
+        root.appendChild(status);
+      }
     },
 
     /* ── Settings ──────────────────────────────────────────────── */
@@ -546,6 +611,18 @@
       if (!this._root) return;
       const root = this._root;
 
+      this._listen(root, 'pointerdown', () => {
+        if (this.state.phase === 'glance') this._dismissGlance();
+      });
+      this._listen(root, 'wheel', () => {
+        if (this.state.phase === 'glance') this._dismissGlance();
+      }, { passive: true });
+      this._listen(window, 'keydown', (event) => {
+        if (this.state.phase === 'glance' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+          this._dismissGlance();
+        }
+      });
+
       this._listen(root, 'click', (event) => {
         const target = event.target;
         if (!target || !target.closest) return;
@@ -609,6 +686,10 @@
             });
           return;
         }
+        if (target.dataset && target.dataset.lockThemeChoice) {
+          LockTheme.apply(target.value, this._root);
+          return;
+        }
         if (target.closest('.lock-settings-panel')) {
           this._onSettingChanged(target);
         }
@@ -623,6 +704,9 @@
           } else if (this.state.phase === 'entering-credentials') {
             event.preventDefault();
             this._backToAccounts();
+          } else if (this.state.phase === 'selecting-account') {
+            event.preventDefault();
+            this._startGlance();
           }
         }
       });
@@ -638,8 +722,9 @@
       if (!panel) return;
       const next = typeof force === 'boolean' ? force : panel.hidden;
       panel.hidden = !next;
-      const button = this._root.querySelector('[data-lock-action="settings"]');
-      if (button) button.setAttribute('aria-expanded', next ? 'true' : 'false');
+      this._root.querySelectorAll('[data-lock-action="settings"]').forEach((button) => {
+        button.setAttribute('aria-expanded', next ? 'true' : 'false');
+      });
       if (next) {
         this._syncSettingsPanel();
         this._playAnimation('panel-open');
@@ -709,11 +794,35 @@
       });
     },
 
+    _renderThemePicker(panel) {
+      let row = panel.querySelector('#lock-theme-row');
+      if (!row) {
+        const section = panel.querySelector('.lock-settings-section');
+        if (!section) return;
+        row = el('label', 'lock-setting-row');
+        row.id = 'lock-theme-row';
+        row.appendChild(el('span', null, 'Appearance'));
+        const select = document.createElement('select');
+        select.dataset.lockThemeChoice = 'true';
+        LockTheme.list().forEach((theme) => {
+          const option = document.createElement('option');
+          option.value = theme.id;
+          option.textContent = theme.label;
+          select.appendChild(option);
+        });
+        row.appendChild(select);
+        section.appendChild(row);
+      }
+      const select = row.querySelector('select');
+      if (select) select.value = LockTheme.current();
+    },
+
     _syncSettingsPanel() {
       if (!this._root) return;
       const panel = this._root.querySelector('#lock-settings-panel');
       if (!panel) return;
       this._renderAvatarPresets(panel);
+      this._renderThemePicker(panel);
       const settings = this.getSettings();
       panel.querySelectorAll('[data-lock-setting]').forEach((input) => {
         const path = input.dataset.lockSetting.split('.');
@@ -766,14 +875,33 @@
         this._root.classList.remove('is-unlocked');
         document.documentElement.classList.add('profile-locked');
       }
-      this._focusFirstAccount();
+      this._startGlance();
     },
 
     requestUnlock() {
       this.show();
+      this._dismissGlance();
       const selected = this.state.selectedProfileId;
       if (selected) this.selectProfile(selected);
       else this._focusFirstAccount();
+    },
+
+    _startGlance() {
+      if (!this._root) return;
+      this.state.phase = 'glance';
+      this._root.classList.add('is-glance');
+      this._setFormVisible(false);
+      this._playAnimation('wake');
+    },
+
+    _dismissGlance() {
+      if (!this._root || this.state.phase !== 'glance') return;
+      this._root.classList.remove('is-glance');
+      this.state.phase = 'selecting-account';
+      this._setFormVisible(false);
+      this._renderAccounts();
+      this._playAnimation('glance-to-login');
+      this._focusFirstAccount();
     },
 
     focusSignIn() {

@@ -342,6 +342,24 @@
     }
   });
 
+  controller.register('wake', {
+    start: function () {
+      return classHandle(lockRoot(), 'is-waking', 720);
+    },
+    minimal: function (ctx) {
+      return classHandle(ctx.root, 'is-waking', 1);
+    }
+  });
+
+  controller.register('glance-to-login', {
+    start: function () {
+      return classHandle(lockRoot(), 'is-glance-dismiss', 540);
+    },
+    minimal: function (ctx) {
+      return classHandle(ctx.root, 'is-glance-dismiss', 1);
+    }
+  });
+
   const query = motionQuery();
   controller.setReducedMotion(Boolean(query && query.matches));
   if (query) {
