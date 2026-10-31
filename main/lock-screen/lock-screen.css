@@ -1,7 +1,7 @@
 /* ==========================================================================
-   LockScreenV2 — Windows 11 / Modern OS Sign-in Experience
-   Pixel-perfect OS simulator aesthetic: center credentials, bottom-left user
-   switcher, bottom-right system tray (Network, Accessibility, Power).
+   LockScreenV2 — GDM-inspired sign-in screen
+   Centered identity, compact account switcher, password-only authentication
+   for listed accounts, separate "another account" view, bottom-right tray.
    ========================================================================== */
 
 .lock-screen {
@@ -18,12 +18,11 @@
   flex-direction: column;
   overflow: hidden;
   isolation: isolate;
-  background-color: #0b1536;
+  background-color: #0c0820;
   background-image:
-    radial-gradient(ellipse 100% 75% at 50% 10%, rgba(30, 20, 75, 0.5) 0%, transparent 70%),
-    radial-gradient(ellipse 90% 90% at 75% 85%, rgba(65, 20, 110, 0.45) 0%, transparent 60%),
-    radial-gradient(ellipse 80% 80% at 20% 70%, rgba(20, 35, 95, 0.5) 0%, transparent 60%),
-    linear-gradient(135deg, #090e24 0%, #150930 50%, #08122c 100%);
+    radial-gradient(ellipse 70% 55% at 50% 38%, rgba(88, 52, 160, 0.30) 0%, transparent 70%),
+    radial-gradient(ellipse 120% 90% at 50% 120%, rgba(48, 18, 92, 0.55) 0%, transparent 65%),
+    linear-gradient(180deg, #120a2a 0%, #0d0820 55%, #08061a 100%);
   background-size: cover;
   background-position: center;
   color: var(--lock-text);
@@ -59,14 +58,13 @@
 
 .lock-wallpaper-glow {
   position: absolute;
-  inset: -15%;
-  opacity: 0.6;
-  filter: blur(75px);
+  inset: -10%;
+  opacity: 0.5;
+  filter: blur(80px);
   background:
-    radial-gradient(45rem 45rem at 25% 30%, rgba(110, 45, 190, 0.35), transparent 65%),
-    radial-gradient(50rem 50rem at 75% 70%, rgba(45, 80, 200, 0.3), transparent 65%),
-    radial-gradient(35rem 35rem at 50% 50%, rgba(140, 50, 210, 0.25), transparent 70%);
-  animation: lock-ambient-breathe 28s ease-in-out infinite alternate;
+    radial-gradient(38rem 30rem at 30% 30%, rgba(120, 70, 210, 0.22), transparent 70%),
+    radial-gradient(40rem 32rem at 72% 68%, rgba(80, 50, 180, 0.18), transparent 70%);
+  animation: lock-ambient-breathe 40s ease-in-out infinite alternate;
 }
 
 @keyframes lock-ambient-breathe {
@@ -85,7 +83,7 @@
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: radial-gradient(circle at center, transparent 40%, rgba(0, 0, 0, 0.35) 100%);
+  background: radial-gradient(ellipse at 50% 45%, transparent 45%, rgba(2, 0, 10, 0.45) 100%);
 }
 
 /* --------------------------------------------------------------------------
@@ -153,8 +151,48 @@
 }
 
 /* --------------------------------------------------------------------------
-   Center Sign-in Section (Windows 11 Authenticated Layout)
+   Sign-in composition (GDM-inspired)
+   identity → account switcher → authentication → secondary action.
+   Views: data-login-view="profile" | "custom" on .lock-screen.
    -------------------------------------------------------------------------- */
+.lock-screen {
+  --login-spacing-xs: 8px;
+  --login-spacing-sm: 12px;
+  --login-spacing-md: 20px;
+  --login-spacing-lg: 32px;
+  --login-spacing-xl: 48px;
+
+  --login-font: 'Ubuntu', 'Cantarell', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --login-text-strong: #f6f2ff;
+  --login-text: rgba(240, 234, 255, 0.86);
+  --login-text-muted: rgba(225, 214, 250, 0.62);
+  --login-accent: #9b6dff;
+  --login-accent-strong: #b08cff;
+  --login-danger: #ff9aa8;
+  --login-surface: rgba(18, 10, 38, 0.55);
+  --login-surface-hover: rgba(255, 255, 255, 0.08);
+  --login-surface-selected: rgba(255, 255, 255, 0.12);
+  --login-border: rgba(255, 255, 255, 0.14);
+  --login-border-strong: rgba(255, 255, 255, 0.24);
+  --login-control-h: 40px;
+  --login-radius: 10px;
+  --login-avatar: 128px;
+  --login-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --login-form-w: min(320px, calc(100vw - 2 * var(--login-spacing-md)));
+}
+
+.lock-sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .lock-middle {
   position: relative;
   z-index: 4;
@@ -163,41 +201,58 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   box-sizing: border-box;
-  padding: 20px;
-  transition: opacity 320ms ease, transform 380ms ease;
+  padding: var(--login-spacing-xl) var(--login-spacing-md) calc(var(--login-spacing-xl) + 24px);
+  transition: opacity 320ms ease, transform 380ms var(--login-ease);
 }
 
 .lock-screen.is-glance .lock-middle {
   opacity: 0;
   pointer-events: none;
-  transform: scale(0.96) translateY(24px);
+  transform: translateY(16px);
 }
 
 .lock-signin {
-  width: min(340px, 92vw);
+  width: var(--login-form-w);
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: var(--login-spacing-md);
   text-align: center;
-  background: none;
-  border: none;
-  box-shadow: none;
-  padding: 0;
+  font-family: var(--login-font);
+  color: var(--login-text);
 }
 
-/* Circular Avatar with Windows neutral backing */
-.lock-avatar-wrapper {
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
+.lock-screen.is-view-enter .lock-signin > * {
+  animation: lock-view-enter 260ms var(--login-ease) both;
+}
+
+@keyframes lock-view-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Identity -------------------------------------------------------------- */
+.lock-identity {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-  margin-bottom: 24px;
+  gap: var(--login-spacing-xs);
+}
+
+.lock-avatar-wrapper {
+  width: var(--login-avatar);
+  height: var(--login-avatar);
+  margin: 0 0 var(--login-spacing-xs);
+  border-radius: 50%;
   overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 0 6px rgba(155, 109, 255, 0.10),
+    0 18px 40px rgba(4, 0, 18, 0.45);
+  transition: box-shadow 220ms ease;
 }
 
 .lock-avatar {
@@ -208,227 +263,336 @@
   object-fit: cover;
 }
 
-/* User Name Heading */
 .lock-user {
-  font-size: 2rem;
-  font-weight: 350;
-  color: #ffffff;
+  margin: 0;
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1.15;
   letter-spacing: -0.01em;
-  margin-bottom: 20px;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  color: var(--login-text-strong);
+  text-shadow: none;
+  overflow-wrap: anywhere;
 }
 
-/* Credentials Form */
+.lock-auth-state {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--login-text-muted);
+}
+
+/* Account switcher ------------------------------------------------------ */
+.lock-accounts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.lock-accounts:empty { display: none; }
+
+.lock-account-card {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--login-spacing-xs);
+  height: 36px;
+  min-width: 0;
+  padding: 0 14px 0 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--login-text-muted);
+  font: 400 14px/1 var(--login-font);
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.lock-account-card:hover {
+  background: var(--login-surface-hover);
+  color: var(--login-text);
+}
+
+.lock-account-card[aria-pressed='true'] {
+  background: var(--login-surface-selected);
+  color: var(--login-text-strong);
+  box-shadow: inset 0 0 0 1px var(--login-border);
+}
+
+.lock-account-card:focus-visible {
+  outline: 2px solid var(--login-accent-strong);
+  outline-offset: 2px;
+}
+
+.lock-account-avatar {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.lock-account-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lock-account-name {
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Authentication -------------------------------------------------------- */
 .lock-credentials {
   width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
+  gap: var(--login-spacing-xs);
 }
 
-/* Windows 11 Pill Input with Integrated Submit Arrow Button */
-.lock-password-row {
-  width: 100%;
-  max-width: 280px;
-  height: 36px;
+.lock-credentials[hidden] { display: none !important; }
+
+.lock-field { width: 100%; }
+
+.lock-input-row {
   display: flex;
   align-items: center;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
+  gap: 4px;
+  height: var(--login-control-h);
+  padding: 0 4px 0 0;
   box-sizing: border-box;
-  overflow: hidden;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  transition: border-color 160ms, box-shadow 160ms, background 160ms;
+  border-radius: var(--login-radius);
+  background: var(--login-surface);
+  box-shadow: inset 0 0 0 1px var(--login-border);
+  transition: box-shadow 160ms ease, background 160ms ease;
 }
 
-.lock-password-row:focus-within {
-  border-color: #ffffff;
-  background: rgba(0, 0, 0, 0.65);
-  box-shadow: 0 0 0 1px #ffffff;
+.lock-input-row:hover {
+  box-shadow: inset 0 0 0 1px var(--login-border-strong);
 }
 
-.lock-password-row input {
+.lock-input-row:focus-within {
+  background: rgba(18, 10, 38, 0.72);
+  box-shadow: inset 0 0 0 2px var(--login-accent);
+}
+
+.lock-input-row input {
   flex: 1;
+  min-width: 0;
   height: 100%;
+  margin: 0;
+  padding: 0 14px;
+  border: 0;
+  outline: 0;
   background: transparent;
-  border: none;
-  outline: none;
-  color: #ffffff;
-  padding: 0 12px;
-  font-size: 0.92rem;
-  font-family: var(--lock-font);
+  color: var(--login-text-strong);
+  font: 400 15px var(--login-font);
+  box-shadow: none;
 }
 
-.lock-password-row input::placeholder {
-  color: rgba(255, 255, 255, 0.55);
-}
+.lock-input-row input::placeholder { color: var(--login-text-muted); }
 
-.lock-field input {
-  width: 100%;
-  max-width: 280px;
-  height: 36px;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
-  box-sizing: border-box;
-  color: #ffffff;
-  padding: 0 12px;
-  font-size: 0.92rem;
-  font-family: var(--lock-font);
-  outline: none;
-  margin-bottom: 8px;
-}
-
-.lock-field input:focus {
-  border-color: #ffffff;
-  box-shadow: 0 0 0 1px #ffffff;
-}
-
-/* Submit Arrow / Sign in Button */
-.lock-action-btn {
-  width: 36px;
-  height: 36px;
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 1.15rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 140ms, color 140ms;
-}
-
-.lock-action-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-}
-
-.lock-action-btn.guest-btn {
-  width: auto;
-  min-width: 110px;
-  padding: 0 18px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 4px;
-  font-size: 0.88rem;
-  height: 34px;
-}
-
-.lock-action-btn.guest-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.5);
-}
-
-/* Sign-in options text link */
-.lock-options-link {
-  margin-top: 18px;
-}
-
-.lock-text-btn {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.85rem;
-  cursor: pointer;
-  padding: 4px 8px;
-  font-family: var(--lock-font);
-}
-
-.lock-text-btn:hover {
-  color: #ffffff;
-  text-decoration: underline;
+.lock-credentials[aria-invalid='true'] #lock-password-field .lock-input-row {
+  box-shadow: inset 0 0 0 2px rgba(255, 120, 140, 0.75);
 }
 
 .lock-error {
-  color: #ff8585;
-  font-size: 0.85rem;
-  margin: 10px 0 0;
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--login-danger);
 }
 
 .lock-status {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin-top: 6px;
+  min-height: 0;
+  margin: 0;
+  font-size: 13px;
+  color: var(--login-text-muted);
 }
 
-/* --------------------------------------------------------------------------
-   Bottom-Left User Switcher (Windows 10/11 authentic bottom-left account list)
-   -------------------------------------------------------------------------- */
-.lock-accounts-switcher {
-  position: absolute;
-  bottom: 24px;
-  left: 28px;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+.lock-status:empty { display: none; }
 
-.lock-screen.is-glance .lock-accounts-switcher {
-  display: none;
-}
-
-.lock-accounts {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.lock-account-card {
+.lock-form-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 44px;
-  padding: 4px 12px 4px 4px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  color: rgba(255, 255, 255, 0.75);
-  font: 400 0.9rem var(--lock-font);
-  cursor: pointer;
-  transition: all 140ms ease;
-  min-width: 140px;
+  justify-content: space-between;
+  gap: var(--login-spacing-sm);
+  margin-top: 4px;
 }
 
-.lock-account-card:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-}
+.lock-form-actions:empty,
+.lock-screen[data-login-view='profile'] .lock-back-btn { display: none; }
 
-.lock-account-card[aria-pressed='true'] {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
-}
-
-.lock-account-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  display: flex;
+/* Buttons --------------------------------------------------------------- */
+.lock-screen .lock-action-btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  flex-shrink: 0;
+  gap: var(--login-spacing-xs);
+  height: var(--login-control-h);
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--login-spacing-md);
+  border: 0;
+  border-radius: var(--login-radius);
+  background: var(--login-accent);
+  color: #ffffff;
+  font: 500 15px/1 var(--login-font);
+  letter-spacing: 0;
+  box-shadow: none;
+  cursor: pointer;
+  transform: none;
+  transition: background 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
 }
 
-.lock-account-avatar img,
-.lock-account-avatar svg {
-  width: 100%;
-  height: 100%;
-  display: block;
+.lock-screen .lock-action-btn:hover {
+  background: var(--login-accent-strong);
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
 }
 
-.lock-account-name {
-  font-size: 0.9rem;
+.lock-screen .lock-action-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
 }
 
-.lock-other-user-card {
-  margin-top: 2px;
+.lock-screen .lock-action-btn:disabled {
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--login-text-muted);
+  cursor: default;
+}
+
+.lock-screen .lock-action-btn.is-primary { flex: 1; }
+
+.lock-screen[data-login-view='custom'] .lock-back-btn + .lock-action-btn.is-primary { flex: 0 0 auto; min-width: 112px; }
+
+/* Inline round submit inside the password row. */
+.lock-screen .lock-action-btn.is-inline {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.lock-screen .lock-action-btn.is-inline::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8h9M8.5 4.5 12 8l-3.5 3.5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8h9M8.5 4.5 12 8l-3.5 3.5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.lock-screen .lock-action-btn.is-busy {
+  color: transparent;
+  position: relative;
+}
+
+.lock-screen .lock-action-btn.is-busy::before { visibility: hidden; }
+
+.lock-screen .lock-action-btn.is-busy::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  animation: lock-spin 700ms linear infinite;
+}
+
+@keyframes lock-spin { to { transform: rotate(360deg); } }
+
+.lock-text-btn {
+  height: 32px;
+  padding: 0 var(--login-spacing-sm);
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--login-text-muted);
+  font: 400 14px var(--login-font);
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease;
+}
+
+.lock-text-btn:hover {
+  color: var(--login-text-strong);
+  background: var(--login-surface-hover);
+  text-decoration: none;
+}
+
+.lock-text-btn:focus-visible {
+  outline: 2px solid var(--login-accent-strong);
+  outline-offset: 1px;
+}
+
+.lock-text-btn:disabled { opacity: 0.5; cursor: default; }
+
+.lock-accounts-foot { margin-top: calc(var(--login-spacing-xs) * -1); }
+
+/* Custom-account view: the switcher and the foot link step aside. */
+.lock-screen[data-login-view='custom'] .lock-accounts,
+.lock-screen[data-login-view='custom'] .lock-accounts-foot { display: none; }
+
+/* Failure feedback: one restrained shake of the form. */
+.lock-screen.is-login-error .lock-credentials {
+  animation: lock-shake 360ms var(--login-ease);
+}
+
+@keyframes lock-shake {
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+
+/* Responsive ------------------------------------------------------------ */
+@media (max-height: 760px) {
+  .lock-screen { --login-avatar: 104px; }
+  .lock-signin { gap: var(--login-spacing-sm); }
+  .lock-user { font-size: 28px; }
+}
+
+@media (max-height: 540px) {
+  .lock-screen { --login-avatar: 72px; }
+  .lock-middle { padding-top: var(--login-spacing-md); padding-bottom: 64px; align-items: flex-start; }
+  .lock-user { font-size: 24px; }
+}
+
+@media (max-width: 600px) {
+  .lock-screen {
+    --login-avatar: 104px;
+    --login-control-h: 44px;
+    --login-form-w: calc(100vw - 2 * var(--login-spacing-lg));
+  }
+  .lock-middle { align-items: flex-start; padding-top: 18vh; }
+  .lock-user { font-size: 28px; }
+  .lock-accounts { border-radius: 20px; }
+  .lock-account-card { height: 40px; }
+  .lock-input-row input { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lock-screen.is-view-enter .lock-signin > *,
+  .lock-screen.is-login-error .lock-credentials { animation: none; }
+  .lock-middle,
+  .lock-input-row,
+  .lock-account-card,
+  .lock-screen .lock-action-btn { transition-duration: 1ms; }
+  .lock-screen .lock-action-btn.is-busy::after { animation-duration: 1.6s; }
 }
 
 /* --------------------------------------------------------------------------

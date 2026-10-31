@@ -45,6 +45,25 @@ duplicated.
 - `transitioning` — reveal animation; the shell is unlocked through `ProfileUI`.
 - error text is rendered inline via `#lock-error` with a generic message.
 
+The sign-in composition is GDM-inspired and has two views, exposed as
+`data-login-view` on `#lock-screen` (set by `_setView()`):
+
+- `profile` — identity (large avatar, display name, `#lock-auth-state` line),
+  compact pill account switcher (`.lock-account-card`, arrow keys move focus),
+  then authentication for the selected account only: password with an inline
+  round submit, a single "Sign in" button for Guest, or password + confirm and
+  "Create password" for first owner setup. No username field is shown.
+  Escape returns to the clock glance.
+- `custom` — opened by "Use another account": username + password, Back and
+  Sign in. The switcher is hidden. Back (or Escape) re-selects the last
+  listed account.
+
+`#lock-signin-btn` is moved between the password row (`is-inline`) and
+`.lock-form-actions` (`is-primary`) by `_placeSubmit()`. It is disabled while
+the required field is empty and shows a spinner (`is-busy`) while
+authenticating. Spacing uses the `--login-spacing-*` tokens in
+`lock-screen.css`.
+
 Unknown usernames always fail with the same generic credential error. Guest
 succeeds without a password only when the `guest` username matches. The hidden
 administrator is never listed and never auto-granted from an unknown username.

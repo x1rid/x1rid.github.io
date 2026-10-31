@@ -424,7 +424,11 @@
         img.alt = account ? account.displayName + ' profile picture' : 'Profile picture';
       }
       const heading = this._root.querySelector('#lock-user-heading');
-      if (heading) heading.textContent = account ? account.displayName : 'Sign in';
+      const custom = this._root.dataset.loginView === 'custom';
+      if (custom && img) img.src = avatarSrc({ kind: 'builtin', value: 'default-purple' });
+      if (custom && img) img.alt = '';
+      if (heading) heading.textContent = custom ? 'Another account'
+        : account ? account.displayName : 'Sign in';
     },
 
     getAvatarSrc(profileId) {
@@ -622,7 +626,8 @@
         if (this.state.phase === 'glance') this._dismissGlance();
       }, { passive: true });
       this._listen(window, 'keydown', (event) => {
-        if (this.state.phase === 'glance' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (this.state.phase === 'glance' && event.key !== 'Escape' &&
+            !event.metaKey && !event.ctrlKey && !event.altKey) {
           this._dismissGlance();
         }
       });
@@ -705,14 +710,34 @@
           if (panel && !panel.hidden) {
             event.preventDefault();
             this._toggleSettings(false);
-          } else if (this.state.phase === 'entering-credentials') {
+          } else if (this.state.phase === 'entering-credentials' ||
+                     this.state.phase === 'error') {
             event.preventDefault();
-            this._backToAccounts();
+            if (root.dataset.loginView === 'custom') this._backToAccounts();
+            else this._startGlance();
           } else if (this.state.phase === 'selecting-account') {
             event.preventDefault();
             this._startGlance();
           }
         }
+      });
+
+      this._listen(root, 'keydown', (event) => {
+        const card = event.target && event.target.closest &&
+          event.target.closest('.lock-account-card');
+        if (!card || ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].indexOf(event.key) === -1) return;
+        const cards = Array.prototype.slice.call(root.querySelectorAll('.lock-account-card'));
+        const step = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1;
+        const next = cards[(cards.indexOf(card) + step + cards.length) % cards.length];
+        if (next) {
+          event.preventDefault();
+          next.focus({ preventScroll: true });
+        }
+      });
+
+      this._listen(root, 'input', (event) => {
+        if (event.target && event.target.closest &&
+            event.target.closest('#lock-credentials-form')) this._updateSubmitState();
       });
 
       this._listen(document, 'profile:identity-changed', () => {
@@ -894,6 +919,7 @@
       if (!this._root) return;
       this.state.phase = 'glance';
       this._root.classList.add('is-glance');
+      this._setView('');
       this._setFormVisible(false);
       this._playAnimation('wake');
     },
@@ -924,6 +950,7 @@
       const profile = window.ProfileService.getProfile(profileId);
       if (!profile) return;
       this.state.selectedProfileId = profileId;
+      this.state.lastProfileId = profileId;
       this.state.usernameInput = profile.username;
       this.state.passwordInput = '';
       this.state.errorCode = null;
@@ -980,21 +1007,86 @@
 
       const passField = this._root.querySelector('#lock-password-field');
       if (passField) passField.hidden = isGuest;
-      if (signinBtn) {
-        signinBtn.textContent = isGuest ? 'Sign in' : '→';
-        signinBtn.title = 'Sign in';
-        if (isGuest) {
-          signinBtn.classList.add('guest-btn');
-        } else {
-          signinBtn.classList.remove('guest-btn');
-        }
+      this._setView(isCustom ? 'custom' : 'profile');
+      if (title) {
+        title.textContent = isCustom ? 'Sign in with another account'
+          : 'Sign in as ' + (selected.displayName || selected.name);
       }
+      const inline = !(isCustom || isGuest || ownerNoPassword);
+      this._placeSubmit(inline ? 'inline' : 'primary');
+      if (signinBtn) {
+        const label = ownerNoPassword ? 'Create password' : 'Sign in';
+        signinBtn.textContent = inline ? '' : label;
+        signinBtn.setAttribute('aria-label', label);
+        signinBtn.title = label;
+      }
+      this._setAuthState(isCustom ? 'Enter a username and password'
+        : isGuest ? 'No password required'
+          : ownerNoPassword ? 'Create a password for this account'
+            : 'Enter your password');
+      this._updateSubmitState();
 
       this._renderPrimaryAvatar();
       this._showError('');
     },
 
+    _setView(view) {
+      if (!this._root) return;
+      const previous = this._root.dataset.loginView || '';
+      if (view) this._root.dataset.loginView = view;
+      else delete this._root.dataset.loginView;
+      if (!view || view === previous) return;
+      const root = this._root;
+      root.classList.remove('is-view-enter');
+      void root.offsetWidth;
+      root.classList.add('is-view-enter');
+      window.clearTimeout(this._viewTimer);
+      this._viewTimer = window.setTimeout(() => root.classList.remove('is-view-enter'), 320);
+    },
+
+    _setAuthState(text) {
+      const node = this._root && this._root.querySelector('#lock-auth-state');
+      if (node) node.textContent = text || '';
+    },
+
+    // Inline: round arrow inside the password row (listed account with a
+    // password). Primary: full-width action under the fields.
+    _placeSubmit(mode) {
+      const button = this._root && this._root.querySelector('#lock-signin-btn');
+      if (!button) return;
+      const host = mode === 'inline'
+        ? this._root.querySelector('#lock-password-field .lock-input-row')
+        : this._root.querySelector('.lock-form-actions');
+      if (host && button.parentNode !== host) host.appendChild(button);
+      button.classList.toggle('is-inline', mode === 'inline');
+      button.classList.toggle('is-primary', mode !== 'inline');
+    },
+
+    _updateSubmitState() {
+      if (!this._root || this.state.busy) return;
+      const button = this._root.querySelector('#lock-signin-btn');
+      if (!button) return;
+      const userField = this._root.querySelector('#lock-user-field');
+      const passField = this._root.querySelector('#lock-password-field');
+      const username = this._root.querySelector('#lock-username');
+      const password = this._root.querySelector('#lock-password');
+      const needsUser = userField && !userField.hidden;
+      const needsPassword = passField && !passField.hidden && !needsUser;
+      button.disabled = Boolean(
+        (needsUser && username && !username.value.trim()) ||
+        (needsPassword && password && !password.value));
+    },
+
     _backToAccounts() {
+      const last = this.state.lastProfileId;
+      const accounts = this.visibleAccounts();
+      const target = accounts.find((entry) => entry.id === last) || accounts[0];
+      if (target) {
+        this.state.busy = false;
+        this._clearCredentials();
+        this.selectProfile(target.id);
+        return;
+      }
       this.state.phase = 'selecting-account';
       this.state.selectedProfileId = null;
       this.state.usernameInput = '';
@@ -1153,8 +1245,14 @@
         else if (node.type !== 'button' && node.tagName !== 'BUTTON') node.readOnly = busy;
         else node.disabled = busy;
       });
+      const button = this._root.querySelector('#lock-signin-btn');
+      if (button) {
+        button.classList.toggle('is-busy', busy);
+        button.setAttribute('aria-busy', busy ? 'true' : 'false');
+      }
       const status = this._root.querySelector('#lock-status');
-      if (status) status.textContent = busy ? 'AUTHENTICATING…' : '';
+      if (status) status.textContent = busy ? 'Authenticating…' : '';
+      if (!busy) this._updateSubmitState();
     },
 
     async _enterDesktop(fromReload) {
