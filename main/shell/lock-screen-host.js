@@ -56,6 +56,11 @@
 
     function lockSystem() {
         if (!lockScreen) return;
+        // Active session: GNOME-style screen lock over the running desktop.
+        if (window.SessionLock && !screenIsLocked()) {
+            window.SessionLock.lock();
+            return;
+        }
         if (lockV2 && window.LockScreenV2) {
             window.LockScreenV2.lock();
             return;
@@ -83,7 +88,7 @@
         const shortcuts = window.ShortcutService;
         shortcuts.register({
             id: 'lock.lock',
-            keys: 'Ctrl+Alt+L',
+            keys: ['Meta+L', 'Ctrl+Alt+L'],
             context: 'unlocked',
             priority: 90,
             allowInEditable: true,

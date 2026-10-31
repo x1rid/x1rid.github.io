@@ -1,0 +1,350 @@
+/* Ubuntu GNOME-style active-session lock (Super+L). See session-lock.js. */
+
+.gnome-lock {
+    --gnome-lock-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --gnome-lock-shield-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --gnome-lock-clock-top: 30vh;
+    --gnome-lock-auth-top: 40vh;
+    --gnome-lock-lift: -18vh;
+    position: fixed;
+    inset: 0;
+    z-index: 1000000;
+    overflow: hidden;
+    color: #fff;
+    font-family: Ubuntu, Cantarell, 'Noto Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    touch-action: none;
+    outline: none;
+    transform: translateY(0);
+    transition: transform 420ms var(--gnome-lock-shield-ease), opacity 160ms linear;
+    will-change: transform;
+}
+
+.gnome-lock[hidden] { display: none; }
+.gnome-lock.is-raised { transform: translateY(-100%); }
+.gnome-lock.is-fading { opacity: 0; }
+
+.gnome-lock-backdrop {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: #1d1d1d;
+    pointer-events: none;
+}
+
+.gnome-lock-wallpaper {
+    position: absolute;
+    inset: -48px;
+    background-color: #2c001e;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    filter: blur(28px) saturate(0.85);
+    transform: scale(1.04);
+}
+
+.gnome-lock-dim {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.2);
+    transition: background-color 300ms var(--gnome-lock-ease);
+}
+
+.gnome-lock[data-presentation="authentication"] .gnome-lock-dim {
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.gnome-lock-topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 14px;
+    pointer-events: none;
+}
+
+.gnome-lock-indicators {
+    display: inline-flex;
+    gap: 12px;
+    align-items: center;
+    opacity: 0.92;
+}
+
+.gnome-lock-stage {
+    position: absolute;
+    inset: 0;
+}
+
+.gnome-lock-shield {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: var(--gnome-lock-clock-top);
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    transform-origin: 50% 0;
+    transition: transform 300ms var(--gnome-lock-ease), opacity 300ms var(--gnome-lock-ease);
+}
+
+.gnome-lock-clock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+}
+
+.gnome-lock-time {
+    display: block;
+    font-size: clamp(64px, 10vw, 128px);
+    font-weight: 300;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.gnome-lock-date {
+    margin-top: 10px;
+    font-size: clamp(18px, 2vw, 26px);
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+.gnome-lock-hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 7vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+    opacity: 0.82;
+    pointer-events: none;
+    transition: opacity 200ms var(--gnome-lock-ease), transform 300ms var(--gnome-lock-ease);
+}
+
+.gnome-lock-hint svg { animation: gnome-lock-bounce 2.2s ease-in-out infinite; }
+
+.gnome-lock-auth {
+    position: absolute;
+    left: 50%;
+    top: var(--gnome-lock-auth-top);
+    width: min(320px, calc(100vw - 48px));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translate(-50%, 28px);
+    transition: opacity 260ms var(--gnome-lock-ease), transform 300ms var(--gnome-lock-ease), visibility 0s linear 300ms;
+}
+
+.gnome-lock[data-presentation="authentication"] .gnome-lock-shield {
+    transform: translateY(var(--gnome-lock-lift)) scale(0.62);
+    opacity: 0.95;
+}
+
+.gnome-lock[data-presentation="authentication"] .gnome-lock-hint {
+    opacity: 0;
+    transform: translateY(16px);
+}
+
+.gnome-lock[data-presentation="authentication"] .gnome-lock-auth {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+    transition-delay: 0s;
+}
+
+.gnome-lock-avatar {
+    position: relative;
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #77216f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gnome-lock-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    inset: 0;
+}
+
+.gnome-lock-avatar img[hidden],
+.gnome-lock-initial[hidden] { display: none; }
+
+.gnome-lock-initial {
+    font-size: 54px;
+    font-weight: 300;
+}
+
+.gnome-lock-name {
+    font-size: 21px;
+    font-weight: 700;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 4px;
+}
+
+.gnome-lock-entry {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.gnome-lock-entry[hidden],
+.gnome-lock-unlock[hidden],
+.gnome-lock-caps[hidden],
+.gnome-lock-date[hidden] { display: none; }
+
+.gnome-lock-input {
+    width: 100%;
+    height: 40px;
+    padding: 0 44px 0 14px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font: inherit;
+    font-size: 15px;
+    caret-color: #fff;
+    outline: none;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    transition: background-color 150ms ease, box-shadow 150ms ease;
+    user-select: text;
+}
+
+.gnome-lock-input::placeholder { color: rgba(255, 255, 255, 0.6); }
+.gnome-lock-input:hover { background: rgba(255, 255, 255, 0.18); }
+.gnome-lock-input:focus {
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: inset 0 0 0 2px rgba(233, 84, 32, 0.9);
+}
+.gnome-lock-input:disabled { opacity: 0.7; }
+
+.gnome-lock-submit {
+    position: absolute;
+    right: 4px;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.gnome-lock-submit:hover,
+.gnome-lock-submit:focus-visible { background: rgba(255, 255, 255, 0.24); outline: none; }
+
+.gnome-lock-spinner {
+    display: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: gnome-lock-spin 0.8s linear infinite;
+}
+
+.gnome-lock[data-state="authenticating"] .gnome-lock-submit svg { display: none; }
+.gnome-lock[data-state="authenticating"] .gnome-lock-spinner { display: block; }
+
+.gnome-lock-unlock {
+    min-width: 140px;
+    height: 40px;
+    padding: 0 24px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.gnome-lock-unlock:hover { background: rgba(255, 255, 255, 0.24); }
+.gnome-lock-unlock:focus-visible { outline: 2px solid rgba(233, 84, 32, 0.9); outline-offset: 2px; }
+
+.gnome-lock-caps,
+.gnome-lock-error {
+    font-size: 14px;
+    text-align: center;
+    min-height: 1.3em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.gnome-lock-caps { opacity: 0.85; min-height: 0; }
+
+.gnome-lock .is-shaking { animation: gnome-lock-shake 420ms ease; }
+
+@keyframes gnome-lock-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(7px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(3px); }
+}
+
+@keyframes gnome-lock-spin { to { transform: rotate(360deg); } }
+
+@keyframes gnome-lock-bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-5px); }
+}
+
+/* Running desktop stays painted under the shield; nothing behind it is reachable. */
+html.session-locked body > :not(#session-lock) { pointer-events: none !important; }
+
+@media (max-height: 640px) {
+    .gnome-lock {
+        --gnome-lock-clock-top: 24vh;
+        --gnome-lock-auth-top: 30vh;
+        --gnome-lock-lift: -18vh;
+    }
+    .gnome-lock-avatar { width: 88px; height: 88px; }
+    .gnome-lock-initial { font-size: 38px; }
+    .gnome-lock-auth { gap: 10px; }
+}
+
+@media (max-width: 600px) {
+    .gnome-lock { --gnome-lock-clock-top: 26vh; --gnome-lock-auth-top: 36vh; --gnome-lock-lift: -16vh; }
+    .gnome-lock-time { font-size: clamp(56px, 19vw, 96px); }
+    .gnome-lock-date { font-size: 18px; }
+    .gnome-lock-avatar { width: 96px; height: 96px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gnome-lock,
+    .gnome-lock-shield,
+    .gnome-lock-hint,
+    .gnome-lock-auth,
+    .gnome-lock-dim { transition-duration: 1ms !important; }
+    .gnome-lock-hint svg,
+    .gnome-lock .is-shaking { animation: none !important; }
+}
