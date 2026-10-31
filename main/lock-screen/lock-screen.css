@@ -1,38 +1,15 @@
 /* ==========================================================================
-   LockScreenV2 — Futuristic Cyber-Purple Immersive Lock Screen
-   Resolution-responsive, High-aesthetic Glassmorphism & System Controls
+   LockScreenV2 — Windows 11 / Modern OS Sign-in Experience
+   Pixel-perfect OS simulator aesthetic: center credentials, bottom-left user
+   switcher, bottom-right system tray (Network, Accessibility, Power).
    ========================================================================== */
-
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 .lock-screen {
   --lock-px: 0px;
   --lock-py: 0px;
-  --lock-bg: #070114;
-  --lock-surface: rgba(22, 10, 44, 0.62);
-  --lock-surface-strong: rgba(28, 12, 56, 0.88);
-  --lock-surface-translucent: rgba(255, 255, 255, 0.04);
-  --lock-border: rgba(192, 132, 252, 0.22);
-  --lock-border-strong: rgba(216, 180, 254, 0.65);
-  --lock-border-glow: rgba(168, 85, 247, 0.4);
-  --lock-text: #f5f0ff;
-  --lock-muted: #c4b5fd;
-  --lock-dim: #9d7cd8;
-  --lock-accent: #a855f7;
-  --lock-accent-strong: #c084fc;
-  --lock-accent-glow: #d8b4fe;
-  --lock-accent-soft: rgba(168, 85, 247, 0.18);
-  --lock-danger: #fb7185;
-  --lock-positive: #34d399;
-  --lock-radius: 20px;
-  --lock-control-radius: 11px;
-  --lock-wall-a: #080116;
-  --lock-wall-b: #1d0738;
-  --lock-wall-c: #2e0854;
-  --lock-glow: #9333ea;
-  --lock-glow-2: #c084fc;
-  --lock-font: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --lock-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
+  --lock-text: #ffffff;
+  --lock-text-muted: rgba(255, 255, 255, 0.75);
+  --lock-font: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
 
   position: fixed;
   inset: 0;
@@ -41,18 +18,21 @@
   flex-direction: column;
   overflow: hidden;
   isolation: isolate;
-  background:
-    radial-gradient(ellipse 110% 80% at 20% -10%, rgba(147, 51, 234, 0.38), transparent 55%),
-    radial-gradient(ellipse 90% 70% at 85% 105%, rgba(91, 33, 182, 0.32), transparent 55%),
-    radial-gradient(circle 50vw at 50% 50%, rgba(76, 29, 149, 0.16), transparent 70%),
-    var(--lock-bg);
+  background-color: #0b1536;
+  background-image:
+    radial-gradient(ellipse 100% 75% at 50% 10%, rgba(30, 20, 75, 0.5) 0%, transparent 70%),
+    radial-gradient(ellipse 90% 90% at 75% 85%, rgba(65, 20, 110, 0.45) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 80% at 20% 70%, rgba(20, 35, 95, 0.5) 0%, transparent 60%),
+    linear-gradient(135deg, #090e24 0%, #150930 50%, #08122c 100%);
+  background-size: cover;
+  background-position: center;
   color: var(--lock-text);
   font-family: var(--lock-font);
   user-select: none;
   transition:
-    transform 620ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 420ms ease,
-    filter 420ms ease;
+    transform 540ms cubic-bezier(0.1, 0.9, 0.2, 1),
+    opacity 360ms ease,
+    filter 360ms ease;
 }
 
 .lock-screen[hidden],
@@ -61,325 +41,163 @@
 }
 
 .lock-screen.is-unlocked {
-  transform: translateY(-100%) scale(1.04);
+  transform: translateY(-100%);
   opacity: 0;
-  filter: blur(12px);
+  filter: blur(14px);
   pointer-events: none !important;
 }
 
 /* --------------------------------------------------------------------------
-   Background Ambient Animations
+   Ambient Wall & Windows Bloom
    -------------------------------------------------------------------------- */
 .lock-wallpaper {
   position: absolute;
   inset: 0;
   z-index: 0;
-  overflow: hidden;
-  background: var(--lock-wall-a);
+  background: inherit;
 }
 
 .lock-wallpaper-glow {
   position: absolute;
-  inset: -25%;
-  opacity: 0.65;
-  filter: blur(80px);
-  background:
-    radial-gradient(48rem 48rem at 20% 25%, var(--lock-wall-b), transparent 65%),
-    radial-gradient(54rem 54rem at 80% 75%, var(--lock-wall-c), transparent 65%),
-    radial-gradient(40rem 40rem at 60% 20%, var(--lock-glow), transparent 70%),
-    radial-gradient(35rem 35rem at 40% 80%, rgba(168, 85, 247, 0.22), transparent 60%);
-  animation: lock-wall-drift 44s ease-in-out infinite alternate;
-}
-
-@keyframes lock-wall-drift {
-  0% { transform: translate3d(0, 0, 0) scale(1); }
-  100% { transform: translate3d(2.5%, -2%, 0) scale(1.08); }
-}
-
-.lock-wallpaper-grain {
-  position: absolute;
-  inset: 0;
-  opacity: 0.035;
-  mix-blend-mode: overlay;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxNjAnIGhlaWdodD0nMTYwJz48ZmlsdGVyIGlkPSduJz48ZmVUdXJidWxlbmNlIHR5cGU9J2ZyYWN0YWxOb2lzZScgYmFzZUZyZXF1ZW5jeT0nLjg1JyBudW1PY3RhdmVzPScyJy8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9JzEwMCUnIGhlaWdodD0nMTAwJScgZmlsdGVyPSd1cmwoI24pJy8+PC9zdmc+");
-}
-
-.lock-stars {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  opacity: 0.45;
-  pointer-events: none;
-}
-
-.lock-aurora {
-  position: absolute;
   inset: -15%;
-  z-index: 1;
-  pointer-events: none;
   opacity: 0.6;
-  background: radial-gradient(ellipse at 48% 36%, rgba(192, 132, 252, 0.16), transparent 50%);
-  transform: translate3d(calc(var(--lock-px) * -0.1), calc(var(--lock-py) * -0.1), 0);
-  animation: lock-aurora-drift 40s ease-in-out infinite alternate;
+  filter: blur(75px);
+  background:
+    radial-gradient(45rem 45rem at 25% 30%, rgba(110, 45, 190, 0.35), transparent 65%),
+    radial-gradient(50rem 50rem at 75% 70%, rgba(45, 80, 200, 0.3), transparent 65%),
+    radial-gradient(35rem 35rem at 50% 50%, rgba(140, 50, 210, 0.25), transparent 70%);
+  animation: lock-ambient-breathe 28s ease-in-out infinite alternate;
 }
 
-@keyframes lock-aurora-drift {
-  to { transform: translate3d(1.5%, -1.2%, 0) scale(1.06); }
+@keyframes lock-ambient-breathe {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(1.06) translate(1.5%, -1%); opacity: 0.7; }
+}
+
+.lock-stars,
+.lock-aurora,
+.lock-scanlines {
+  display: none;
 }
 
 .lock-vignette {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 1;
   pointer-events: none;
-  box-shadow: inset 0 0 clamp(80px, 15vw, 200px) rgba(3, 0, 10, 0.65);
-}
-
-.lock-scanlines {
-  display: none;
+  background: radial-gradient(circle at center, transparent 40%, rgba(0, 0, 0, 0.35) 100%);
 }
 
 /* --------------------------------------------------------------------------
-   Top Bar: Clock & Widgets
+   Lock Screen Cover (Glance view before swipe / keypress)
    -------------------------------------------------------------------------- */
 .lock-top {
   position: absolute;
   inset: 0;
   z-index: 3;
   pointer-events: none;
-  padding: 0;
 }
 
 .lock-clock-wrap {
   position: absolute;
-  left: clamp(24px, 5vw, 84px);
-  top: clamp(28px, 6vh, 76px);
+  left: 50%;
+  top: 18%;
+  transform: translateX(-50%);
+  text-align: center;
   pointer-events: auto;
-  transition:
-    left 680ms cubic-bezier(0.16, 1, 0.3, 1),
-    top 680ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 680ms cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease, transform 450ms cubic-bezier(0.1, 0.9, 0.2, 1);
+}
+
+.lock-screen.is-glance .lock-clock-wrap {
+  opacity: 1;
+  pointer-events: auto;
+  top: 22%;
 }
 
 .lock-clock {
-  font-size: clamp(3rem, 6.5vw, 5.2rem);
+  font-size: clamp(4.5rem, 11vw, 7.5rem);
   font-weight: 300;
-  line-height: 0.96;
-  letter-spacing: -0.05em;
-  font-variant-numeric: tabular-nums;
-  background: linear-gradient(135deg, #ffffff 0%, #e9d5ff 55%, #c084fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-shadow: 0 4px 28px rgba(168, 85, 247, 0.35);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: #ffffff;
   font-family: var(--lock-font);
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .lock-date {
-  margin-top: clamp(6px, 1.2vh, 12px);
-  color: var(--lock-muted);
-  font-size: clamp(0.82rem, 1.15vw, 1.05rem);
-  font-weight: 400;
-  letter-spacing: 0.03em;
-  text-transform: capitalize;
+  margin-top: 10px;
+  font-size: clamp(1rem, 2vw, 1.4rem);
+  font-weight: 350;
+  color: var(--lock-text-muted);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
-/* Bulletin / Widgets */
 .lock-widgets {
-  position: absolute;
-  right: clamp(24px, 5vw, 84px);
-  top: clamp(28px, 6vh, 76px);
-  width: min(320px, 36vw);
-  pointer-events: auto;
-  cursor: pointer;
-  outline: none;
-  transition: top 680ms cubic-bezier(0.16, 1, 0.3, 1), right 680ms;
-}
-
-.lock-widget-card {
-  padding: clamp(12px, 1.8vh, 18px) clamp(14px, 1.5vw, 20px);
-  border: 1px solid var(--lock-border);
-  border-radius: var(--lock-control-radius);
-  background: var(--lock-surface);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition: border-color 200ms, transform 200ms;
-}
-
-.lock-widget-card:hover {
-  border-color: var(--lock-border-strong);
-  transform: translateY(-2px);
-}
-
-.lock-widget-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 7px;
-}
-
-.lock-widget-title {
-  color: var(--lock-accent-strong);
-  font-weight: 600;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.lock-widget-source {
-  color: var(--lock-dim);
-  font-size: 0.65rem;
-}
-
-.lock-widget-text {
-  margin: 0;
-  color: var(--lock-text);
-  font-size: 0.84rem;
-  line-height: 1.5;
-  font-weight: 400;
-}
-
-.lock-widget-lines {
-  margin: 8px 0 0;
-  color: var(--lock-muted);
-  font: 0.72rem/1.55 var(--lock-mono);
-  white-space: pre-wrap;
-  opacity: 0.9;
-}
-
-.lock-widgets.is-changing .lock-widget-card {
-  animation: lock-widget-fade 220ms ease-out;
-}
-
-@keyframes lock-widget-fade {
-  from { opacity: 0.3; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-/* --------------------------------------------------------------------------
-   Glance (Cover) View
-   -------------------------------------------------------------------------- */
-.lock-screen.is-glance .lock-clock-wrap {
-  left: 50%;
-  top: 42%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-}
-
-.lock-screen.is-glance .lock-clock {
-  font-size: clamp(5.4rem, 16vw, 11rem);
-  font-weight: 200;
-  letter-spacing: -0.06em;
-}
-
-.lock-screen.is-glance .lock-date {
-  font-size: clamp(1rem, 2.2vw, 1.5rem);
-  font-weight: 300;
-  color: var(--lock-text);
-  opacity: 0.9;
-}
-
-.lock-screen.is-glance .lock-widgets {
-  top: auto;
-  right: auto;
-  bottom: clamp(70px, 12vh, 110px);
-  left: clamp(24px, 5vw, 84px);
-}
-
-.lock-screen.is-glance .lock-middle {
-  pointer-events: none;
-}
-
-.lock-screen.is-glance .lock-signin {
-  transform: translate3d(0, 52px, 0) scale(0.96);
-  opacity: 0;
-  pointer-events: none;
+  display: none;
 }
 
 .lock-unlock-hint {
   position: absolute;
+  bottom: 40px;
   left: 50%;
-  bottom: clamp(60px, 10vh, 100px);
-  z-index: 5;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  color: var(--lock-muted);
-  font-size: 0.88rem;
-  letter-spacing: 0.04em;
   transform: translateX(-50%);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 400ms ease;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.65);
+  display: none;
 }
 
 .lock-screen.is-glance .lock-unlock-hint {
-  opacity: 0.92;
-}
-
-.lock-unlock-hint .uh-chevron {
-  width: 14px;
-  height: 14px;
-  border-left: 2px solid var(--lock-accent-strong);
-  border-top: 2px solid var(--lock-accent-strong);
-  transform: rotate(45deg);
-  animation: lock-hint-pulse 2s ease-in-out infinite;
-}
-
-@keyframes lock-hint-pulse {
-  0%, 100% { opacity: 0.35; transform: rotate(45deg) translate(0, 0); }
-  50% { opacity: 1; transform: rotate(45deg) translate(3px, -3px); }
+  display: block;
 }
 
 /* --------------------------------------------------------------------------
-   Middle Section: Sign-in Glass Card
+   Center Sign-in Section (Windows 11 Authenticated Layout)
    -------------------------------------------------------------------------- */
 .lock-middle {
   position: relative;
   z-index: 4;
-  display: grid;
+  display: flex;
   flex: 1;
-  place-items: center;
-  min-height: 0;
-  padding: clamp(32px, 6vh, 64px) 24px clamp(60px, 10vh, 100px);
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
   box-sizing: border-box;
+  padding: 20px;
+  transition: opacity 320ms ease, transform 380ms ease;
+}
+
+.lock-screen.is-glance .lock-middle {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.96) translateY(24px);
 }
 
 .lock-signin {
-  width: min(410px, 100%);
+  width: min(340px, 92vw);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: clamp(28px, 4vh, 42px) clamp(24px, 4vw, 38px);
-  border: 1px solid var(--lock-border);
-  border-radius: var(--lock-radius);
-  background: var(--lock-surface);
-  backdrop-filter: blur(28px) saturate(1.5);
-  -webkit-backdrop-filter: blur(28px) saturate(1.5);
-  box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.45),
-    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
-    0 0 40px rgba(147, 51, 234, 0.12);
-  transform: translate3d(calc(var(--lock-px) * 0.04), calc(var(--lock-py) * 0.04), 0);
-  transition: transform 560ms cubic-bezier(0.16, 1, 0.3, 1), opacity 380ms ease;
+  text-align: center;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 
+/* Circular Avatar with Windows neutral backing */
 .lock-avatar-wrapper {
-  width: clamp(80px, 12vw, 96px);
-  height: clamp(80px, 12vw, 96px);
-  padding: 3px;
-  border: 2px solid var(--lock-border-strong);
+  width: 140px;
+  height: 140px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(76, 29, 149, 0.2));
-  box-shadow: 0 0 24px rgba(168, 85, 247, 0.35);
-  position: relative;
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  margin-bottom: 24px;
+  overflow: hidden;
 }
 
 .lock-avatar {
@@ -388,428 +206,357 @@
   height: 100%;
   border-radius: 50%;
   object-fit: cover;
-  background: #15092a;
 }
 
+/* User Name Heading */
 .lock-user {
-  color: var(--lock-text);
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 2rem;
+  font-weight: 350;
+  color: #ffffff;
   letter-spacing: -0.01em;
+  margin-bottom: 20px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* Accounts Selection */
+/* Credentials Form */
+.lock-credentials {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Windows 11 Pill Input with Integrated Submit Arrow Button */
+.lock-password-row {
+  width: 100%;
+  max-width: 280px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  box-sizing: border-box;
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: border-color 160ms, box-shadow 160ms, background 160ms;
+}
+
+.lock-password-row:focus-within {
+  border-color: #ffffff;
+  background: rgba(0, 0, 0, 0.65);
+  box-shadow: 0 0 0 1px #ffffff;
+}
+
+.lock-password-row input {
+  flex: 1;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  padding: 0 12px;
+  font-size: 0.92rem;
+  font-family: var(--lock-font);
+}
+
+.lock-password-row input::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lock-field input {
+  width: 100%;
+  max-width: 280px;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: #ffffff;
+  padding: 0 12px;
+  font-size: 0.92rem;
+  font-family: var(--lock-font);
+  outline: none;
+  margin-bottom: 8px;
+}
+
+.lock-field input:focus {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff;
+}
+
+/* Submit Arrow / Sign in Button */
+.lock-action-btn {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 140ms, color 140ms;
+}
+
+.lock-action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.lock-action-btn.guest-btn {
+  width: auto;
+  min-width: 110px;
+  padding: 0 18px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  font-size: 0.88rem;
+  height: 34px;
+}
+
+.lock-action-btn.guest-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Sign-in options text link */
+.lock-options-link {
+  margin-top: 18px;
+}
+
+.lock-text-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-family: var(--lock-font);
+}
+
+.lock-text-btn:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.lock-error {
+  color: #ff8585;
+  font-size: 0.85rem;
+  margin: 10px 0 0;
+}
+
+.lock-status {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 6px;
+}
+
+/* --------------------------------------------------------------------------
+   Bottom-Left User Switcher (Windows 10/11 authentic bottom-left account list)
+   -------------------------------------------------------------------------- */
+.lock-accounts-switcher {
+  position: absolute;
+  bottom: 24px;
+  left: 28px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lock-screen.is-glance .lock-accounts-switcher {
+  display: none;
+}
+
 .lock-accounts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  width: 100%;
+  gap: 4px;
 }
 
 .lock-account-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  width: 100%;
-  min-height: 64px;
-  box-sizing: border-box;
-  padding: 10px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--lock-control-radius);
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--lock-text);
-  font: inherit;
-  text-align: left;
+  gap: 12px;
+  height: 44px;
+  padding: 4px 12px 4px 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.75);
+  font: 400 0.9rem var(--lock-font);
   cursor: pointer;
-  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 140ms ease;
+  min-width: 140px;
 }
 
 .lock-account-card:hover {
-  background: rgba(168, 85, 247, 0.14);
-  border-color: var(--lock-border);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .lock-account-card[aria-pressed='true'] {
-  border-color: var(--lock-border-strong);
-  background: var(--lock-accent-soft);
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.25);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
 
 .lock-account-avatar {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  padding: 2px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  border: 1px solid var(--lock-border);
-  background: rgba(26, 10, 50, 0.6);
-}
-
-.lock-account-avatar img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.lock-account-copy {
-  min-width: 0;
+  background: rgba(255, 255, 255, 0.15);
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.lock-account-name {
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
-  font-size: 0.92rem;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.lock-account-type {
-  color: var(--lock-muted);
-  font-size: 0.72rem;
-  text-transform: capitalize;
-  opacity: 0.8;
-}
-
-.lock-accounts-foot {
-  width: 100%;
-  text-align: center;
-  margin-top: 2px;
-}
-
-/* Buttons */
-.lock-text-btn {
-  min-height: 34px;
-  padding: 8px 16px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--lock-muted);
-  font: 500 0.82rem var(--lock-font);
-  cursor: pointer;
-  transition: all 160ms ease;
-}
-
-.lock-text-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--lock-text);
-}
-
-.lock-action-btn {
-  min-height: 40px;
-  padding: 10px 22px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: var(--lock-control-radius);
-  background: linear-gradient(135deg, #9333ea 0%, #7928ca 100%);
-  color: #ffffff;
-  font: 600 0.9rem var(--lock-font);
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  box-shadow: 0 4px 18px rgba(147, 51, 234, 0.45);
-  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.lock-action-btn:hover {
-  background: linear-gradient(135deg, #a855f7 0%, #8b28de 100%);
-  box-shadow: 0 6px 26px rgba(147, 51, 234, 0.6);
-  transform: translateY(-1px);
-}
-
-.lock-action-btn:active {
-  transform: translateY(0);
-}
-
-/* Credentials Form */
-.lock-credentials {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  width: 100%;
-}
-
-.lock-credentials-title {
-  margin: 0;
-  color: var(--lock-text);
-  font-size: 1.05rem;
-  font-weight: 600;
-  text-align: center;
-}
-
-.lock-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.lock-field span {
-  color: var(--lock-muted);
-  font-size: 0.76rem;
-  font-weight: 500;
-}
-
-.lock-field input {
-  width: 100%;
-  height: 42px;
-  box-sizing: border-box;
-  padding: 0 14px;
-  border: 1px solid var(--lock-border);
-  border-radius: var(--lock-control-radius);
-  background: rgba(14, 5, 30, 0.55);
-  color: var(--lock-text);
-  font: 0.92rem var(--lock-font);
-  outline: none;
-  transition: all 180ms ease;
-}
-
-.lock-field input:focus {
-  border-color: var(--lock-border-strong);
-  background: rgba(14, 5, 30, 0.8);
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.25);
-}
-
-.lock-error {
-  min-height: 18px;
-  margin: 0;
-  color: var(--lock-danger);
-  font-size: 0.78rem;
-  line-height: 1.4;
-  text-align: center;
-}
-
-.lock-hint {
-  color: var(--lock-dim);
-  font-size: 0.74rem;
-  line-height: 1.45;
-  text-align: center;
-}
-
-.lock-guest-note {
-  color: var(--lock-positive);
-  font-size: 0.76rem;
-  text-align: center;
-}
-
-.lock-status {
-  min-height: 16px;
-  color: var(--lock-muted);
-  font-size: 0.72rem;
-  text-align: center;
-}
-
-.lock-form-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.lock-form-actions .lock-action-btn[type='submit'] {
-  flex: 1;
-}
-
-/* Hide settings button / panel on lock screen (moved to in-OS settings) */
-.lock-settings-open,
-.lock-statusbar-settings,
-.lock-settings-panel {
-  display: none !important;
-}
-
-/* --------------------------------------------------------------------------
-   System Status Bar & Accessibility Tray
-   -------------------------------------------------------------------------- */
-.lock-statusbar {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 clamp(20px, 5vw, 84px) clamp(16px, 2.8vh, 26px);
-  color: var(--lock-dim);
-  font-size: 0.76rem;
-  pointer-events: none;
-}
-
-.lock-statusbar-identity {
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(196, 181, 253, 0.45);
-}
-
-/* Accessibility Tray at Bottom-Right */
-.lock-tray {
-  position: absolute;
-  bottom: clamp(14px, 2.5vh, 24px);
-  right: clamp(18px, 4vw, 48px);
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  pointer-events: auto;
-}
-
-.lock-tray-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 38px;
-  padding: 0 12px;
-  background: rgba(22, 10, 44, 0.65);
-  border: 1px solid var(--lock-border);
-  border-radius: var(--lock-control-radius);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  color: var(--lock-muted);
-  font: 500 0.82rem var(--lock-font);
-  cursor: pointer;
-  transition: all 180ms ease;
-}
-
-.lock-tray-btn:hover,
-.lock-tray-btn.active {
-  background: rgba(168, 85, 247, 0.25);
-  border-color: var(--lock-border-strong);
-  color: var(--lock-text);
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.3);
-}
-
-.lock-tray-icon {
-  font-size: 1.05rem;
-  line-height: 1;
-}
-
-.lock-tray-label {
-  font-size: 0.78rem;
-}
-
-.lock-net-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--lock-positive);
-  box-shadow: 0 0 8px var(--lock-positive);
-  display: inline-block;
   flex-shrink: 0;
 }
 
-.lock-net-dot.offline {
-  background: var(--lock-danger);
-  box-shadow: 0 0 8px var(--lock-danger);
+.lock-account-avatar img,
+.lock-account-avatar svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
-.lock-tray-clock {
-  padding: 0 10px;
-  color: var(--lock-text);
-  font: 500 0.85rem var(--lock-mono);
-  font-variant-numeric: tabular-nums;
-  opacity: 0.85;
+.lock-account-name {
+  font-size: 0.9rem;
 }
 
-/* Power & A11y Popups */
+.lock-other-user-card {
+  margin-top: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Bottom-Right System Tray (Network, Accessibility, Power)
+   -------------------------------------------------------------------------- */
+.lock-tray {
+  position: absolute;
+  bottom: 24px;
+  right: 28px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lock-tray-btn {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: background 140ms, color 140ms;
+}
+
+.lock-tray-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.lock-tray-btn:active {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.lock-tray-icon {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lock-tray-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Flyout Popups for Power, A11y, Network */
 .lock-power-menu,
 .lock-a11y-menu,
 .lock-net-popup {
   position: absolute;
-  bottom: calc(100% + 10px);
+  bottom: 50px;
   right: 0;
-  background: rgba(20, 8, 42, 0.94);
-  border: 1px solid var(--lock-border-strong);
-  border-radius: 14px;
+  background: rgba(28, 20, 50, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 32px rgba(168, 85, 247, 0.2);
-  animation: lock-popup-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
   z-index: 20;
 }
 
-@keyframes lock-popup-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
 .lock-power-menu {
-  min-width: 175px;
-  padding: 6px;
+  width: 140px;
+  padding: 4px;
 }
 
 .lock-power-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   width: 100%;
-  padding: 10px 14px;
-  background: none;
+  padding: 8px 12px;
+  background: transparent;
   border: none;
-  border-radius: 8px;
-  color: var(--lock-muted);
-  font: 500 0.86rem var(--lock-font);
-  cursor: pointer;
+  border-radius: 4px;
+  color: #ffffff;
+  font: 400 0.88rem var(--lock-font);
   text-align: left;
-  transition: all 140ms ease;
+  cursor: pointer;
+  transition: background 120ms;
 }
 
 .lock-power-menu-item:hover {
-  background: rgba(168, 85, 247, 0.2);
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.lock-power-menu-item .pm-icon {
-  font-size: 1.05rem;
-}
-
-.lock-power-menu-separator {
-  height: 1px;
-  background: rgba(192, 132, 252, 0.15);
-  margin: 4px 6px;
-}
-
-/* Accessibility Menu */
 .lock-a11y-menu {
-  min-width: 230px;
-  padding: 14px;
+  width: 220px;
+  padding: 12px;
 }
 
-.lock-a11y-menu-title {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--lock-accent-strong);
-  text-transform: uppercase;
-  margin-bottom: 12px;
+.lock-a11y-menu-title,
+.lock-popup-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 8px;
 }
 
-.lock-a11y-row {
+.lock-a11y-row,
+.lock-popup-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
-  color: var(--lock-text);
-  font-size: 0.84rem;
+  padding: 6px 0;
+  font-size: 0.85rem;
+  color: #ffffff;
 }
 
 .lock-a11y-toggle {
-  width: 38px;
-  height: 22px;
-  border-radius: 11px;
-  border: 1px solid var(--lock-border);
-  background: rgba(255, 255, 255, 0.1);
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: transparent;
   cursor: pointer;
   position: relative;
-  transition: background 200ms, border-color 200ms;
+  transition: background 160ms;
 }
 
 .lock-a11y-toggle.active {
-  background: var(--lock-accent);
-  border-color: var(--lock-accent-strong);
+  background: #60cdff;
+  border-color: #60cdff;
 }
 
 .lock-a11y-toggle::after {
@@ -817,78 +564,52 @@
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  transition: transform 200ms;
+  transition: transform 160ms;
 }
 
 .lock-a11y-toggle.active::after {
   transform: translateX(16px);
+  background: #000000;
 }
 
-/* Network Popup */
 .lock-net-popup {
-  min-width: 210px;
-  padding: 14px;
-}
-
-.lock-popup-title {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--lock-accent-strong);
-  text-transform: uppercase;
-  margin-bottom: 10px;
-}
-
-.lock-popup-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 0.8rem;
-  color: var(--lock-muted);
-  margin-bottom: 6px;
-}
-
-.lock-popup-row code {
-  font-family: var(--lock-mono);
-  color: var(--lock-text);
+  width: 180px;
+  padding: 12px;
 }
 
 /* --------------------------------------------------------------------------
-   Floating On-Screen Keyboard (OSK)
+   On-Screen Keyboard (Windows Tablet / Ease of Access style)
    -------------------------------------------------------------------------- */
 .lock-osk {
   position: fixed;
-  bottom: clamp(76px, 12vh, 120px);
+  bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
-  background: rgba(18, 7, 36, 0.94);
-  border: 1px solid var(--lock-border-strong);
-  border-radius: var(--lock-radius);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
-  padding: 14px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 36px rgba(168, 85, 247, 0.25);
-  user-select: none;
+  background: rgba(20, 15, 35, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  padding: 12px;
   min-width: 580px;
   max-width: 95vw;
   box-sizing: border-box;
-  animation: lock-popup-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .lock-osk-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 4px 10px;
+  padding: 0 4px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 8px;
   cursor: grab;
-  border-bottom: 1px solid rgba(192, 132, 252, 0.15);
-  margin-bottom: 10px;
 }
 
 .lock-osk-header:active {
@@ -896,80 +617,67 @@
 }
 
 .lock-osk-title {
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--lock-accent-strong);
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
 }
 
 .lock-osk-close {
   background: none;
   border: none;
-  color: var(--lock-dim);
-  font-size: 1.3rem;
+  color: rgba(255, 255, 255, 0.65);
   cursor: pointer;
   padding: 0 6px;
-  line-height: 1;
-  border-radius: 6px;
-  transition: color 140ms;
+  font-size: 0.9rem;
 }
 
 .lock-osk-close:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .lock-osk-row {
   display: flex;
-  gap: 5px;
-  margin-bottom: 5px;
+  gap: 4px;
+  margin-bottom: 4px;
   justify-content: center;
 }
 
 .lock-osk-key {
-  height: 38px;
-  min-width: 36px;
-  padding: 0 8px;
-  background: rgba(36, 14, 72, 0.6);
-  border: 1px solid rgba(192, 132, 252, 0.22);
-  border-radius: 7px;
-  color: #ede9fe;
-  font: 500 0.88rem var(--lock-mono);
-  cursor: pointer;
-  display: inline-flex;
+  height: 36px;
+  min-width: 34px;
+  padding: 0 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  color: #ffffff;
+  font: 400 0.88rem var(--lock-font);
+  display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 120ms ease;
-  flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: background 100ms;
 }
 
 .lock-osk-key:hover {
-  background: rgba(168, 85, 247, 0.35);
-  border-color: var(--lock-border-strong);
-  color: #ffffff;
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .lock-osk-key:active {
-  transform: translateY(1px);
-  background: rgba(168, 85, 247, 0.5);
+  background: rgba(255, 255, 255, 0.3);
 }
 
-.lock-osk-key.wide { min-width: 68px; font-size: 0.78rem; font-family: var(--lock-font); }
-.lock-osk-key.wider { min-width: 82px; font-size: 0.78rem; font-family: var(--lock-font); }
-.lock-osk-key.space { min-width: 240px; flex-grow: 1; font-family: var(--lock-font); }
+.lock-osk-key.wide { min-width: 64px; font-size: 0.78rem; }
+.lock-osk-key.wider { min-width: 78px; font-size: 0.78rem; }
+.lock-osk-key.space { min-width: 220px; flex-grow: 1; }
 
 .lock-osk-key.active-mod {
-  background: var(--lock-accent);
-  border-color: var(--lock-accent-strong);
-  color: #ffffff;
-  box-shadow: 0 0 12px rgba(168, 85, 247, 0.6);
+  background: #60cdff;
+  color: #000000;
 }
 
 /* --------------------------------------------------------------------------
-   Shutdown Curtain
+   Shutdown Screen
    -------------------------------------------------------------------------- */
 .lock-shutdown-curtain {
   position: fixed;
@@ -979,120 +687,54 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
+  color: #ffffff;
+  font-family: var(--lock-font);
   cursor: pointer;
-  animation: lock-fade-in 700ms ease;
-}
-
-@keyframes lock-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .lock-shutdown-content {
-  color: #9d7cd8;
+  text-align: center;
 }
 
 .lock-shutdown-icon {
-  font-size: 3rem;
+  width: 48px;
+  height: 48px;
   margin-bottom: 16px;
-  animation: lock-pulse 2s ease-in-out infinite;
-  color: #c084fc;
-}
-
-@keyframes lock-pulse {
-  0%, 100% { opacity: 0.4; transform: scale(0.96); }
-  50% { opacity: 1; transform: scale(1.04); }
+  opacity: 0.8;
 }
 
 .lock-shutdown-content h2 {
-  font-size: 1.4rem;
-  font-weight: 400;
-  color: #ede9fe;
-  margin: 0 0 8px;
-}
-
-.lock-shutdown-content p {
-  font-size: 0.85rem;
-  color: #8b5cf6;
+  font-size: 1.5rem;
+  font-weight: 350;
   margin: 0;
 }
 
 /* --------------------------------------------------------------------------
-   Accessibility Overrides
+   Hide legacy/in-lockscreen panels
    -------------------------------------------------------------------------- */
-.lock-screen[data-lock-a11y~='high-contrast'] {
-  --lock-bg: #000000;
-  --lock-surface: #0a0a0a;
-  --lock-surface-strong: #000000;
-  --lock-border: #ffffff;
-  --lock-border-strong: #ffffff;
-  --lock-text: #ffffff;
-  --lock-muted: #ffff88;
-  --lock-accent: #ffff00;
-  --lock-accent-strong: #ffff00;
+.lock-settings-open,
+.lock-statusbar-settings,
+.lock-settings-panel,
+.lock-footer-info {
+  display: none !important;
 }
 
-.lock-screen[data-lock-a11y~='large-text'] {
-  font-size: 118%;
-}
-
-.lock-screen[data-lock-a11y~='reduce-motion'] *,
-.lock-screen[data-lock-a11y~='reduce-motion'] *::before,
-.lock-screen[data-lock-a11y~='reduce-motion'] *::after {
-  animation: none !important;
-  transition: none !important;
-}
-
-/* --------------------------------------------------------------------------
-   Responsive Layout & Breakpoints (360px to 4K)
-   -------------------------------------------------------------------------- */
-@media (max-width: 900px) {
-  .lock-widgets {
-    display: none;
+@media (max-width: 600px) {
+  .lock-accounts-switcher {
+    bottom: 74px;
+    left: 16px;
   }
-  .lock-top {
-    padding-top: 24px;
+  .lock-tray {
+    bottom: 16px;
+    right: 16px;
   }
-}
-
-@media (max-width: 620px) {
   .lock-osk {
-    min-width: 96vw;
-    padding: 8px;
+    min-width: 95vw;
     bottom: 64px;
   }
   .lock-osk-key {
-    height: 34px;
     min-width: 24px;
-    padding: 0 4px;
-    font-size: 0.78rem;
-  }
-  .lock-osk-key.wide { min-width: 48px; }
-  .lock-osk-key.wider { min-width: 58px; }
-  .lock-tray {
-    right: 12px;
-    bottom: 12px;
-    gap: 4px;
-  }
-  .lock-tray-btn {
-    padding: 0 8px;
-    height: 34px;
-  }
-  .lock-tray-label {
-    display: none;
-  }
-}
-
-@media (min-width: 2000px) {
-  .lock-signin {
-    width: 480px;
-    padding: 52px 46px;
-  }
-  .lock-clock {
-    font-size: 6.4rem;
-  }
-  .lock-screen.is-glance .lock-clock {
-    font-size: 13rem;
+    height: 32px;
+    font-size: 0.75rem;
   }
 }

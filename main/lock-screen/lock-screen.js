@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file main/lock-screen/lock-screen.js
  * @description Immersive lock screen controller for the root desktop shell.
  *
@@ -70,24 +70,19 @@
   }
 
   function builtinAvatar(key) {
-    const palette = BUILTIN_COLORS[key] || BUILTIN_COLORS['default-purple'];
-    const pixel = key === 'retro-pixel';
-    const grid = pixel
-      ? '<rect x="34" y="38" width="60" height="8" fill="' + palette[1] + '" opacity=".9"/>' +
-        '<rect x="28" y="50" width="72" height="8" fill="' + palette[1] + '" opacity=".55"/>' +
-        '<rect x="38" y="68" width="8" height="8" fill="' + palette[1] + '"/>' +
-        '<rect x="58" y="68" width="8" height="8" fill="' + palette[1] + '"/>' +
-        '<rect x="78" y="68" width="8" height="8" fill="' + palette[1] + '"/>'
-      : '<circle cx="64" cy="50" r="17" fill="' + palette[1] + '" opacity=".92"/>' +
-        '<path d="M28 106c4-22 18-32 36-32s32 10 36 32z" fill="' + palette[1] + '" opacity=".8"/>';
+    const isGuest = key === 'guest' || key === 'default-mono';
+    const guestInner =
+      '<circle cx="64" cy="46" r="18" fill="none" stroke="#ffffff" stroke-width="6"/>' +
+      '<text x="64" y="53" fill="#ffffff" font-size="22" font-family="-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif" font-weight="600" text-anchor="middle">?</text>' +
+      '<path d="M30 108c4-22 18-32 34-32s30 10 34 32" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>';
+
+    const userInner =
+      '<circle cx="64" cy="46" r="18" fill="none" stroke="#ffffff" stroke-width="6"/>' +
+      '<path d="M30 108c4-22 18-32 34-32s30 10 34 32" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>';
+
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">' +
-      '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
-      '<stop offset="0" stop-color="' + palette[0] + '"/>' +
-      '<stop offset="1" stop-color="' + palette[2] + '"/></linearGradient></defs>' +
-      '<rect width="128" height="128" rx="64" fill="url(#g)"/>' +
-      '<rect x="0" y="96" width="128" height="32" fill="#000" opacity=".18"/>' +
-      grid +
-      '<rect x="4" y="4" width="120" height="120" rx="60" fill="none" stroke="#fff" stroke-opacity=".12"/>' +
+      '<rect width="128" height="128" rx="64" fill="rgba(255,255,255,0.2)"/>' +
+      (isGuest ? guestInner : userInner) +
       '</svg>';
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
   }
@@ -397,15 +392,13 @@
         const img = el('img');
         img.src = avatarSrc(account.avatar);
         img.alt = '';
-        img.width = 64;
-        img.height = 64;
+        img.width = 44;
+        img.height = 44;
         ring.appendChild(img);
         card.appendChild(ring);
 
         const text = el('span', 'lock-account-copy');
         text.appendChild(el('span', 'lock-account-name', account.displayName));
-        text.appendChild(el('span', 'lock-account-type',
-          account.type === 'owner' ? 'OWNER' : 'GUEST'));
         card.appendChild(text);
         host.appendChild(card);
       });
@@ -897,11 +890,17 @@
     _dismissGlance() {
       if (!this._root || this.state.phase !== 'glance') return;
       this._root.classList.remove('is-glance');
-      this.state.phase = 'selecting-account';
-      this._setFormVisible(false);
-      this._renderAccounts();
+      const accounts = this.visibleAccounts();
+      const first = accounts[0];
+      if (first) {
+        this.selectProfile(first.id);
+      } else {
+        this.state.phase = 'selecting-account';
+        this._setFormVisible(false);
+        this._renderAccounts();
+        this._focusFirstAccount();
+      }
       this._playAnimation('glance-to-login');
-      this._focusFirstAccount();
     },
 
     focusSignIn() {
@@ -947,9 +946,10 @@
       const confirm = this._root.querySelector('#lock-password-confirm-wrap');
       const title = this._root.querySelector('#lock-credentials-title');
       const guestNote = this._root.querySelector('#lock-guest-note');
+      const userField = this._root.querySelector('#lock-user-field');
+      const signinBtn = this._root.querySelector('#lock-signin-btn');
       if (form) form.hidden = !visible;
-      if (accounts) accounts.hidden = visible;
-      if (custom) custom.hidden = visible;
+      // Note: We keep #lock-accounts and custom visible in the bottom-left switcher!
       if (!visible) return;
 
       const username = this._root.querySelector('#lock-username');
@@ -958,23 +958,28 @@
       if (username) username.value = selected ? selected.username : '';
       if (password) password.value = '';
 
+      const isCustom = !selected || selected.id === 'custom' || !this.state.selectedProfileId;
+      if (userField) userField.hidden = !isCustom;
+
+      const isGuest = selected && selected.type === 'guest';
       const ownerNoPassword = profile && profile.type === 'owner' &&
         window.ProfileService && !window.ProfileService.hasOwnerPassword();
       this.state.mode = ownerNoPassword ? 'setup' : 'signin';
       if (confirm) confirm.hidden = !ownerNoPassword;
-      if (title) {
-        title.textContent = ownerNoPassword ? 'Create owner password' : 'Enter credentials';
+
+      const passField = this._root.querySelector('#lock-password-field');
+      if (passField) passField.hidden = isGuest;
+      if (signinBtn) {
+        signinBtn.textContent = isGuest ? 'Sign in' : '→';
+        signinBtn.title = 'Sign in';
+        if (isGuest) {
+          signinBtn.classList.add('guest-btn');
+        } else {
+          signinBtn.classList.remove('guest-btn');
+        }
       }
-      if (hint) {
-        hint.textContent = ownerNoPassword
-          ? 'First sign-in: choose a local owner password. It is stored as a salted hash.'
-          : (selected && selected.type === 'guest'
-            ? 'Guest has no password. Press Enter or Sign in.'
-            : 'Sign in with your virtual account username and password.');
-      }
-      if (guestNote) {
-        guestNote.hidden = !(selected && selected.type === 'guest');
-      }
+
+      this._renderPrimaryAvatar();
       this._showError('');
     },
 
